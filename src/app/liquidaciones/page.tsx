@@ -705,55 +705,70 @@ export default async function LiquidacionesPage({
         <p className="mb-3 text-sm">
           Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor.
         </p>
-        <form action={createAdelantoAction} className="grid gap-3 sm:grid-cols-3">
-          <label className="grid gap-1">
-            <span className="text-sm">Productor *</span>
-            <select name="productor_id" defaultValue="" className="rounded border px-2 py-1" required>
-              <option value="" disabled>
-                Seleccionar productor
-              </option>
-              {productores.map((row) => (
-                <option key={row.id} value={String(row.id)}>
-                  {row.nombre_completo}
+          <form action={createAdelantoAction} className="grid gap-3 sm:grid-cols-3">
+            <label className="grid gap-1">
+              <span className="text-sm">Productor *</span>
+              <select name="productor_id" defaultValue="" className="rounded border px-2 py-1" required>
+                <option value="" disabled>
+                  Seleccionar productor
                 </option>
-              ))}
-            </select>
-          </label>
+                {productores.map((row) => (
+                  <option key={row.id} value={String(row.id)}>
+                    {row.nombre_completo}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label className="grid gap-1">
-            <span className="text-sm">Lote (opcional)</span>
-            <select name="lote_id" defaultValue="" className="rounded border px-2 py-1">
-              <option value="">Sin lote específico</option>
-              {lotesLiquidables.map((row) => (
-                <option key={row.id} value={String(row.id)}>
-                  {row.numero_lote}
-                </option>
-              ))}
-            </select>
-          </label>
+            <label className="grid gap-1">
+              <span className="text-sm">Lote (opcional)</span>
+              <select name="lote_id" defaultValue="" className="rounded border px-2 py-1">
+                <option value="">Sin lote específico</option>
+                {lotesLiquidables.map((row) => (
+                  <option key={row.id} value={String(row.id)}>
+                    {row.numero_lote}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label className="grid gap-1">
-            <span className="text-sm">Monto *</span>
-            <input name="monto" type="number" min="0" step="0.01" className="rounded border px-2 py-1" required />
-          </label>
+            <label className="grid gap-1">
+              <span className="text-sm">Monto *</span>
+              <input name="monto" type="number" min="0" step="0.01" className="rounded border px-2 py-1" required />
+            </label>
 
-          <label className="grid gap-1">
-            <span className="text-sm">Fecha *</span>
+            <label className="grid gap-1">
+              <span className="text-sm">Fecha *</span>
               <input
                 name="fecha"
                 type="date"
                 defaultValue={new Date().toISOString().slice(0, 10)}
                 className="rounded border px-2 py-1"
               />
-            <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
-          </label>
+              <span className="text-xs">Fecha del adelanto.</span>
+            </label>
 
-          <div className="sm:col-span-3">
-            <button type="submit" className="rounded border px-3 py-1 font-medium">
-              Registrar adelanto
-            </button>
-          </div>
-        </form>
+            <label className="grid gap-1">
+              <span className="text-sm">Motivo (opcional)</span>
+              <input name="motivo" className="rounded border px-2 py-1" placeholder="Ej: adelanto por cosecha" />
+            </label>
+
+            <div className="sm:col-span-3">
+              <ComprobanteInternoFields />
+            </div>
+
+            <label className="grid gap-1 sm:max-w-md">
+              <span className="text-sm">Foto evidencia de adelanto (opcional)</span>
+              <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
+              <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
+            </label>
+
+            <div className="sm:col-span-3">
+              <button type="submit" className="rounded border px-3 py-1 font-medium">
+                Registrar adelanto
+              </button>
+            </div>
+          </form>
       </section>
 
       <section id="tab-liquidar" className="mb-6 rounded border p-4" style={{display: 'none'}}>
