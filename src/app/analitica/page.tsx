@@ -1,0 +1,693 @@
+import Link from "next/link";
+
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+
+type SearchParams = {
+  mode?: "mensual" | "anual";
+  ym?: string;
+  year?: string;
+};
+
+type Liquidacion = {
+  id: number;
+  tipo: "productor" | "cliente";
+  persona_id: number;
+  lote_id: number | null;
+  pedido_id: number | null;
+  fecha_liquidacion: string;
+  numero_liquidacion: string;
+  total_a_pagar: number;
+  monto_pagado: number;
+  estado: string;
+  estado_pago: string;
+};
+
+type LiquidacionDetalle = {
+  liquidacion_id: number;
+  categoria_id: number;
+  peso_neto: number;
+  precio_kg: number;
+  subtotal: number;
+};
+
+type Adelanto = {
+  id: number;
+  productor_id: number;
+  lote_id: number | null;
+  monto: number;
+  fecha: string;
+  estado: string;
+};
+
+type KardexDinero = {
+  id: number;
+  fecha: string;
+  tipo_movimiento: "ingreso" | "egreso";
+  origen: string;
+  monto: number;
+};
+
+type Asignacion = {
+  id: number;
+  pedido_id: number;
+  lote_id: number;
+  categoria_id: number;
+  codigo_division: string | null;
+  kg_asignados: number;
+  precio_kg: number;
+  subtotal: number;
+  fecha_asignacion: string;
+};
+
+type Pedido = {
+  id: number;
+  numero_pedido: string;
+  cliente_id: number;
+  precio_kg: number;
+};
+
+type Lote = {
+  id: number;
+  numero_lote: string;
+  productor_id: number;
+};
+
+type Persona = {
+  id: number;
+  nombre_completo: string;
+};
+
+type Categoria = {
+  id: number;
+  nombre: string;
+  codigo: string;
+  orden: number;
+};
+
+type LoteClasificacion = {
+  lote_id: number;
+  categoria_id: number;
+  codigo_clasificacion: string | null;
+  peso_neto: number;
+};
+
+function round2(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function currency(value: number) {
+  return `S/ ${round2(value).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function parseYm(input?: string) {
+  const now = new Date();
+  const fallback = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  if (!input) return fallback;
+  if (!/^\d{4}-\d{2}$/.test(input)) return fallback;
+  const [year, month] = input.split("-").map(Number);
+  if (month < 1 || month > 12) return fallback;
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function parseMode(input?: string) {
+  return input === "anual" ? "anual" : "mensual";
+}
+
+function parseYear(input?: string) {
+  const now = new Date();
+  const fallback = now.getFullYear();
+  if (!input) return fallback;
+  const year = Number(input);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) return fallback;
+  return year;
+}
+
+function monthRange(ym: string) {
+  const [year, month] = ym.split("-").map(Number);
+  const start = `${ym}-01`;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const end = `${ym}-${String(daysInMonth).padStart(2, "0")}`;
+  return { start, end, year, month, daysInMonth };
+}
+
+function annualRange(year: number) {
+  return {
+    start: `${year}-01-01`,
+    end: `${year}-12-31`,
+  };
+}
+
+export default async function AnaliticaPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const search = await searchParams;
+  const mode = parseMode(search.mode);
+  const ym = parseYm(search.ym);
+  const selectedYear = parseYear(search.year);
+  const { start: mStart, end: mEnd, daysInMonth } = monthRange(ym);
+  const { start: yStart, end: yEnd } = annualRange(selectedYear);
+  const start = mode === "anual" ? yStart : mStart;
+  const end = mode === "anual" ? yEnd : mEnd;
+  const periodLabel = mode === "anual" ? `Año ${selectedYear}` : `Mes ${ym}`;
+  const periodShort = mode === "anual" ? "año" : "mes";
+
+  const supabase = getSupabaseServerClient();
+
+  const [
+    categoriasRes,
+    liqClienteRes,
+    liqProductorRes,
+    adelantosMesRes,
+    kardexDineroMesRes,
+    asignacionesMesRes,
+    pendientesLiqRes,
+    adelantosPendRes,
+  ] = await Promise.all([
+    supabase.from("categorias").select("id,nombre,codigo,orden").order("orden", { ascending: true }),
+    supabase
+      .from("liquidaciones")
+      .select(
+        "id,tipo,persona_id,lote_id,pedido_id,fecha_liquidacion,numero_liquidacion,total_a_pagar,monto_pagado,estado,estado_pago"
+      )
+      .eq("tipo", "cliente")
+      .neq("estado", "anulada")
+      .gte("fecha_liquidacion", start)
+      .lte("fecha_liquidacion", end),
+    supabase
+      .from("liquidaciones")
+      .select(
+        "id,tipo,persona_id,lote_id,pedido_id,fecha_liquidacion,numero_liquidacion,total_a_pagar,monto_pagado,estado,estado_pago"
+      )
+      .eq("tipo", "productor")
+      .neq("estado", "anulada")
+      .gte("fecha_liquidacion", start)
+      .lte("fecha_liquidacion", end),
+    supabase
+      .from("adelantos")
+      .select("id,productor_id,lote_id,monto,fecha,estado")
+      .gte("fecha", start)
+      .lte("fecha", end),
+    supabase
+      .from("kardex")
+      .select("id,fecha,tipo_movimiento,origen,monto")
+      .eq("tipo_kardex", "dinero")
+      .gte("fecha", `${start}T00:00:00`)
+      .lte("fecha", `${end}T23:59:59`),
+    supabase
+      .from("pedido_asignaciones")
+      .select("id,pedido_id,lote_id,categoria_id,codigo_division,kg_asignados,precio_kg,subtotal,fecha_asignacion")
+      .gte("fecha_asignacion", start)
+      .lte("fecha_asignacion", end),
+    supabase
+      .from("liquidaciones")
+      .select("id,tipo,total_a_pagar,monto_pagado,estado,estado_pago")
+      .neq("estado", "anulada"),
+    supabase.from("adelantos").select("id,monto,estado").eq("estado", "pendiente"),
+  ]);
+
+  const categorias = (categoriasRes.data ?? []) as Categoria[];
+  const liqClientes = (liqClienteRes.data ?? []) as Liquidacion[];
+  const liqProductores = (liqProductorRes.data ?? []) as Liquidacion[];
+  const adelantosMes = (adelantosMesRes.data ?? []) as Adelanto[];
+  const kardexDineroMes = (kardexDineroMesRes.data ?? []) as KardexDinero[];
+  const asignacionesMes = (asignacionesMesRes.data ?? []) as Asignacion[];
+  const pendientesLiq = (pendientesLiqRes.data ?? []) as Array<{
+    id: number;
+    tipo: "productor" | "cliente";
+    total_a_pagar: number;
+    monto_pagado: number;
+    estado: string;
+    estado_pago: string;
+  }>;
+  const adelantosPend = (adelantosPendRes.data ?? []) as Array<{ id: number; monto: number; estado: string }>;
+
+  const liqClienteIds = liqClientes.map((row) => Number(row.id));
+  const liqProductorIds = liqProductores.map((row) => Number(row.id));
+
+  const [detClienteRes, detProductorRes] = await Promise.all([
+    liqClienteIds.length > 0
+      ? supabase
+          .from("liquidacion_detalle")
+          .select("liquidacion_id,categoria_id,peso_neto,precio_kg,subtotal")
+          .in("liquidacion_id", liqClienteIds)
+      : Promise.resolve({ data: [] }),
+    liqProductorIds.length > 0
+      ? supabase
+          .from("liquidacion_detalle")
+          .select("liquidacion_id,categoria_id,peso_neto,precio_kg,subtotal")
+          .in("liquidacion_id", liqProductorIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const detCliente = (detClienteRes.data ?? []) as LiquidacionDetalle[];
+  const detProductor = (detProductorRes.data ?? []) as LiquidacionDetalle[];
+
+  const loteIds = [...new Set(asignacionesMes.map((row) => Number(row.lote_id)))];
+  const pedidoIds = [...new Set(asignacionesMes.map((row) => Number(row.pedido_id)))];
+
+  const [lotesRes, pedidosRes, clasifRes, asignacionesAllRes] = await Promise.all([
+    loteIds.length > 0
+      ? supabase.from("lotes").select("id,numero_lote,productor_id").in("id", loteIds)
+      : Promise.resolve({ data: [] }),
+    pedidoIds.length > 0
+      ? supabase.from("pedidos").select("id,numero_pedido,cliente_id,precio_kg").in("id", pedidoIds)
+      : Promise.resolve({ data: [] }),
+    loteIds.length > 0
+      ? supabase
+          .from("lote_clasificacion")
+          .select("lote_id,categoria_id,codigo_clasificacion,peso_neto")
+          .in("lote_id", loteIds)
+      : Promise.resolve({ data: [] }),
+    loteIds.length > 0
+      ? supabase
+          .from("pedido_asignaciones")
+          .select("lote_id,categoria_id,kg_asignados")
+          .in("lote_id", loteIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const lotes = (lotesRes.data ?? []) as Lote[];
+  const pedidos = (pedidosRes.data ?? []) as Pedido[];
+  const clasifRows = (clasifRes.data ?? []) as LoteClasificacion[];
+  const asignacionesAll = (asignacionesAllRes.data ?? []) as Array<{ lote_id: number; categoria_id: number; kg_asignados: number }>;
+
+  const personaIds = [
+    ...new Set([
+      ...lotes.map((row) => Number(row.productor_id)),
+      ...pedidos.map((row) => Number(row.cliente_id)),
+      ...liqClientes.map((row) => Number(row.persona_id)),
+      ...liqProductores.map((row) => Number(row.persona_id)),
+      ...adelantosMes.map((row) => Number(row.productor_id)),
+    ]),
+  ];
+
+  const personasRes =
+    personaIds.length > 0
+      ? await supabase.from("personas").select("id,nombre_completo").in("id", personaIds)
+      : { data: [] };
+
+  const personas = (personasRes.data ?? []) as Persona[];
+
+  const personaMap = new Map<number, string>(personas.map((row) => [Number(row.id), row.nombre_completo]));
+  const loteMap = new Map<number, Lote>(lotes.map((row) => [Number(row.id), row]));
+  const pedidoMap = new Map<number, Pedido>(pedidos.map((row) => [Number(row.id), row]));
+  const categoriaMap = new Map<number, Categoria>(categorias.map((row) => [Number(row.id), row]));
+
+  const ventasPeriodo = round2(liqClientes.reduce((acc, row) => acc + Number(row.total_a_pagar ?? 0), 0));
+  const costoComprasPeriodo = round2(liqProductores.reduce((acc, row) => acc + Number(row.total_a_pagar ?? 0), 0));
+  const adelantosPeriodoMonto = round2(adelantosMes.reduce((acc, row) => acc + Number(row.monto ?? 0), 0));
+  const margenBrutoPeriodo = round2(ventasPeriodo - costoComprasPeriodo);
+
+  const ingresosCajaPeriodo = round2(
+    kardexDineroMes
+      .filter((row) => row.tipo_movimiento === "ingreso")
+      .reduce((acc, row) => acc + Number(row.monto ?? 0), 0)
+  );
+  const egresosCajaPeriodo = round2(
+    kardexDineroMes
+      .filter((row) => row.tipo_movimiento === "egreso")
+      .reduce((acc, row) => acc + Number(row.monto ?? 0), 0)
+  );
+  const flujoNetoCajaPeriodo = round2(ingresosCajaPeriodo - egresosCajaPeriodo);
+
+  const cuentasPorCobrar = round2(
+    pendientesLiq
+      .filter((row) => row.tipo === "cliente")
+      .reduce((acc, row) => acc + Math.max(0, Number(row.total_a_pagar ?? 0) - Number(row.monto_pagado ?? 0)), 0)
+  );
+
+  const cuentasPorPagar = round2(
+    pendientesLiq
+      .filter((row) => row.tipo === "productor")
+      .reduce((acc, row) => acc + Math.max(0, Number(row.total_a_pagar ?? 0) - Number(row.monto_pagado ?? 0)), 0)
+  );
+
+  const adelantosPendientesMonto = round2(
+    adelantosPend.reduce((acc, row) => acc + Number(row.monto ?? 0), 0)
+  );
+
+  const catAgg = new Map<number, { ventas: number; costos: number; kgVenta: number; kgCosto: number }>();
+
+  for (const row of detCliente) {
+    const id = Number(row.categoria_id);
+    const current = catAgg.get(id) ?? { ventas: 0, costos: 0, kgVenta: 0, kgCosto: 0 };
+    current.ventas += Number(row.subtotal ?? 0);
+    current.kgVenta += Number(row.peso_neto ?? 0);
+    catAgg.set(id, current);
+  }
+
+  for (const row of detProductor) {
+    const id = Number(row.categoria_id);
+    const current = catAgg.get(id) ?? { ventas: 0, costos: 0, kgVenta: 0, kgCosto: 0 };
+    current.costos += Number(row.subtotal ?? 0);
+    current.kgCosto += Number(row.peso_neto ?? 0);
+    catAgg.set(id, current);
+  }
+
+  const categoriasStrategic = [...catAgg.entries()]
+    .map(([categoriaId, value]) => {
+      const categoria = categoriaMap.get(categoriaId);
+      const margen = round2(value.ventas - value.costos);
+      return {
+        categoriaId,
+        categoria: categoria?.nombre ?? `Categoria ${categoriaId}`,
+        ventas: round2(value.ventas),
+        costos: round2(value.costos),
+        margen,
+        kgVenta: round2(value.kgVenta),
+        kgCosto: round2(value.kgCosto),
+      };
+    })
+    .sort((a, b) => b.margen - a.margen);
+
+  const clasifMap = new Map<string, { kgClasif: number; codigo: string | null }>();
+  for (const row of clasifRows) {
+    const key = `${row.lote_id}-${row.categoria_id}`;
+    clasifMap.set(key, {
+      kgClasif: Number(row.peso_neto ?? 0),
+      codigo: row.codigo_clasificacion,
+    });
+  }
+
+  const asignadoTotalMap = new Map<string, number>();
+  for (const row of asignacionesAll) {
+    const key = `${row.lote_id}-${row.categoria_id}`;
+    asignadoTotalMap.set(key, (asignadoTotalMap.get(key) ?? 0) + Number(row.kg_asignados ?? 0));
+  }
+
+  const lotCatAgg = new Map<string, {
+    loteId: number;
+    categoriaId: number;
+    codigosDivision: Set<string>;
+    pedidos: Set<string>;
+    clientes: Set<string>;
+    kgVendidoMes: number;
+    ventasMes: number;
+    precioVentaAcum: number;
+    countPrecioVenta: number;
+    precioPlanAcum: number;
+    countPrecioPlan: number;
+  }>();
+
+  for (const row of asignacionesMes) {
+    const key = `${row.lote_id}-${row.categoria_id}`;
+    const pedido = pedidoMap.get(Number(row.pedido_id));
+    const clienteNombre = pedido ? personaMap.get(Number(pedido.cliente_id)) ?? `Cliente ${pedido.cliente_id}` : "-";
+
+    const current = lotCatAgg.get(key) ?? {
+      loteId: Number(row.lote_id),
+      categoriaId: Number(row.categoria_id),
+      codigosDivision: new Set<string>(),
+      pedidos: new Set<string>(),
+      clientes: new Set<string>(),
+      kgVendidoMes: 0,
+      ventasMes: 0,
+      precioVentaAcum: 0,
+      countPrecioVenta: 0,
+      precioPlanAcum: 0,
+      countPrecioPlan: 0,
+    };
+
+    if (row.codigo_division) current.codigosDivision.add(String(row.codigo_division));
+    if (pedido?.numero_pedido) current.pedidos.add(pedido.numero_pedido);
+    if (clienteNombre) current.clientes.add(clienteNombre);
+
+    current.kgVendidoMes += Number(row.kg_asignados ?? 0);
+    current.ventasMes += Number(row.subtotal ?? 0);
+    current.precioVentaAcum += Number(row.precio_kg ?? 0);
+    current.countPrecioVenta += 1;
+
+    if (pedido) {
+      current.precioPlanAcum += Number(pedido.precio_kg ?? 0);
+      current.countPrecioPlan += 1;
+    }
+
+    lotCatAgg.set(key, current);
+  }
+
+  const trazabilidadRows = [...lotCatAgg.values()]
+    .map((row) => {
+      const key = `${row.loteId}-${row.categoriaId}`;
+      const clasif = clasifMap.get(key);
+      const kgClasif = round2(Number(clasif?.kgClasif ?? 0));
+      const kgAsignadoHistorico = round2(Number(asignadoTotalMap.get(key) ?? 0));
+      const kgSobrante = round2(Math.max(0, kgClasif - kgAsignadoHistorico));
+
+      return {
+        lote: loteMap.get(row.loteId)?.numero_lote ?? String(row.loteId),
+        categoria: categoriaMap.get(row.categoriaId)?.nombre ?? String(row.categoriaId),
+        codigoClasificacion: clasif?.codigo ?? "-",
+        codigosDivision: [...row.codigosDivision].join(", "),
+        destinos: [...row.pedidos].join(", "),
+        clientes: [...row.clientes].join(", "),
+        kgClasif,
+        kgVendidoMes: round2(row.kgVendidoMes),
+        kgSobrante,
+        precioPlanProm: row.countPrecioPlan > 0 ? round2(row.precioPlanAcum / row.countPrecioPlan) : 0,
+        precioVentaProm: row.countPrecioVenta > 0 ? round2(row.precioVentaAcum / row.countPrecioVenta) : 0,
+        ventasMes: round2(row.ventasMes),
+      };
+    })
+    .sort((a, b) => b.ventasMes - a.ventasMes);
+
+  const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const temporalSeries =
+    mode === "anual"
+      ? Array.from({ length: 12 }, (_, index) => ({
+          key: String(index + 1),
+          label: monthNames[index],
+          ventas: 0,
+          costos: 0,
+          adelantos: 0,
+        }))
+      : Array.from({ length: daysInMonth }, (_, index) => ({
+          key: String(index + 1),
+          label: `Día ${index + 1}`,
+          ventas: 0,
+          costos: 0,
+          adelantos: 0,
+        }));
+
+  for (const row of liqClientes) {
+    const date = new Date(row.fecha_liquidacion);
+    const bucket = mode === "anual" ? date.getMonth() + 1 : date.getDate();
+    if (bucket >= 1 && bucket <= temporalSeries.length) {
+      temporalSeries[bucket - 1].ventas += Number(row.total_a_pagar ?? 0);
+    }
+  }
+
+  for (const row of liqProductores) {
+    const date = new Date(row.fecha_liquidacion);
+    const bucket = mode === "anual" ? date.getMonth() + 1 : date.getDate();
+    if (bucket >= 1 && bucket <= temporalSeries.length) {
+      temporalSeries[bucket - 1].costos += Number(row.total_a_pagar ?? 0);
+    }
+  }
+
+  for (const row of adelantosMes) {
+    const date = new Date(row.fecha);
+    const bucket = mode === "anual" ? date.getMonth() + 1 : date.getDate();
+    if (bucket >= 1 && bucket <= temporalSeries.length) {
+      temporalSeries[bucket - 1].adelantos += Number(row.monto ?? 0);
+    }
+  }
+
+  const temporalSeriesRounded = temporalSeries.map((row) => ({
+    ...row,
+    ventas: round2(row.ventas),
+    costos: round2(row.costos),
+    adelantos: round2(row.adelantos),
+  }));
+
+  const maxTemporal = Math.max(
+    1,
+    ...temporalSeriesRounded.map((row) => Math.max(row.ventas, row.costos, row.adelantos))
+  );
+
+  const maxCategoria = Math.max(
+    1,
+    ...categoriasStrategic.map((row) => Math.max(Math.abs(row.ventas), Math.abs(row.costos), Math.abs(row.margen)))
+  );
+
+  return (
+    <main className="mx-auto w-full max-w-7xl p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Módulo 7: Analítica Estratégica</h1>
+        <Link href="/" className="text-sm underline">
+          Volver al inicio
+        </Link>
+      </div>
+
+      <section className="mb-4 rounded border p-4">
+        <p className="mb-3 text-sm">
+          Este panel resume rentabilidad, caja, riesgo financiero y trazabilidad comercial del periodo seleccionado.
+        </p>
+        <p className="mb-3 text-xs">
+          Las cards iniciales muestran indicadores clave del periodo y el saldo histórico pendiente; los bloques
+          siguientes explican tendencia temporal, categorías y trazabilidad por lote.
+        </p>
+        <form className="flex flex-wrap items-end gap-3">
+          <label className="grid gap-1">
+            <span className="text-sm">Modo</span>
+            <select name="mode" defaultValue={mode} className="rounded border px-2 py-1">
+              <option value="mensual">Mensual</option>
+              <option value="anual">Anual</option>
+            </select>
+          </label>
+          <label className="grid gap-1">
+            <span className="text-sm">Mes de análisis</span>
+            <input type="month" name="ym" defaultValue={ym} className="rounded border px-2 py-1" />
+          </label>
+          <label className="grid gap-1">
+            <span className="text-sm">Año de análisis</span>
+            <input type="number" name="year" min="2000" max="2100" defaultValue={String(selectedYear)} className="w-28 rounded border px-2 py-1" />
+          </label>
+          <button className="rounded border px-3 py-1">Aplicar</button>
+        </form>
+        <p className="mt-2 text-xs">Periodo activo: <strong>{periodLabel}</strong></p>
+      </section>
+
+      <section className="mb-6 grid gap-3 sm:grid-cols-4 lg:grid-cols-8">
+        <div className="rounded border p-3"><p className="text-xs">Ventas ({periodShort})</p><p className="text-lg font-bold">{currency(ventasPeriodo)}</p><p className="text-[11px]">Total facturado a clientes en el periodo.</p></div>
+        <div className="rounded border p-3"><p className="text-xs">Costo productor ({periodShort})</p><p className="text-lg font-bold">{currency(costoComprasPeriodo)}</p><p className="text-[11px]">Compromisos por compra/liquidación a productor.</p></div>
+        <div className="rounded border p-3"><p className="text-xs">Margen bruto ({periodShort})</p><p className="text-lg font-bold">{currency(margenBrutoPeriodo)}</p><p className="text-[11px]">Ventas menos costo de productor.</p></div>
+        <div className="rounded border p-3"><p className="text-xs">Adelantos ({periodShort})</p><p className="text-lg font-bold">{currency(adelantosPeriodoMonto)}</p><p className="text-[11px]">Dinero adelantado a productores en el periodo.</p></div>
+        <div className="rounded border p-3"><p className="text-xs">Ingresos caja ({periodShort})</p><p className="text-lg font-bold">{currency(ingresosCajaPeriodo)}</p><p className="text-[11px]">Entradas de dinero registradas en kardex.</p></div>
+        <div className="rounded border p-3"><p className="text-xs">Egresos caja ({periodShort})</p><p className="text-lg font-bold">{currency(egresosCajaPeriodo)}</p><p className="text-[11px]">Salidas de dinero registradas en kardex.</p></div>
+        <div className="rounded border p-3"><p className="text-xs">Flujo neto caja</p><p className="text-lg font-bold">{currency(flujoNetoCajaPeriodo)}</p><p className="text-[11px]">Ingresos menos egresos del periodo.</p></div>
+        <div className="rounded border p-3"><p className="text-xs">Adelantos por descontar</p><p className="text-lg font-bold">{currency(adelantosPendientesMonto)}</p><p className="text-[11px]">Saldo histórico de adelantos aún no aplicados.</p></div>
+      </section>
+
+      <section className="mb-6 grid gap-4 lg:grid-cols-2">
+        <div className="rounded border p-4">
+          <h2 className="mb-2 text-lg font-semibold">Gráfico temporal del periodo</h2>
+          <p className="mb-3 text-sm">Compara ventas, costos productor y adelantos por tramo ({mode === "anual" ? "mes" : "día"}).</p>
+          <div className="space-y-2 text-xs">
+            {temporalSeriesRounded.map((row) => (
+              <div key={row.key} className="rounded border p-2">
+                <p className="mb-1 font-medium">{row.label}</p>
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="w-14">Venta</span>
+                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-green-600" style={{ width: `${Math.max(2, (row.ventas / maxTemporal) * 100)}%` }} /></div>
+                  <span>{round2(row.ventas)}</span>
+                </div>
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="w-14">Costo</span>
+                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-red-600" style={{ width: `${Math.max(2, (row.costos / maxTemporal) * 100)}%` }} /></div>
+                  <span>{round2(row.costos)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-14">Adelanto</span>
+                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-orange-600" style={{ width: `${Math.max(2, (row.adelantos / maxTemporal) * 100)}%` }} /></div>
+                  <span>{round2(row.adelantos)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded border p-4">
+          <h2 className="mb-2 text-lg font-semibold">Gráfico por categoría</h2>
+          <p className="mb-3 text-sm">Ventas, costos y margen del periodo por calidad/categoría.</p>
+          <div className="space-y-2 text-xs">
+            {categoriasStrategic.length === 0 ? <p>Sin liquidaciones detalladas este mes.</p> : null}
+            {categoriasStrategic.map((row) => (
+              <div key={row.categoriaId} className="rounded border p-2">
+                <p className="mb-1 font-medium">{row.categoria}</p>
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="w-14">Venta</span>
+                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-blue-600" style={{ width: `${Math.max(2, (Math.abs(row.ventas) / maxCategoria) * 100)}%` }} /></div>
+                  <span>{row.ventas}</span>
+                </div>
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="w-14">Costo</span>
+                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-red-600" style={{ width: `${Math.max(2, (Math.abs(row.costos) / maxCategoria) * 100)}%` }} /></div>
+                  <span>{row.costos}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-14">Margen</span>
+                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-green-600" style={{ width: `${Math.max(2, (Math.abs(row.margen) / maxCategoria) * 100)}%` }} /></div>
+                  <span>{row.margen}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-6 rounded border p-4">
+        <h2 className="mb-2 text-lg font-semibold">Trazabilidad estratégica por lote/categoría ({periodShort})</h2>
+        <p className="mb-3 text-sm">
+          Muestra dónde se envió cada división, a qué precio se planeó/vendió, cuánto se movió y cuánto sobró del lote.
+        </p>
+        <p className="mb-2 text-xs">Qué muestra esta tabla: trazabilidad comercial-financiera por lote y categoría dentro del periodo activo.</p>
+        <div className="overflow-x-auto rounded border">
+          <table className="min-w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="p-2">Lote</th>
+                <th className="p-2">Código clasif.</th>
+                <th className="p-2">Categoría</th>
+                <th className="p-2">Códigos división</th>
+                <th className="p-2">Destinos (pedidos)</th>
+                <th className="p-2">Clientes</th>
+                <th className="p-2">Kg clasif.</th>
+                <th className="p-2">Kg vendidos {periodShort}</th>
+                <th className="p-2">Kg sobrante actual</th>
+                <th className="p-2">Precio plan/kg</th>
+                <th className="p-2">Precio venta/kg</th>
+                <th className="p-2">Venta {periodShort} (S/)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trazabilidadRows.length === 0 ? (
+                <tr>
+                  <td colSpan={12} className="p-3 text-center">Sin divisiones/ventas en este mes.</td>
+                </tr>
+              ) : null}
+              {trazabilidadRows.map((row, index) => (
+                <tr key={`${row.lote}-${row.categoria}-${index}`} className="border-b align-top">
+                  <td className="p-2">{row.lote}</td>
+                  <td className="p-2">{row.codigoClasificacion}</td>
+                  <td className="p-2">{row.categoria}</td>
+                  <td className="p-2">{row.codigosDivision || "-"}</td>
+                  <td className="p-2">{row.destinos || "-"}</td>
+                  <td className="p-2">{row.clientes || "-"}</td>
+                  <td className="p-2">{row.kgClasif}</td>
+                  <td className="p-2">{row.kgVendidoMes}</td>
+                  <td className="p-2">{row.kgSobrante}</td>
+                  <td className="p-2">{row.precioPlanProm}</td>
+                  <td className="p-2">{row.precioVentaProm}</td>
+                  <td className="p-2">{row.ventasMes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded border p-4">
+        <h2 className="mb-2 text-lg font-semibold">Riesgo financiero actual</h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded border p-3">
+            <p className="text-sm">Nos deben (CxC clientes)</p>
+            <p className="text-2xl font-bold">{currency(cuentasPorCobrar)}</p>
+            <p className="text-[11px]">Suma de saldos pendientes por cobrar en liquidaciones cliente.</p>
+          </div>
+          <div className="rounded border p-3">
+            <p className="text-sm">Debemos pagar (CxP productores)</p>
+            <p className="text-2xl font-bold">{currency(cuentasPorPagar)}</p>
+            <p className="text-[11px]">Suma de saldos pendientes por pagar en liquidaciones productor.</p>
+          </div>
+          <div className="rounded border p-3">
+            <p className="text-sm">Adelantos por descontar</p>
+            <p className="text-2xl font-bold">{currency(adelantosPendientesMonto)}</p>
+            <p className="text-[11px]">Adelantos entregados que aún no se aplican en una liquidación.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

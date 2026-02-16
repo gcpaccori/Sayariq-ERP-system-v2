@@ -1,0 +1,1274 @@
+import Image from "next/image";
+import Link from "next/link";
+
+import {
+  createAdelantoAction,
+  createLiquidacionClienteAction,
+  createLiquidacionProductorAction,
+  registrarPagoParcialAction,
+} from "./actions";
+import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+
+type SearchParams = {
+  lote?: string;
+  pedido?: string;
+  ok?: string;
+  error?: string;
+};
+
+type Persona = { id: number; nombre_completo: string };
+type Categoria = { id: number; nombre: string; orden: number };
+
+type LoteRow = {
+  id: number;
+  numero_lote: string;
+  productor_id: number;
+  producto: string;
+  estado: "sin_clasificar" | "clasificado" | "asignado" | "liquidado" | "cancelado";
+};
+
+type PedidoRow = {
+  id: number;
+  numero_pedido: string;
+  cliente_id: number;
+  producto: string;
+  estado: "pendiente" | "en_proceso" | "completado" | "cancelado";
+};
+
+type LiquidacionRow = {
+  id: number;
+  numero_liquidacion: string;
+  tipo: "productor" | "cliente";
+  persona_id: number;
+  lote_id: number | null;
+  pedido_id: number | null;
+  fecha_liquidacion: string;
+  numero_comprobante: string | null;
+  total_bruto: number;
+  total_descuentos: number;
+  total_adelantos: number;
+  total_a_pagar: number;
+  estado: "borrador" | "confirmada" | "anulada";
+  estado_pago: "pendiente" | "parcial" | "pagado" | "cobrado";
+  monto_pagado: number;
+};
+
+type AdelantoRow = {
+  id: number;
+  productor_id: number;
+  lote_id: number | null;
+  numero_comprobante: string | null;
+  monto: number;
+  fecha: string;
+  motivo: string | null;
+  estado: "pendiente" | "aplicado" | "cancelado";
+  liquidacion_id: number | null;
+};
+
+type ComprobanteInternoResumen = {
+  id: number;
+  tipo: "adelanto" | "venta" | "liquidacion";
+  codigo_interno: string;
+  entidad_origen: "adelantos" | "liquidaciones";
+  entidad_origen_id: number;
+};
+
+type LoteClasificacionRow = {
+  categoria_id: number;
+  codigo_clasificacion: string | null;
+  peso_bruto: number;
+  numero_jabas: number;
+  peso_jabas: number;
+  porcentaje_humedad: number;
+  peso_descuento_humedad: number;
+  peso_neto: number;
+};
+
+type LotePendienteRow = LoteClasificacionRow & {
+  kg_vendidos: number;
+  kg_liquidados: number;
+  kg_pendientes_liquidar: number;
+};
+
+type PedidoAsignacionRow = {
+  id: number;
+  lote_id: number;
+  categoria_id: number;
+  codigo_division: string | null;
+  fecha_asignacion: string;
+  kg_asignados: number;
+  precio_kg: number;
+};
+
+function round2(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+async function getPersonasConRol(rol: "productor" | "cliente") {
+  const supabase = getSupabaseServerClient();
+  const { data: rolesData } = await supabase
+    .from("persona_roles")
+    .select("persona_id")
+    .eq("rol", rol);
+
+  const ids = [...new Set((rolesData ?? []).map((row) => Number(row.persona_id)))];
+  if (ids.length === 0) return [] as Persona[];
+
+  const { data: personasData } = await supabase
+    .from("personas")
+    .select("id,nombre_completo")
+    .in("id", ids)
+    .eq("estado", "activo")
+    .order("nombre_completo", { ascending: true });
+
+  return (personasData ?? []) as Persona[];
+}
+
+async function getCategorias() {
+  const supabase = getSupabaseServerClient();
+  const { data } = await supabase
+    .from("categorias")
+    .select("id,nombre,orden")
+    .eq("estado", "activo")
+    .order("orden", { ascending: true });
+
+  return (data ?? []) as Categoria[];
+}
+
+async function getLotesLiquidables() {
+  const supabase = getSupabaseServerClient();
+  const { data } = await supabase
+    .from("lotes")
+    .select("id,numero_lote,productor_id,producto,estado")
+    .in("estado", ["sin_clasificar", "clasificado", "asignado"])
+    .order("id", { ascending: false });
+
+  const lotes = (data ?? []) as LoteRow[];
+  if (lotes.length === 0) return lotes;
+
+  const loteIds = lotes.map((row) => Number(row.id));
+
+  const { data: asignaciones } = await supabase
+    .from("pedido_asignaciones")
+    .select("lote_id,categoria_id,kg_asignados")
+    .in("lote_id", loteIds);
+
+  const vendidos = new Map<string, number>();
+  for (const row of asignaciones ?? []) {
+    const key = `${row.lote_id}-${row.categoria_id}`;
+    vendidos.set(key, (vendidos.get(key) ?? 0) + Number(row.kg_asignados ?? 0));
+  }
+
+  const { data: clasif } = await supabase
+    .from("lote_clasificacion")
+    .select("lote_id,categoria_id,peso_neto")
+    .in("lote_id", loteIds);
+
+  const { data: liqProd } = await supabase
+    .from("liquidaciones")
+    .select("id,lote_id")
+    .eq("tipo", "productor")
+    .in("lote_id", loteIds)
+    .neq("estado", "anulada");
+
+  const liqIds = (liqProd ?? []).map((row) => Number(row.id));
+  const liqLoteMap = new Map<number, number>();
+  for (const row of liqProd ?? []) {
+    liqLoteMap.set(Number(row.id), Number(row.lote_id));
+  }
+
+  const { data: liqDet } =
+    liqIds.length > 0
+      ? await supabase
+          .from("liquidacion_detalle")
+          .select("liquidacion_id,categoria_id,peso_neto")
+          .in("liquidacion_id", liqIds)
+      : { data: [] as Array<{ liquidacion_id: number; categoria_id: number; peso_neto: number }> };
+
+  const liquidados = new Map<string, number>();
+  for (const row of liqDet ?? []) {
+    const loteId = liqLoteMap.get(Number(row.liquidacion_id));
+    if (!loteId) continue;
+    const key = `${loteId}-${row.categoria_id}`;
+    liquidados.set(key, (liquidados.get(key) ?? 0) + Number(row.peso_neto ?? 0));
+  }
+
+  const lotesConPendiente = new Set<number>();
+  for (const row of clasif ?? []) {
+    const key = `${row.lote_id}-${row.categoria_id}`;
+    const clasificado = Number(row.peso_neto ?? 0);
+    const liquidado = Number(liquidados.get(key) ?? 0);
+    if (clasificado - liquidado > 0.01) {
+      lotesConPendiente.add(Number(row.lote_id));
+    }
+  }
+
+  const lotesConLiquidacion = new Set<number>((liqProd ?? []).map((row) => Number(row.lote_id)));
+
+  return lotes.filter((row) => {
+    if (row.estado === "sin_clasificar") {
+      return !lotesConLiquidacion.has(Number(row.id));
+    }
+
+    return lotesConPendiente.has(Number(row.id));
+  });
+}
+
+async function getPedidosLiquidables() {
+  const supabase = getSupabaseServerClient();
+  const { data: pedidos } = await supabase
+    .from("pedidos")
+    .select("id,numero_pedido,cliente_id,producto,estado")
+    .in("estado", ["en_proceso", "completado"])
+    .order("id", { ascending: false });
+
+  if (!pedidos || pedidos.length === 0) return [] as PedidoRow[];
+
+  const ids = pedidos.map((row) => Number(row.id));
+  const { data: asignaciones } = await supabase
+    .from("pedido_asignaciones")
+    .select("pedido_id,categoria_id,kg_asignados")
+    .in("pedido_id", ids);
+
+  const asignadoMap = new Map<string, number>();
+  for (const row of asignaciones ?? []) {
+    const key = `${row.pedido_id}-${row.categoria_id}`;
+    asignadoMap.set(key, (asignadoMap.get(key) ?? 0) + Number(row.kg_asignados ?? 0));
+  }
+
+  const { data: liqCli } = await supabase
+    .from("liquidaciones")
+    .select("id,pedido_id")
+    .eq("tipo", "cliente")
+    .in("pedido_id", ids)
+    .neq("estado", "anulada");
+
+  const liqIds = (liqCli ?? []).map((row) => Number(row.id));
+  const liqPedidoMap = new Map<number, number>();
+  for (const row of liqCli ?? []) {
+    liqPedidoMap.set(Number(row.id), Number(row.pedido_id));
+  }
+
+  const { data: liqDet } =
+    liqIds.length > 0
+      ? await supabase
+          .from("liquidacion_detalle")
+          .select("liquidacion_id,categoria_id,peso_neto")
+          .in("liquidacion_id", liqIds)
+      : { data: [] as Array<{ liquidacion_id: number; categoria_id: number; peso_neto: number }> };
+
+  const liquidadoMap = new Map<string, number>();
+  for (const row of liqDet ?? []) {
+    const pedidoId = liqPedidoMap.get(Number(row.liquidacion_id));
+    if (!pedidoId) continue;
+    const key = `${pedidoId}-${row.categoria_id}`;
+    liquidadoMap.set(key, (liquidadoMap.get(key) ?? 0) + Number(row.peso_neto ?? 0));
+  }
+
+  const pedidosConPendiente = new Set<number>();
+  for (const [key, kgAsignado] of asignadoMap.entries()) {
+    const kgLiquidado = liquidadoMap.get(key) ?? 0;
+    if (kgAsignado - kgLiquidado > 0.01) {
+      const pedidoId = Number(key.split("-")[0]);
+      pedidosConPendiente.add(pedidoId);
+    }
+  }
+
+  return (pedidos as PedidoRow[]).filter((row) => pedidosConPendiente.has(Number(row.id)));
+}
+
+async function getAdelantos() {
+  const supabase = getSupabaseServerClient();
+  const { data } = await supabase
+    .from("adelantos")
+    .select("id,productor_id,lote_id,numero_comprobante,monto,fecha,motivo,estado,liquidacion_id")
+    .order("id", { ascending: false });
+
+  return (data ?? []) as AdelantoRow[];
+}
+
+async function getLiquidaciones() {
+  const supabase = getSupabaseServerClient();
+  const { data } = await supabase
+    .from("liquidaciones")
+    .select(
+      "id,numero_liquidacion,tipo,persona_id,lote_id,pedido_id,fecha_liquidacion,numero_comprobante,total_bruto,total_descuentos,total_adelantos,total_a_pagar,estado,estado_pago,monto_pagado"
+    )
+    .order("id", { ascending: false });
+
+  return (data ?? []) as LiquidacionRow[];
+}
+
+async function getSelectedLoteData(loteId: number) {
+  const supabase = getSupabaseServerClient();
+
+  const { data: lote } = await supabase
+    .from("lotes")
+    .select("id,numero_lote,productor_id,producto,estado")
+    .eq("id", loteId)
+    .maybeSingle();
+
+  if (!lote) return null;
+
+  const { data: clasificaciones } = await supabase
+    .from("lote_clasificacion")
+    .select(
+      "categoria_id,codigo_clasificacion,peso_bruto,numero_jabas,peso_jabas,porcentaje_humedad,peso_descuento_humedad,peso_neto"
+    )
+    .eq("lote_id", loteId);
+
+  const clasifRows = (clasificaciones ?? []) as LoteClasificacionRow[];
+
+  const { data: asignaciones } = await supabase
+    .from("pedido_asignaciones")
+    .select("categoria_id,kg_asignados")
+    .eq("lote_id", loteId);
+
+  const vendidosMap = new Map<number, number>();
+  for (const row of asignaciones ?? []) {
+    const categoriaId = Number(row.categoria_id);
+    vendidosMap.set(categoriaId, (vendidosMap.get(categoriaId) ?? 0) + Number(row.kg_asignados ?? 0));
+  }
+
+  const { data: liqProd } = await supabase
+    .from("liquidaciones")
+    .select("id")
+    .eq("tipo", "productor")
+    .eq("lote_id", loteId)
+    .neq("estado", "anulada");
+
+  const liqIds = (liqProd ?? []).map((row) => Number(row.id));
+  const { data: liqDet } =
+    liqIds.length > 0
+      ? await supabase
+          .from("liquidacion_detalle")
+          .select("categoria_id,peso_neto")
+          .in("liquidacion_id", liqIds)
+      : { data: [] as Array<{ categoria_id: number; peso_neto: number }> };
+
+  const liquidadosMap = new Map<number, number>();
+  for (const row of liqDet ?? []) {
+    const categoriaId = Number(row.categoria_id);
+    liquidadosMap.set(categoriaId, (liquidadosMap.get(categoriaId) ?? 0) + Number(row.peso_neto ?? 0));
+  }
+
+  const pendientes: LotePendienteRow[] = clasifRows
+    .map((row) => {
+      const kgVendidos = round2(vendidosMap.get(Number(row.categoria_id)) ?? 0);
+      const kgLiquidado = round2(liquidadosMap.get(Number(row.categoria_id)) ?? 0);
+      const kgPendiente = round2(Math.max(0, Number(row.peso_neto) - kgLiquidado));
+      return {
+        ...row,
+        kg_vendidos: kgVendidos,
+        kg_liquidados: kgLiquidado,
+        kg_pendientes_liquidar: kgPendiente,
+      };
+    })
+    .filter((row) => row.kg_pendientes_liquidar > 0.01);
+
+  const { data: adelantosPendientes } = await supabase
+    .from("adelantos")
+    .select("id,monto,fecha,motivo,lote_id,estado,numero_comprobante")
+    .eq("productor_id", Number(lote.productor_id))
+    .eq("estado", "pendiente")
+    .or(`lote_id.is.null,lote_id.eq.${loteId}`);
+
+  return {
+    lote: lote as LoteRow,
+    liquidacionSinClasificacion: clasifRows.length === 0 && lote.estado === "sin_clasificar",
+    clasificaciones: pendientes,
+    adelantosPendientes: (adelantosPendientes ?? []) as Array<{
+      id: number;
+      monto: number;
+      fecha: string;
+      motivo: string | null;
+      lote_id: number | null;
+      estado: string;
+      numero_comprobante: string | null;
+    }>,
+  };
+}
+
+async function getSelectedPedidoData(pedidoId: number) {
+  const supabase = getSupabaseServerClient();
+
+  const { data: pedido } = await supabase
+    .from("pedidos")
+    .select("id,numero_pedido,cliente_id,producto,estado")
+    .eq("id", pedidoId)
+    .maybeSingle();
+
+  if (!pedido) return null;
+
+  const { data: asignaciones } = await supabase
+    .from("pedido_asignaciones")
+    .select("id,lote_id,categoria_id,codigo_division,fecha_asignacion,kg_asignados,precio_kg")
+    .eq("pedido_id", pedidoId);
+
+  const grouped = new Map<number, { kg: number; precio: number }>();
+  for (const row of (asignaciones ?? []) as PedidoAsignacionRow[]) {
+    const categoriaId = Number(row.categoria_id);
+    const current = grouped.get(categoriaId) ?? { kg: 0, precio: Number(row.precio_kg ?? 0) };
+    current.kg += Number(row.kg_asignados ?? 0);
+    if (!current.precio || current.precio <= 0) {
+      current.precio = Number(row.precio_kg ?? 0);
+    }
+    grouped.set(categoriaId, current);
+  }
+
+  const { data: liqCli } = await supabase
+    .from("liquidaciones")
+    .select("id")
+    .eq("tipo", "cliente")
+    .eq("pedido_id", pedidoId)
+    .neq("estado", "anulada");
+
+  const liqIds = (liqCli ?? []).map((row) => Number(row.id));
+  const { data: liqDet } =
+    liqIds.length > 0
+      ? await supabase
+          .from("liquidacion_detalle")
+          .select("categoria_id,peso_neto")
+          .in("liquidacion_id", liqIds)
+      : { data: [] as Array<{ categoria_id: number; peso_neto: number }> };
+
+  const liquidadoMap = new Map<number, number>();
+  for (const row of liqDet ?? []) {
+    const categoriaId = Number(row.categoria_id);
+    liquidadoMap.set(categoriaId, (liquidadoMap.get(categoriaId) ?? 0) + Number(row.peso_neto ?? 0));
+  }
+
+  return {
+    pedido: pedido as PedidoRow,
+    divisiones: (asignaciones ?? []) as PedidoAsignacionRow[],
+    resumenCategorias: [...grouped.entries()].map(([categoria_id, value]) => ({
+      categoria_id,
+      kg_asignados: round2(Math.max(0, value.kg - (liquidadoMap.get(categoria_id) ?? 0))),
+      precio_sugerido: round2(value.precio),
+    })).filter((row) => row.kg_asignados > 0.01),
+  };
+}
+
+export default async function LiquidacionesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const search = await searchParams;
+
+  const [productores, clientes, categorias, lotesLiquidables, pedidosLiquidables, adelantos, liquidaciones] =
+    await Promise.all([
+      getPersonasConRol("productor"),
+      getPersonasConRol("cliente"),
+      getCategorias(),
+      getLotesLiquidables(),
+      getPedidosLiquidables(),
+      getAdelantos(),
+      getLiquidaciones(),
+    ]);
+
+  const adelantoIds = adelantos.map((row) => Number(row.id)).filter((value) => value > 0);
+  const liquidacionIds = liquidaciones.map((row) => Number(row.id)).filter((value) => value > 0);
+  const supabase = getSupabaseServerClient();
+
+  const [compAdelantosRes, compLiquidacionesRes] = await Promise.all([
+    adelantoIds.length > 0
+      ? supabase
+          .from("comprobantes_internos")
+          .select("id,tipo,codigo_interno,entidad_origen,entidad_origen_id")
+          .eq("entidad_origen", "adelantos")
+          .in("entidad_origen_id", adelantoIds)
+      : Promise.resolve({ data: [] }),
+    liquidacionIds.length > 0
+      ? supabase
+          .from("comprobantes_internos")
+          .select("id,tipo,codigo_interno,entidad_origen,entidad_origen_id")
+          .eq("entidad_origen", "liquidaciones")
+          .in("entidad_origen_id", liquidacionIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const compAdelantos = (compAdelantosRes.data ?? []) as ComprobanteInternoResumen[];
+  const compLiquidaciones = (compLiquidacionesRes.data ?? []) as ComprobanteInternoResumen[];
+
+  const compAdelantoMap = new Map<number, string>(
+    compAdelantos.map((row) => [Number(row.entidad_origen_id), row.codigo_interno])
+  );
+
+  const compLiquidacionMap = new Map<number, string>(
+    compLiquidaciones.map((row) => [Number(row.entidad_origen_id), row.codigo_interno])
+  );
+
+  const [fotosAdelantosRes, fotosLiquidacionesRes] = await Promise.all([
+    adelantoIds.length > 0
+      ? supabase
+          .from("evidencias_fotos")
+          .select("entidad_id,ruta_thumb,created_at")
+          .eq("contexto", "adelanto")
+          .eq("entidad_origen", "adelantos")
+          .in("entidad_id", adelantoIds)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    liquidacionIds.length > 0
+      ? supabase
+          .from("evidencias_fotos")
+          .select("entidad_id,ruta_thumb,created_at")
+          .eq("contexto", "liquidacion")
+          .eq("entidad_origen", "liquidaciones")
+          .in("entidad_id", liquidacionIds)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const fotoAdelantoMap = new Map<number, string>();
+  for (const row of fotosAdelantosRes.data ?? []) {
+    const entityId = Number(row.entidad_id);
+    if (!fotoAdelantoMap.has(entityId) && row.ruta_thumb) {
+      fotoAdelantoMap.set(entityId, String(row.ruta_thumb));
+    }
+  }
+
+  const fotoLiquidacionMap = new Map<number, string>();
+  for (const row of fotosLiquidacionesRes.data ?? []) {
+    const entityId = Number(row.entidad_id);
+    if (!fotoLiquidacionMap.has(entityId) && row.ruta_thumb) {
+      fotoLiquidacionMap.set(entityId, String(row.ruta_thumb));
+    }
+  }
+
+  const personaMap = new Map([...productores, ...clientes].map((row) => [row.id, row.nombre_completo]));
+  const categoriaMap = new Map(categorias.map((row) => [row.id, row.nombre]));
+  const loteMap = new Map(lotesLiquidables.map((row) => [row.id, row.numero_lote]));
+  const pedidoMap = new Map(pedidosLiquidables.map((row) => [row.id, row.numero_pedido]));
+  const liquidacionMap = new Map(liquidaciones.map((row) => [row.id, row.numero_liquidacion]));
+
+  const selectedLoteId = Number(search.lote ?? "0");
+  const selectedPedidoId = Number(search.pedido ?? "0");
+
+  const selectedLoteData = selectedLoteId > 0 ? await getSelectedLoteData(selectedLoteId) : null;
+  const selectedPedidoData = selectedPedidoId > 0 ? await getSelectedPedidoData(selectedPedidoId) : null;
+
+  const totalLiquidaciones = liquidaciones.filter((row) => row.estado !== "anulada").length;
+  const productorPendientes = liquidaciones.filter(
+    (row) => row.tipo === "productor" && (row.estado_pago === "pendiente" || row.estado_pago === "parcial")
+  );
+  const clientePendientes = liquidaciones.filter(
+    (row) => row.tipo === "cliente" && (row.estado_pago === "pendiente" || row.estado_pago === "parcial")
+  );
+
+  const totalPorPagarProductor = round2(
+    productorPendientes.reduce((acc, row) => acc + (Number(row.total_a_pagar) - Number(row.monto_pagado ?? 0)), 0)
+  );
+  const totalPorCobrarCliente = round2(
+    clientePendientes.reduce((acc, row) => acc + (Number(row.total_a_pagar) - Number(row.monto_pagado ?? 0)), 0)
+  );
+
+  const adelantosPendientes = adelantos.filter((row) => row.estado === "pendiente");
+  const totalAdelantosPorDescontar = round2(
+    adelantosPendientes.reduce((acc, row) => acc + Number(row.monto ?? 0), 0)
+  );
+
+  return (
+    <main className="mx-auto w-full max-w-7xl p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Módulo 5: Liquidaciones y Adelantos</h1>
+        <Link href="/" className="text-sm underline">
+          Volver al inicio
+        </Link>
+      </div>
+
+      <section className="mb-4 rounded border p-4">
+        <p className="text-sm">
+          Este módulo concentra compromisos con productores y cobranzas a clientes. Las cards separan lo
+          pendiente por pagar vs por cobrar, y los adelantos quedan como monto por descontar hasta que se
+          apliquen en una liquidación.
+        </p>
+      </section>
+
+      {search.ok ? (
+        <p className="mb-4 rounded border border-green-600 p-2 text-sm">{search.ok}</p>
+      ) : null}
+      {search.error ? (
+        <p className="mb-4 rounded border border-red-600 p-2 text-sm">{search.error}</p>
+      ) : null}
+
+      <section className="mb-6 grid gap-3 sm:grid-cols-5">
+        <div className="rounded border p-3">
+          <p className="text-sm">Total liquidaciones</p>
+          <p className="text-2xl font-bold">{totalLiquidaciones}</p>
+        </div>
+        <div className="rounded border p-3">
+          <p className="text-sm">Prod. pendientes pago</p>
+          <p className="text-2xl font-bold">{productorPendientes.length}</p>
+        </div>
+        <div className="rounded border p-3">
+          <p className="text-sm">Prod. total por pagar</p>
+          <p className="text-2xl font-bold">{totalPorPagarProductor}</p>
+        </div>
+        <div className="rounded border p-3">
+          <p className="text-sm">Cli. pendientes cobro</p>
+          <p className="text-2xl font-bold">{clientePendientes.length}</p>
+        </div>
+        <div className="rounded border p-3">
+          <p className="text-sm">Cli. total por cobrar</p>
+          <p className="text-2xl font-bold">{totalPorCobrarCliente}</p>
+        </div>
+      </section>
+
+      <section className="mb-6 rounded border p-4">
+        <h2 className="mb-3 text-lg font-semibold">Registrar adelanto</h2>
+        <p className="mb-3 text-sm">
+          Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor.
+        </p>
+        <form action={createAdelantoAction} className="grid gap-3 sm:grid-cols-3">
+          <label className="grid gap-1">
+            <span className="text-sm">Productor *</span>
+            <select name="productor_id" defaultValue="" className="rounded border px-2 py-1" required>
+              <option value="" disabled>
+                Seleccionar productor
+              </option>
+              {productores.map((row) => (
+                <option key={row.id} value={String(row.id)}>
+                  {row.nombre_completo}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-sm">Lote (opcional)</span>
+            <select name="lote_id" defaultValue="" className="rounded border px-2 py-1">
+              <option value="">Sin lote específico</option>
+              {lotesLiquidables.map((row) => (
+                <option key={row.id} value={String(row.id)}>
+                  {row.numero_lote}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-sm">Monto *</span>
+            <input name="monto" type="number" min="0" step="0.01" className="rounded border px-2 py-1" required />
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-sm">Fecha *</span>
+            <input
+              name="fecha"
+              type="date"
+              defaultValue={new Date().toISOString().slice(0, 10)}
+              className="rounded border px-2 py-1"
+              required
+            />
+          </label>
+
+          <label className="grid gap-1 sm:col-span-2">
+            <span className="text-sm">Motivo</span>
+            <input name="motivo" className="rounded border px-2 py-1" />
+          </label>
+
+          <div className="sm:col-span-3">
+            <ComprobanteInternoFields />
+          </div>
+
+          <label className="grid gap-1 sm:col-span-3 sm:max-w-md">
+            <span className="text-sm">Foto evidencia de entrega (opcional)</span>
+            <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
+            <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
+          </label>
+
+          <div className="sm:col-span-3">
+            <button type="submit" className="rounded border px-3 py-1 font-medium">
+              Registrar adelanto
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="mb-6 rounded border p-4">
+        <h2 className="mb-3 text-lg font-semibold">Liquidación de productor</h2>
+        <p className="mb-3 text-sm">
+          Selecciona un lote para liquidar solo lo vendido pendiente (el lote puede partirse y liquidarse varias veces).
+        </p>
+
+        <p className="mb-2 text-xs">Qué muestra esta tabla: lotes habilitados para liquidación de productor.</p>
+        <div className="mb-3 overflow-x-auto rounded border">
+          <table className="min-w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="p-2">Lote</th>
+                <th className="p-2">Productor</th>
+                <th className="p-2">Producto</th>
+                <th className="p-2">Estado</th>
+                <th className="p-2">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lotesLiquidables.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-3 text-center">
+                    No hay lotes pendientes de liquidar.
+                  </td>
+                </tr>
+              ) : null}
+
+              {lotesLiquidables.map((row) => (
+                <tr key={row.id} className="border-b">
+                  <td className="p-2">{row.numero_lote}</td>
+                  <td className="p-2">{personaMap.get(row.productor_id) ?? row.productor_id}</td>
+                  <td className="p-2">{row.producto}</td>
+                  <td className="p-2">{row.estado}</td>
+                  <td className="p-2">
+                    <Link href={`/liquidaciones?lote=${row.id}`} className="rounded border px-2 py-1">
+                      Liquidar
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {selectedLoteData ? (
+          <form action={createLiquidacionProductorAction} className="grid gap-3 rounded border p-3">
+            <input type="hidden" name="lote_id" value={String(selectedLoteData.lote.id)} />
+
+            <p className="text-sm">
+              Lote: <strong>{selectedLoteData.lote.numero_lote}</strong> | Productor: <strong>{personaMap.get(selectedLoteData.lote.productor_id) ?? selectedLoteData.lote.productor_id}</strong>
+            </p>
+
+            {selectedLoteData.liquidacionSinClasificacion ? (
+              <div className="rounded border p-3">
+                <p className="mb-2 text-sm">
+                  Lote sin clasificar: esta liquidación se hará por <strong>monto directo</strong> (sin detalle por calidad).
+                </p>
+                <label className="grid gap-1 sm:max-w-xs">
+                  <span className="text-sm">Monto directo a liquidar *</span>
+                  <input
+                    name="monto_directo"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="rounded border px-2 py-1"
+                    required
+                  />
+                </label>
+              </div>
+            ) : (
+              <>
+                <p className="text-xs">Qué muestra esta tabla: detalle por categoría de kg vendidos, ya liquidados y pendientes por liquidar.</p>
+                <div className="overflow-x-auto rounded border">
+                  <table className="min-w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="p-2">Código clasif.</th>
+                        <th className="p-2">Categoría</th>
+                        <th className="p-2">Kg vendidos</th>
+                        <th className="p-2">Kg ya liquidados</th>
+                        <th className="p-2">Kg pendientes liquidar</th>
+                        <th className="p-2">Precio/kg *</th>
+                        <th className="p-2">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedLoteData.clasificaciones.map((row) => (
+                        <tr key={row.categoria_id} className="border-b">
+                          <td className="p-2">{row.codigo_clasificacion ?? "-"}</td>
+                          <td className="p-2">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
+                          <td className="p-2">{row.kg_vendidos}</td>
+                          <td className="p-2">{row.kg_liquidados}</td>
+                          <td className="p-2">{row.kg_pendientes_liquidar}</td>
+                          <td className="p-2">
+                            <input
+                              name={`precio_kg_${row.categoria_id}`}
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="w-28 rounded border px-2 py-1"
+                              required
+                            />
+                          </td>
+                          <td className="p-2">auto</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-4">
+              <label className="grid gap-1">
+                <span className="text-sm">Fecha liquidación *</span>
+                <input
+                  name="fecha_liquidacion"
+                  type="date"
+                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  className="rounded border px-2 py-1"
+                  required
+                />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm">Tipo comprobante</span>
+                <select name="tipo_comprobante" defaultValue="ninguno" className="rounded border px-2 py-1">
+                  <option value="ninguno">ninguno</option>
+                  <option value="factura">factura</option>
+                  <option value="boleta">boleta</option>
+                  <option value="recibo">recibo</option>
+                  <option value="nota_credito">nota_credito</option>
+                </select>
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm">Forma pago</span>
+                <select name="forma_pago" defaultValue="" className="rounded border px-2 py-1">
+                  <option value="">(sin definir)</option>
+                  <option value="efectivo">efectivo</option>
+                  <option value="transferencia">transferencia</option>
+                  <option value="cheque">cheque</option>
+                  <option value="mixto">mixto</option>
+                </select>
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm">Costo flete</span>
+                <input name="costo_flete" type="number" step="0.01" min="0" className="rounded border px-2 py-1" />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm">Costo cosecha</span>
+                <input name="costo_cosecha" type="number" step="0.01" min="0" className="rounded border px-2 py-1" />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm">Costo maquila</span>
+                <input name="costo_maquila" type="number" step="0.01" min="0" className="rounded border px-2 py-1" />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm">Descuento jabas</span>
+                <input name="descuento_jabas" type="number" step="0.01" min="0" className="rounded border px-2 py-1" />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm">Otros descuentos</span>
+                <input name="otros_descuentos" type="number" step="0.01" min="0" className="rounded border px-2 py-1" />
+              </label>
+            </div>
+
+            <fieldset className="rounded border p-3">
+              <legend className="px-1 text-sm">Adelantos a descontar (opcionales)</legend>
+              <label className="mb-2 flex items-center gap-2 text-sm">
+                <input type="checkbox" name="aplicar_adelantos_auto" value="1" defaultChecked />
+                Aplicar automáticamente adelantos pendientes (si no marcas manualmente)
+              </label>
+              <p className="mb-2 text-xs">
+                Si el adelanto excede el neto de la liquidación, el excedente queda como saldo pendiente de adelanto.
+              </p>
+              <div className="grid gap-2">
+                {selectedLoteData.adelantosPendientes.length === 0 ? (
+                  <p className="text-sm">No hay adelantos pendientes para este productor/lote.</p>
+                ) : null}
+
+                {selectedLoteData.adelantosPendientes.map((adelanto) => (
+                  <label key={adelanto.id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="adelantos" value={String(adelanto.id)} />
+                    {adelanto.fecha} | {adelanto.numero_comprobante ?? "(sin comp.)"} | S/ {adelanto.monto} | {adelanto.motivo ?? "Sin motivo"}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <label className="grid gap-1">
+              <span className="text-sm">Observaciones</span>
+              <textarea name="observaciones" className="min-h-20 rounded border px-2 py-1" />
+            </label>
+
+            <ComprobanteInternoFields />
+
+            <label className="grid gap-1 sm:max-w-md">
+              <span className="text-sm">Foto evidencia de liquidación (opcional)</span>
+              <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
+              <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
+            </label>
+
+            <div className="flex gap-2">
+              <button type="submit" className="rounded border px-3 py-1 font-medium">
+                Crear liquidación productor
+              </button>
+              <Link href="/liquidaciones" className="rounded border px-3 py-1">
+                Cancelar
+              </Link>
+            </div>
+          </form>
+        ) : null}
+      </section>
+
+      <section className="mb-6 rounded border p-4">
+        <h2 className="mb-3 text-lg font-semibold">Liquidación de cliente</h2>
+        <p className="mb-3 text-sm">
+          Selecciona un pedido para liquidar su saldo pendiente (si fue partido, se liquida por cortes).
+        </p>
+
+        <p className="mb-2 text-xs">Qué muestra esta tabla: pedidos habilitados para liquidación de cliente.</p>
+        <div className="mb-3 overflow-x-auto rounded border">
+          <table className="min-w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="p-2">Pedido</th>
+                <th className="p-2">Cliente</th>
+                <th className="p-2">Producto</th>
+                <th className="p-2">Estado</th>
+                <th className="p-2">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pedidosLiquidables.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-3 text-center">
+                    No hay pedidos con asignaciones para liquidar.
+                  </td>
+                </tr>
+              ) : null}
+
+              {pedidosLiquidables.map((row) => (
+                <tr key={row.id} className="border-b">
+                  <td className="p-2">{row.numero_pedido}</td>
+                  <td className="p-2">{personaMap.get(row.cliente_id) ?? row.cliente_id}</td>
+                  <td className="p-2">{row.producto}</td>
+                  <td className="p-2">{row.estado}</td>
+                  <td className="p-2">
+                    <Link href={`/liquidaciones?pedido=${row.id}`} className="rounded border px-2 py-1">
+                      Liquidar
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {selectedPedidoData ? (
+          <form action={createLiquidacionClienteAction} className="grid gap-3 rounded border p-3">
+            <input type="hidden" name="pedido_id" value={String(selectedPedidoData.pedido.id)} />
+
+            <p className="text-sm">
+              Pedido: <strong>{selectedPedidoData.pedido.numero_pedido}</strong> | Cliente: <strong>{personaMap.get(selectedPedidoData.pedido.cliente_id) ?? selectedPedidoData.pedido.cliente_id}</strong>
+            </p>
+
+            <p className="text-xs">Qué muestra esta tabla: saldo pendiente por categoría del pedido seleccionado.</p>
+            <div className="overflow-x-auto rounded border">
+              <table className="min-w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="p-2">Categoría</th>
+                    <th className="p-2">Kg pendientes</th>
+                    <th className="p-2">Precio/kg</th>
+                    <th className="p-2">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedPedidoData.resumenCategorias.map((row) => (
+                    <tr key={row.categoria_id} className="border-b">
+                      <td className="p-2">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
+                      <td className="p-2">{row.kg_asignados}</td>
+                      <td className="p-2">
+                        <input
+                          name={`precio_kg_categoria_${row.categoria_id}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          defaultValue={String(row.precio_sugerido)}
+                          className="w-28 rounded border px-2 py-1"
+                          required
+                        />
+                      </td>
+                      <td className="p-2">auto</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h3 className="mb-2 mt-3 text-sm font-semibold">Divisiones (códigos de corte del pedido)</h3>
+            <p className="text-xs">Qué muestra esta tabla: cortes/divisiones que explican origen de kg y precio de la liquidación.</p>
+            <div className="overflow-x-auto rounded border">
+              <table className="min-w-full border-collapse text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="p-2">Código división</th>
+                    <th className="p-2">Fecha</th>
+                    <th className="p-2">Lote</th>
+                    <th className="p-2">Categoría</th>
+                    <th className="p-2">Kg</th>
+                    <th className="p-2">Precio/kg</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedPedidoData.divisiones.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-3 text-center">
+                        Sin divisiones registradas.
+                      </td>
+                    </tr>
+                  ) : null}
+
+                  {selectedPedidoData.divisiones.map((row) => (
+                    <tr key={row.id} className="border-b">
+                      <td className="p-2">{row.codigo_division ?? "-"}</td>
+                      <td className="p-2">{row.fecha_asignacion}</td>
+                      <td className="p-2">{loteMap.get(row.lote_id) ?? row.lote_id}</td>
+                      <td className="p-2">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
+                      <td className="p-2">{row.kg_asignados}</td>
+                      <td className="p-2">{row.precio_kg}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="grid gap-1">
+                <span className="text-sm">Fecha liquidación *</span>
+                <input
+                  name="fecha_liquidacion"
+                  type="date"
+                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  className="rounded border px-2 py-1"
+                  required
+                />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm">Tipo comprobante</span>
+                <select name="tipo_comprobante" defaultValue="ninguno" className="rounded border px-2 py-1">
+                  <option value="ninguno">ninguno</option>
+                  <option value="factura">factura</option>
+                  <option value="boleta">boleta</option>
+                  <option value="recibo">recibo</option>
+                  <option value="nota_credito">nota_credito</option>
+                </select>
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-sm">Forma pago</span>
+                <select name="forma_pago" defaultValue="" className="rounded border px-2 py-1">
+                  <option value="">(sin definir)</option>
+                  <option value="efectivo">efectivo</option>
+                  <option value="transferencia">transferencia</option>
+                  <option value="cheque">cheque</option>
+                  <option value="mixto">mixto</option>
+                </select>
+              </label>
+            </div>
+
+            <label className="grid gap-1">
+              <span className="text-sm">Observaciones</span>
+              <textarea name="observaciones" className="min-h-20 rounded border px-2 py-1" />
+            </label>
+
+            <ComprobanteInternoFields />
+
+            <label className="grid gap-1 sm:max-w-md">
+              <span className="text-sm">Foto evidencia de liquidación (opcional)</span>
+              <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
+              <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
+            </label>
+
+            <div className="flex gap-2">
+              <button type="submit" className="rounded border px-3 py-1 font-medium">
+                Crear liquidación cliente
+              </button>
+              <Link href="/liquidaciones" className="rounded border px-3 py-1">
+                Cancelar
+              </Link>
+            </div>
+          </form>
+        ) : null}
+      </section>
+
+      <section className="mb-6 rounded border p-4">
+        <h2 className="mb-3 text-lg font-semibold">Registrar pago/cobro parcial</h2>
+        <form action={registrarPagoParcialAction} className="grid gap-3 sm:grid-cols-4">
+          <label className="grid gap-1">
+            <span className="text-sm">Liquidación *</span>
+            <select name="liquidacion_id" defaultValue="" className="rounded border px-2 py-1" required>
+              <option value="" disabled>
+                Seleccionar liquidación
+              </option>
+              {liquidaciones
+                .filter((row) => row.estado === "confirmada" && row.estado_pago !== "pagado" && row.estado_pago !== "cobrado")
+                .map((row) => (
+                  <option key={row.id} value={String(row.id)}>
+                    {row.numero_liquidacion} ({row.tipo})
+                  </option>
+                ))}
+            </select>
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-sm">Monto *</span>
+            <input name="monto_pagado" type="number" min="0" step="0.01" className="rounded border px-2 py-1" required />
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-sm">Fecha *</span>
+            <input
+              name="fecha_pago"
+              type="date"
+              defaultValue={new Date().toISOString().slice(0, 10)}
+              className="rounded border px-2 py-1"
+              required
+            />
+          </label>
+
+          <label className="grid gap-1">
+            <span className="text-sm">Forma pago</span>
+            <select name="forma_pago" defaultValue="" className="rounded border px-2 py-1">
+              <option value="">(sin definir)</option>
+              <option value="efectivo">efectivo</option>
+              <option value="transferencia">transferencia</option>
+              <option value="cheque">cheque</option>
+              <option value="mixto">mixto</option>
+            </select>
+          </label>
+
+          <label className="grid gap-1 sm:col-span-4">
+            <span className="text-sm">Observaciones</span>
+            <input name="observaciones" className="rounded border px-2 py-1" />
+          </label>
+
+          <div className="sm:col-span-4">
+            <button type="submit" className="rounded border px-3 py-1 font-medium">
+              Registrar pago/cobro parcial
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="mb-6 rounded border p-4">
+        <h2 className="mb-2 text-lg font-semibold">Resumen de adelantos</h2>
+        <p className="mb-3 text-sm">
+          Por descontar en liquidación: <strong>{adelantosPendientes.length}</strong> | Monto por descontar: <strong>S/ {totalAdelantosPorDescontar}</strong>
+        </p>
+
+        <p className="text-xs">Qué muestra esta tabla: adelantos entregados, su estado y en qué liquidación se aplicaron.</p>
+        <div className="overflow-x-auto rounded border">
+          <table className="min-w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="p-2">Foto</th>
+                <th className="p-2">Fecha</th>
+                <th className="p-2">Comprobante</th>
+                <th className="p-2">Comp. interno</th>
+                <th className="p-2">Productor</th>
+                <th className="p-2">Lote</th>
+                <th className="p-2">Monto</th>
+                <th className="p-2">Motivo</th>
+                <th className="p-2">Estado</th>
+                <th className="p-2">Liquidación</th>
+              </tr>
+            </thead>
+            <tbody>
+              {adelantos.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="p-3 text-center">
+                    Sin adelantos.
+                  </td>
+                </tr>
+              ) : null}
+
+              {adelantos.map((row) => (
+                <tr key={row.id} className="border-b">
+                  <td className="p-2">
+                    {fotoAdelantoMap.get(Number(row.id)) ? (
+                      <Image src={fotoAdelantoMap.get(Number(row.id)) ?? ""} alt={`Adelanto ${row.id}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
+                    ) : (
+                      <span className="text-xs text-gray-500">-</span>
+                    )}
+                  </td>
+                  <td className="p-2">{row.fecha}</td>
+                  <td className="p-2">{row.numero_comprobante ?? "-"}</td>
+                  <td className="p-2">{compAdelantoMap.get(Number(row.id)) ?? "-"}</td>
+                  <td className="p-2">{personaMap.get(row.productor_id) ?? row.productor_id}</td>
+                  <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
+                  <td className="p-2">{row.monto}</td>
+                  <td className="p-2">{row.motivo ?? "-"}</td>
+                  <td className="p-2">{row.estado}</td>
+                  <td className="p-2">{row.liquidacion_id ? liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded border p-4">
+        <p className="mb-2 text-xs">Qué muestra esta tabla: consolidado de liquidaciones emitidas con estado financiero y de pago.</p>
+        <div className="overflow-x-auto rounded border">
+        <table className="min-w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b text-left">
+              <th className="p-2">Foto</th>
+              <th className="p-2">Nro. liquidación</th>
+              <th className="p-2">Comprobante</th>
+              <th className="p-2">Comp. interno</th>
+              <th className="p-2">Tipo</th>
+              <th className="p-2">Persona</th>
+              <th className="p-2">Lote/Pedido</th>
+              <th className="p-2">Fecha</th>
+              <th className="p-2">Total bruto</th>
+              <th className="p-2">Descuentos</th>
+              <th className="p-2">Adelantos</th>
+              <th className="p-2">Total a pagar</th>
+              <th className="p-2">Estado</th>
+              <th className="p-2">Estado pago</th>
+              <th className="p-2">Monto pagado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {liquidaciones.length === 0 ? (
+              <tr>
+                <td colSpan={15} className="p-3 text-center">
+                  Sin liquidaciones.
+                </td>
+              </tr>
+            ) : null}
+
+            {liquidaciones.map((row) => (
+              <tr key={row.id} className="border-b">
+                <td className="p-2">
+                  {fotoLiquidacionMap.get(Number(row.id)) ? (
+                    <Image src={fotoLiquidacionMap.get(Number(row.id)) ?? ""} alt={`Liquidación ${row.numero_liquidacion}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
+                  ) : (
+                    <span className="text-xs text-gray-500">-</span>
+                  )}
+                </td>
+                <td className="p-2">{row.numero_liquidacion}</td>
+                <td className="p-2">{row.numero_comprobante ?? "-"}</td>
+                <td className="p-2">{compLiquidacionMap.get(Number(row.id)) ?? "-"}</td>
+                <td className="p-2">{row.tipo}</td>
+                <td className="p-2">{personaMap.get(row.persona_id) ?? row.persona_id}</td>
+                <td className="p-2">
+                  {row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : row.pedido_id ? pedidoMap.get(row.pedido_id) ?? row.pedido_id : "-"}
+                </td>
+                <td className="p-2">{row.fecha_liquidacion}</td>
+                <td className="p-2">{row.total_bruto}</td>
+                <td className="p-2">{row.total_descuentos}</td>
+                <td className="p-2">{row.total_adelantos}</td>
+                <td className="p-2">{row.total_a_pagar}</td>
+                <td className="p-2">{row.estado}</td>
+                <td className="p-2">{row.estado_pago}</td>
+                <td className="p-2">{row.monto_pagado}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        </div>
+      </section>
+    </main>
+  );
+}
