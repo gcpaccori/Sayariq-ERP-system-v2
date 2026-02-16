@@ -64,6 +64,20 @@ type AdelantoRow = {
   motivo: string | null;
   estado: "pendiente" | "aplicado" | "cancelado";
   liquidacion_id: number | null;
+  created_at?: string | null;
+};
+
+type PagoRow = {
+  id: number;
+  liquidacion_id: number;
+  lote_id: number | null;
+  monto: number;
+  fecha: string;
+  forma_pago: string | null;
+  numero_comprobante: string | null;
+  comprobante_interno_id: number | null;
+  observaciones: string | null;
+  created_at: string | null;
 };
 
 type ComprobanteInternoResumen = {
@@ -103,6 +117,16 @@ type PedidoAsignacionRow = {
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function shortDate(input: string | null | undefined) {
+  if (!input) return "-";
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return input;
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 async function getPersonasConRol(rol: "productor" | "cliente") {
@@ -282,7 +306,7 @@ async function getAdelantos() {
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
     .from("adelantos")
-    .select("id,productor_id,lote_id,numero_comprobante,monto,fecha,motivo,estado,liquidacion_id")
+    .select("id,productor_id,lote_id,numero_comprobante,monto,fecha,motivo,estado,liquidacion_id,created_at")
     .order("id", { ascending: false });
 
   return (data ?? []) as AdelantoRow[];
@@ -521,6 +545,14 @@ export default async function LiquidacionesPage({
       : Promise.resolve({ data: [] }),
   ]);
 
+  const pagosRes = await supabase
+    .from("pagos_liquidacion")
+    .select("id,liquidacion_id,lote_id,monto,fecha,forma_pago,numero_comprobante,comprobante_interno_id,observaciones,created_at")
+    .order("id", { ascending: false });
+
+  const pagos = (pagosRes.data ?? []) as PagoRow[];
+  const totalPagosRegistrados = round2(pagos.reduce((acc, row) => acc + Number(row.monto ?? 0), 0));
+
   const fotoAdelantoMap = new Map<number, string>();
   for (const row of fotosAdelantosRes.data ?? []) {
     const entityId = Number(row.entidad_id);
@@ -542,6 +574,7 @@ export default async function LiquidacionesPage({
   const loteMap = new Map(lotesLiquidables.map((row) => [row.id, row.numero_lote]));
   const pedidoMap = new Map(pedidosLiquidables.map((row) => [row.id, row.numero_pedido]));
   const liquidacionMap = new Map(liquidaciones.map((row) => [row.id, row.numero_liquidacion]));
+  const liquidacionPersonaMap = new Map(liquidaciones.map((row) => [row.id, row.persona_id]));
 
   const selectedLoteId = Number(search.lote ?? "0");
   const selectedPedidoId = Number(search.pedido ?? "0");
@@ -577,6 +610,55 @@ export default async function LiquidacionesPage({
           Volver al inicio
         </Link>
       </div>
+      
+      <section className="mb-6 rounded border p-4">
+        <h2 className="mb-2 text-lg font-semibold">Resumen de pagos</h2>
+        <p className="mb-3 text-sm">
+          Pagos registrados: <strong>{pagos.length}</strong> | Total importe: <strong>S/ {totalPagosRegistrados}</strong>
+        </p>
+
+        <p className="text-xs">Qué muestra esta tabla: historial de pagos parciales por liquidación.</p>
+        <div className="overflow-x-auto rounded border">
+          <table className="min-w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="p-2">Fecha</th>
+                <th className="p-2">Liquidación</th>
+                <th className="p-2">Comp. interno</th>
+                <th className="p-2">Persona</th>
+                <th className="p-2">Lote</th>
+                <th className="p-2">Monto</th>
+                <th className="p-2">Forma</th>
+                <th className="p-2">Nro. comp.</th>
+                <th className="p-2">Obs.</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagos.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="p-3 text-center">
+                    Sin pagos registrados.
+                  </td>
+                </tr>
+              ) : null}
+
+              {pagos.map((row) => (
+                <tr key={row.id} className="border-b">
+                      <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
+                  <td className="p-2">{liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id}</td>
+                  <td className="p-2">{compLiquidacionMap.get(row.liquidacion_id) ?? "-"}</td>
+                  <td className="p-2">{personaMap.get(liquidacionPersonaMap.get(row.liquidacion_id) ?? 0) ?? "-"}</td>
+                  <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
+                  <td className="p-2">{row.monto}</td>
+                  <td className="p-2">{row.forma_pago ?? "-"}</td>
+                  <td className="p-2">{row.numero_comprobante ?? "-"}</td>
+                  <td className="p-2">{row.observaciones ?? "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="mb-4 rounded border p-4">
         <p className="text-sm">
@@ -1190,7 +1272,7 @@ export default async function LiquidacionesPage({
                       <span className="text-xs text-gray-500">-</span>
                     )}
                   </td>
-                  <td className="p-2">{row.fecha}</td>
+                  <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
                   <td className="p-2">{row.numero_comprobante ?? "-"}</td>
                   <td className="p-2">{compAdelantoMap.get(Number(row.id)) ?? "-"}</td>
                   <td className="p-2">{personaMap.get(row.productor_id) ?? row.productor_id}</td>

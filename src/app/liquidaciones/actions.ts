@@ -1179,3 +1179,157 @@ export async function registrarPagoParcialAction(formData: FormData) {
 
   redirectWithMessage("ok", `Pago/cobro parcial registrado. Estado: ${nuevoEstadoPago}.`);
 }
+
+export async function createPagoLiquidacionAction(formData: FormData) {
+  const liquidacionId = Number(getField(formData, "liquidacion_id"));
+  const loteId = Number(getField(formData, "lote_id") || "0");
+  const monto = toDecimal(getField(formData, "monto_pago"));
+  const fechaPago = getField(formData, "fecha_pago");
+  const formaPago = getField(formData, "forma_pago");
+  const numeroComprobante = getField(formData, "numero_comprobante");
+  const observaciones = getField(formData, "observaciones");
+  const receptorNombre = getField(formData, "receptor_nombre");
+  const receptorDocumento = getField(formData, "receptor_documento");
+  const receptorRol = getField(formData, "receptor_rol");
+  const lugarRecepcion = getField(formData, "lugar_recepcion");
+  const gpsLat = toNullableDecimal(getField(formData, "gps_lat"));
+  const gpsLng = toNullableDecimal(getField(formData, "gps_lng"));
+  const gpsPrecisionM = toNullableDecimal(getField(formData, "gps_precision_m"));
+  const horaEvento = getField(formData, "hora_evento");
+
+  if (!liquidacionId || Number.isNaN(liquidacionId)) {
+    redirectWithMessage("error", "Selecciona una liquidación válida.");
+  }
+
+  if (Number.isNaN(monto) || monto <= 0 || !fechaPago) {
+    redirectWithMessage("error", "Monto y fecha de pago son obligatorios y válidos.");
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { data: liquidacion } = await supabase
+    .from("liquidaciones")
+    .select("id,numero_liquidacion,tipo,persona_id,lote_id,pedido_id,estado,estado_pago,total_a_pagar,monto_pagado")
+    .eq("id", liquidacionId)
+    .maybeSingle();
+
+  if (!liquidacion) {
+    redirectWithMessage("error", "La liquidación no existe.");
+  }
+
+  if (liquidacion.estado !== "confirmada") {
+    redirectWithMessage("error", "Solo se permiten pagos en liquidaciones confirmadas.");
+  }
+
+  if (liquidacion.estado_pago === "pagado" || liquidacion.estado_pago === "cobrado") {
+    redirectWithMessage("error", "La liquidación ya fue cerrada completamente.");
+  }
+
+  const montoActual = Number(liquidacion.monto_pagado ?? 0);
+  const total = Number(liquidacion.total_a_pagar ?? 0);
+  const montoNuevo = round2(montoActual + monto);
+
+  if (montoNuevo > total + 0.01) {
+    redirectWithMessage("error", "El pago excede el total pendiente.");
+  }
+
+  // 1. Insertar en pagos_liquidacion (tabla nueva de historial)
+  const { data: pagoPend, error: pagoError } = await supabase
+    .from("pagos_liquidacion")
+    .insert({
+      liquidacion_id: liquidacionId,
+      lote_id: liquidacion.lote_id || (loteId > 0 ? loteId : null),
+      monto: round2(monto),
+      fecha: fechaPago,
+      forma_pago: formaPago || null,
+      numero_comprobante: numeroComprobante || null,
+      observaciones: observaciones || null,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (pagoError || !pagoPend) {
+    redirectWithMessage("error", `No se pudo registrar el pago: ${pagoError?.message}`);
+  }
+
+  // 2. Actualizar estado_pago en liquidaciones (como antes)
+  let nuevoEstadoPago: "pendiente" | "parcial" | "pagado" | "cobrado" = "parcial";
+  if (montoNuevo <= 0) {
+    nuevoEstadoPago = "pendiente";
+  } else if (montoNuevo >= total - 0.01) {
+    nuevoEstadoPago = liquidacion.tipo === "productor" ? "pagado" : "cobrado";
+  }
+
+  const { error: updateError } = await supabase
+    .from("liquidaciones")
+    .update({
+      monto_pagado: montoNuevo,
+      estado_pago: nuevoEstadoPago,
+    })
+    .eq("id", liquidacionId);
+
+  if (updateError) {
+    redirectWithMessage("error", updateError.message);
+  }
+
+  // 3. Registrar en kardex
+  const tipoMovimiento = liquidacion.tipo === "productor" ? "egreso" : "ingreso";
+  const concepto =
+    liquidacion.tipo === "productor"
+      ? `Pago parcial liquidación ${liquidacion.numero_liquidacion} -- Lote ${liquidacion.lote_id ?? "N/A"}`
+      : `Cobro parcial liquidación ${liquidacion.numero_liquidacion}`;
+
+  const { error: kardexError } = await supabase.from("kardex").insert({
+    tipo_kardex: "dinero",
+    tipo_movimiento: tipoMovimiento,
+    origen: "pago_directo",
+    origen_id: pagoPend.id,
+    origen_numero: `PAG-${pagoPend.id}`,
+    lote_id: liquidacion.lote_id || (loteId > 0 ? loteId : null),
+    persona_id: liquidacion.persona_id,
+    monto: round2(monto),
+    concepto,
+    observaciones: observaciones || null,
+  });
+
+  if (kardexError) {
+    redirectWithMessage("error", `Pago registrado pero falló kardex: ${kardexError.message}`);
+  }
+
+  // 4. Crear comprobante interno (opcional, si se proporciona datos)
+  if (receptorNombre || receptorDocumento) {
+    const compInterno = await createComprobanteInterno({
+      tipo: liquidacion.tipo === "productor" ? "liquidacion" : "venta",
+      entidadOrigen: "pagos_liquidacion",
+      entidadOrigenId: Number(pagoPend.id),
+      personaPrincipalId: liquidacion.persona_id,
+      productorId: liquidacion.tipo === "productor" ? liquidacion.persona_id : undefined,
+      clienteId: liquidacion.tipo === "cliente" ? liquidacion.persona_id : undefined,
+      fechaEvento: fechaPago,
+      horaEvento: horaEvento || null,
+      monto: round2(monto),
+      receptorNombre: receptorNombre || null,
+      receptorDocumento: receptorDocumento || null,
+      receptorRol: receptorRol || null,
+      lugarRecepcion: lugarRecepcion || null,
+      gpsLat,
+      gpsLng,
+      gpsPrecisionM,
+      observaciones: observaciones || null,
+      payload: {
+        numero_liquidacion: liquidacion.numero_liquidacion,
+        tipo_movimiento: tipoMovimiento,
+        monto_pagado: round2(monto),
+      },
+    });
+  }
+
+  revalidatePath("/liquidaciones");
+  revalidatePath("/kardex");
+  revalidatePath("/estado-cuenta-productor");
+  revalidatePath("/cobranzas");
+
+  redirectWithMessage(
+    "ok",
+    `Pago registrado por S/ ${round2(monto)}. Estado: ${nuevoEstadoPago}. Saldo pendiente: S/ ${round2(Math.max(0, total - montoNuevo))}.`
+  );
+}

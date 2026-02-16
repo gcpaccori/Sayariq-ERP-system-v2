@@ -95,7 +95,7 @@ export async function createPersonaAction(formData: FormData) {
     .single();
 
   if (error || !created) {
-    redirectWithMessage("error", error?.message ?? "No se pudo crear la persona.");
+    return redirectWithMessage("error", error?.message ?? "No se pudo crear la persona.");
   }
 
   const rolesPayload = roles.map((rol) => ({ persona_id: created.id, rol }));

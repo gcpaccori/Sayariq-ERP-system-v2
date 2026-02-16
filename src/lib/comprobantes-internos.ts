@@ -4,7 +4,7 @@ export type TipoComprobanteInterno = "adelanto" | "venta" | "liquidacion";
 
 type CreateComprobanteInternoInput = {
   tipo: TipoComprobanteInterno;
-  entidadOrigen: "adelantos" | "liquidaciones";
+  entidadOrigen: "adelantos" | "liquidaciones" | "pagos_liquidacion";
   entidadOrigenId: number;
   personaPrincipalId: number;
   productorId?: number | null;
