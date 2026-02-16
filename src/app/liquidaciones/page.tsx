@@ -9,6 +9,7 @@ import {
   registrarPagoParcialAction,
 } from "./actions";
 import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
+import { PagoLiquidacionForm } from "@/components/pago-liquidacion-form";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type SearchParams = {
@@ -1178,61 +1179,14 @@ export default async function LiquidacionesPage({
 
       <section className="mb-6 rounded border p-4">
         <h2 className="mb-3 text-lg font-semibold">Registrar pago/cobro parcial</h2>
-        <form action={registrarPagoParcialAction} className="grid gap-3 sm:grid-cols-4">
-          <label className="grid gap-1">
-            <span className="text-sm">Liquidación *</span>
-            <select name="liquidacion_id" defaultValue="" className="rounded border px-2 py-1" required>
-              <option value="" disabled>
-                Seleccionar liquidación
-              </option>
-              {liquidaciones
-                .filter((row) => row.estado === "confirmada" && row.estado_pago !== "pagado" && row.estado_pago !== "cobrado")
-                .map((row) => (
-                  <option key={row.id} value={String(row.id)}>
-                    {row.numero_liquidacion} ({row.tipo})
-                  </option>
-                ))}
-            </select>
-          </label>
-
-          <label className="grid gap-1">
-            <span className="text-sm">Monto *</span>
-            <input name="monto_pagado" type="number" min="0" step="0.01" className="rounded border px-2 py-1" required />
-          </label>
-
-          <label className="grid gap-1">
-            <span className="text-sm">Fecha *</span>
-            <input
-              name="fecha_pago"
-              type="date"
-              defaultValue={new Date().toISOString().slice(0, 10)}
-              className="rounded border px-2 py-1"
-              required
-            />
-          </label>
-
-          <label className="grid gap-1">
-            <span className="text-sm">Forma pago</span>
-            <select name="forma_pago" defaultValue="" className="rounded border px-2 py-1">
-              <option value="">(sin definir)</option>
-              <option value="efectivo">efectivo</option>
-              <option value="transferencia">transferencia</option>
-              <option value="cheque">cheque</option>
-              <option value="mixto">mixto</option>
-            </select>
-          </label>
-
-          <label className="grid gap-1 sm:col-span-4">
-            <span className="text-sm">Observaciones</span>
-            <input name="observaciones" className="rounded border px-2 py-1" />
-          </label>
-
-          <div className="sm:col-span-4">
-            <button type="submit" className="rounded border px-3 py-1 font-medium">
-              Registrar pago/cobro parcial
-            </button>
-          </div>
-        </form>
+        <PagoLiquidacionForm
+          liquidaciones={liquidaciones}
+          pagosLiquidacion={pagos}
+          adelantosProductor={adelantos}
+          personaMap={personaMap}
+          loteMap={loteMap}
+          pedidoMap={pedidoMap}
+        />
       </section>
 
       <section className="mb-6 rounded border p-4">
