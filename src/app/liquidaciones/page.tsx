@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import LiquidacionesShell from "@/components/liquidaciones-shell";
 
 import {
   createAdelantoAction,
@@ -675,7 +676,7 @@ export default async function LiquidacionesPage({
         <p className="mb-4 rounded border border-red-600 p-2 text-sm">{search.error}</p>
       ) : null}
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-5">
+      <section id="tab-resumen" className="mb-6 grid gap-3 sm:grid-cols-5">
         <div className="rounded border p-3">
           <p className="text-sm">Total liquidaciones</p>
           <p className="text-2xl font-bold">{totalLiquidaciones}</p>
@@ -698,7 +699,7 @@ export default async function LiquidacionesPage({
         </div>
       </section>
 
-      <section className="mb-6 rounded border p-4">
+      <section id="tab-operaciones" className="mb-6 rounded border p-4" style={{display: 'none'}}>
         <h2 className="mb-3 text-lg font-semibold">Registrar adelanto</h2>
         <p className="mb-3 text-sm">
           Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor.
@@ -742,22 +743,23 @@ export default async function LiquidacionesPage({
               type="date"
               defaultValue={new Date().toISOString().slice(0, 10)}
               className="rounded border px-2 py-1"
-              required
-            />
-          </label>
+              return (
+                <main className="mx-auto w-full max-w-7xl p-6">
+                  <LiquidacionesShell
+                    initialTab="resumen"
+                    kpis={{
+                      totalLiquidaciones,
+                      productoresPendientes: productorPendientes.length,
+                      totalPorPagar: totalPorPagarProductor,
+                      totalPagos: totalPagosRegistrados,
+                    }}
+                  />
 
-          <label className="grid gap-1 sm:col-span-2">
-            <span className="text-sm">Motivo</span>
-            <input name="motivo" className="rounded border px-2 py-1" />
-          </label>
-
-          <div className="sm:col-span-3">
-            <ComprobanteInternoFields />
-          </div>
-
-          <label className="grid gap-1 sm:col-span-3 sm:max-w-md">
-            <span className="text-sm">Foto evidencia de entrega (opcional)</span>
-            <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
+                  <div className="mb-4">
+                    <Link href="/" className="text-sm underline">
+                      Volver al inicio
+                    </Link>
+                  </div>
             <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
           </label>
 
@@ -769,7 +771,7 @@ export default async function LiquidacionesPage({
         </form>
       </section>
 
-      <section className="mb-6 rounded border p-4">
+      <section id="tab-liquidar" className="mb-6 rounded border p-4" style={{display: 'none'}}>
         <h2 className="mb-3 text-lg font-semibold">Liquidación de productor</h2>
         <p className="mb-3 text-sm">
           Selecciona un lote para liquidar solo lo vendido pendiente (el lote puede partirse y liquidarse varias veces).
@@ -989,7 +991,9 @@ export default async function LiquidacionesPage({
         ) : null}
       </section>
 
-      <section className="mb-6 rounded border p-4">
+      <section id="tab-control" className="mb-6 rounded border p-4" style={{display: 'none'}}>
+        <h2 className="mb-2 text-lg font-semibold">Control</h2>
+        <p className="mb-3 text-sm">Tablas completas con filtros, paginación y export (visual básico).</p>
         <h2 className="mb-3 text-lg font-semibold">Liquidación de cliente</h2>
         <p className="mb-3 text-sm">
           Selecciona un pedido para liquidar su saldo pendiente (si fue partido, se liquida por cortes).
