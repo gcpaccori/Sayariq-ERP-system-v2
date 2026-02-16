@@ -606,7 +606,16 @@ export default async function LiquidacionesPage({
 
   return (
     <main className="mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between">
+        <LiquidacionesShell
+          initialTab="operaciones"
+          kpis={{
+            totalLiquidaciones,
+            productoresPendientes: productorPendientes.length,
+            totalPorPagar: totalPorPagarProductor,
+            totalPagos: totalPagosRegistrados,
+          }}
+        />
+        <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Módulo 5: Liquidaciones y Adelantos</h1>
         <Link href="/" className="text-sm underline">
           Volver al inicio
