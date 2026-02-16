@@ -739,28 +739,12 @@ export default async function LiquidacionesPage({
 
           <label className="grid gap-1">
             <span className="text-sm">Fecha *</span>
-            <input
-              name="fecha"
-              type="date"
-              defaultValue={new Date().toISOString().slice(0, 10)}
-              className="rounded border px-2 py-1"
-              return (
-                <main className="mx-auto w-full max-w-7xl p-6">
-                  <LiquidacionesShell
-                    initialTab="resumen"
-                    kpis={{
-                      totalLiquidaciones,
-                      productoresPendientes: productorPendientes.length,
-                      totalPorPagar: totalPorPagarProductor,
-                      totalPagos: totalPagosRegistrados,
-                    }}
-                  />
-
-                  <div className="mb-4">
-                    <Link href="/" className="text-sm underline">
-                      Volver al inicio
-                    </Link>
-                  </div>
+              <input
+                name="fecha"
+                type="date"
+                defaultValue={new Date().toISOString().slice(0, 10)}
+                className="rounded border px-2 py-1"
+              />
             <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
           </label>
 
