@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    serverActions: false,
+    // serverActions: { ... }  <-- BORRAR esta sección completa
   },
 };
 
