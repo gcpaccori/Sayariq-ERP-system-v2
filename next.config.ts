@@ -1,9 +1,5 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  experimental: {
-    // serverActions: { ... }  <-- BORRAR esta sección completa
-  },
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
