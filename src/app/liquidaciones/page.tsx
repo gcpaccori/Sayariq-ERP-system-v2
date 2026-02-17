@@ -1,3 +1,4 @@
+// M5-PR-SYNC: cambio de traza para consolidar PR del módulo 5
 import Image from "next/image";
 import Link from "next/link";
 import LiquidacionesShell from "@/components/liquidaciones-shell";

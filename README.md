@@ -66,3 +66,15 @@ Cuando me pases tu MySQL, armamos este flujo por módulo:
 3. Validar conteos, llaves foráneas y consistencia.
 4. Encender módulo funcional en la app (UI + queries + reglas).
 5. Repetir módulo por módulo hasta cubrir todo el ERP.
+
+## Deploy rápido a Vercel (Git)
+
+Si ya tienes el proyecto conectado a GitHub, estos son los comandos mínimos para publicar cambios:
+
+```bash
+git add -A
+git commit -m "chore: checkpoint"
+git push origin main
+```
+
+Si trabajas en otra rama, primero haz merge a `main` y luego push.
