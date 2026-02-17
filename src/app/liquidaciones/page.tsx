@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import LiquidacionesShell from "@/components/liquidaciones-shell";
+import LiquidacionesResumenTable from "@/components/liquidaciones-resumen-wrapper";
 
 import {
   createAdelantoAction,
@@ -528,18 +529,18 @@ export default async function LiquidacionesPage({
 
   const [fotosAdelantosRes, fotosLiquidacionesRes] = await Promise.all([
     adelantoIds.length > 0
-      ? supabase
+        ? supabase
           .from("evidencias_fotos")
-          .select("entidad_id,ruta_thumb,created_at")
+          .select("entidad_id,ruta_thumb,ruta_imagen,created_at")
           .eq("contexto", "adelanto")
           .eq("entidad_origen", "adelantos")
           .in("entidad_id", adelantoIds)
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     liquidacionIds.length > 0
-      ? supabase
+        ? supabase
           .from("evidencias_fotos")
-          .select("entidad_id,ruta_thumb,created_at")
+          .select("entidad_id,ruta_thumb,ruta_imagen,created_at")
           .eq("contexto", "liquidacion")
           .eq("entidad_origen", "liquidaciones")
           .in("entidad_id", liquidacionIds)
@@ -559,7 +560,7 @@ export default async function LiquidacionesPage({
   for (const row of fotosAdelantosRes.data ?? []) {
     const entityId = Number(row.entidad_id);
     if (!fotoAdelantoMap.has(entityId) && row.ruta_thumb) {
-      fotoAdelantoMap.set(entityId, String(row.ruta_thumb));
+      fotoAdelantoMap.set(entityId, { thumb: String(row.ruta_thumb), image: row.ruta_imagen ? String(row.ruta_imagen) : null } as any);
     }
   }
 
@@ -567,8 +568,34 @@ export default async function LiquidacionesPage({
   for (const row of fotosLiquidacionesRes.data ?? []) {
     const entityId = Number(row.entidad_id);
     if (!fotoLiquidacionMap.has(entityId) && row.ruta_thumb) {
-      fotoLiquidacionMap.set(entityId, String(row.ruta_thumb));
+      fotoLiquidacionMap.set(entityId, { thumb: String(row.ruta_thumb), image: row.ruta_imagen ? String(row.ruta_imagen) : null } as any);
     }
+  }
+
+  function getFotoThumb(map: Map<number, any>, id: number) {
+    const v = map.get(id);
+    if (!v) return null;
+    if (typeof v === "string") {
+      const s = String(v).trim();
+      return s === "" ? null : s;
+    }
+    const thumb = v?.thumb ?? null;
+    const image = v?.image ?? null;
+    if (thumb && String(thumb).trim() !== "") return String(thumb);
+    if (image && String(image).trim() !== "") return String(image);
+    return null;
+  }
+
+  function getFotoObject(map: Map<number, any>, id: number) {
+    const v = map.get(id);
+    if (!v) return null;
+    if (typeof v === "string") {
+      const s = String(v).trim();
+      return s === "" ? null : { thumb: s, image: s };
+    }
+    const thumb = v?.thumb ? String(v.thumb) : null;
+    const image = v?.image ? String(v.image) : (thumb ?? null);
+    return { thumb, image };
   }
 
   const personaMap = new Map([...productores, ...clientes].map((row) => [row.id, row.nombre_completo]));
@@ -633,165 +660,113 @@ export default async function LiquidacionesPage({
         <p className="mb-4 rounded border border-red-600 p-2 text-sm">{search.error}</p>
       ) : null}
 
-      <section id="tab-resumen" className="mb-6 grid gap-3 sm:grid-cols-5">
-        <div className="rounded border p-3">
-          <p className="text-sm">Total liquidaciones</p>
-          <p className="text-2xl font-bold">{totalLiquidaciones}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Prod. pendientes pago</p>
-          <p className="text-2xl font-bold">{productorPendientes.length}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Prod. total por pagar</p>
-          <p className="text-2xl font-bold">{totalPorPagarProductor}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Cli. pendientes cobro</p>
-          <p className="text-2xl font-bold">{clientePendientes.length}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Cli. total por cobrar</p>
-          <p className="text-2xl font-bold">{totalPorCobrarCliente}</p>
-        </div>
+      <section id="tab-resumen" className="mb-6">
         <div className="sm:col-span-5 mt-4">
-          <p className="mb-2 text-xs">Qué muestra esta tabla: consolidado de liquidaciones emitidas con estado financiero y de pago.</p>
-          <div className="overflow-x-auto rounded border">
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Foto</th>
-                  <th className="p-2">Nro. liquidación</th>
-                  <th className="p-2">Comprobante</th>
-                  <th className="p-2">Comp. interno</th>
-                  <th className="p-2">Tipo</th>
-                  <th className="p-2">Persona</th>
-                  <th className="p-2">Lote/Pedido</th>
-                  <th className="p-2">Fecha</th>
-                  <th className="p-2">Total bruto</th>
-                  <th className="p-2">Descuentos</th>
-                  <th className="p-2">Adelantos</th>
-                  <th className="p-2">Total a pagar</th>
-                  <th className="p-2">Estado</th>
-                  <th className="p-2">Estado pago</th>
-                  <th className="p-2">Monto pagado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {liquidaciones.length === 0 ? (
-                  <tr>
-                    <td colSpan={15} className="p-3 text-center">Sin liquidaciones.</td>
-                  </tr>
-                ) : null}
-
-                {liquidaciones.map((row) => (
-                  <tr key={row.id} className="border-b">
-                    <td className="p-2">
-                      {fotoLiquidacionMap.get(Number(row.id)) ? (
-                        <Image src={fotoLiquidacionMap.get(Number(row.id)) ?? ""} alt={`Liquidación ${row.numero_liquidacion}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
-                      ) : (
-                        <span className="text-xs text-gray-500">-</span>
-                      )}
-                    </td>
-                    <td className="p-2">{row.numero_liquidacion}</td>
-                    <td className="p-2">{row.numero_comprobante ?? "-"}</td>
-                    <td className="p-2">{compLiquidacionMap.get(Number(row.id)) ?? "-"}</td>
-                    <td className="p-2">{row.tipo}</td>
-                    <td className="p-2">{personaMap.get(row.persona_id) ?? row.persona_id}</td>
-                    <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : row.pedido_id ? pedidoMap.get(row.pedido_id) ?? row.pedido_id : "-"}</td>
-                    <td className="p-2">{row.fecha_liquidacion}</td>
-                    <td className="p-2">{row.total_bruto}</td>
-                    <td className="p-2">{row.total_descuentos}</td>
-                    <td className="p-2">{row.total_adelantos}</td>
-                    <td className="p-2">{row.total_a_pagar}</td>
-                    <td className="p-2">{row.estado}</td>
-                    <td className="p-2">{row.estado_pago}</td>
-                    <td className="p-2">{row.monto_pagado}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <LiquidacionesResumenTable
+            liquidaciones={liquidaciones}
+            fotoMap={Object.fromEntries([...fotoLiquidacionMap])}
+            personaMap={Object.fromEntries([...personaMap])}
+            compLiquidacionMap={Object.fromEntries([...compLiquidacionMap])}
+            loteMap={Object.fromEntries([...loteMap])}
+            pedidoMap={Object.fromEntries([...pedidoMap])}
+          />
         </div>
       </section>
 
-      <section id="tab-operaciones" className="mb-6 rounded border p-4" style={{display: 'none'}}>
-        <h2 className="mb-3 text-lg font-semibold">Registrar adelanto</h2>
-        <p className="mb-3 text-sm">
-          Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor.
-        </p>
-        <form action={createAdelantoAction} className="grid gap-3 sm:grid-cols-3">
-          <label className="grid gap-1">
-            <span className="text-sm">Productor *</span>
-            <select name="productor_id" defaultValue="" className="rounded border px-2 py-1" required>
-              <option value="" disabled>
-                Seleccionar productor
-              </option>
-              {productores.map((row) => (
-                <option key={row.id} value={String(row.id)}>
-                  {row.nombre_completo}
-                </option>
-              ))}
-            </select>
-          </label>
+      <section id="tab-operaciones" className="mb-6" style={{ display: 'none' }}>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Adelanto card */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold">Registrar adelanto</h2>
+              <p className="mt-1 text-sm text-gray-600">Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor.</p>
+            </div>
 
-          <label className="grid gap-1">
-            <span className="text-sm">Lote (opcional)</span>
-            <select name="lote_id" defaultValue="" className="rounded border px-2 py-1">
-              <option value="">Sin lote específico</option>
-              {lotesLiquidables.map((row) => (
-                <option key={row.id} value={String(row.id)}>
-                  {row.numero_lote}
-                </option>
-              ))}
-            </select>
-          </label>
+            <form action={createAdelantoAction} className="grid gap-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1">
+                  <span className="text-sm">Productor *</span>
+                  <select name="productor_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" required>
+                    <option value="" disabled>
+                      Seleccionar productor
+                    </option>
+                    {productores.map((row) => (
+                      <option key={row.id} value={String(row.id)}>
+                        {row.nombre_completo}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-          <label className="grid gap-1">
-            <span className="text-sm">Monto *</span>
-            <input name="monto" type="number" min="0" step="0.01" className="rounded border px-2 py-1" required />
-          </label>
+                <label className="grid gap-1">
+                  <span className="text-sm">Lote (opcional)</span>
+                  <select name="lote_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                    <option value="">Sin lote específico</option>
+                    {lotesLiquidables.map((row) => (
+                      <option key={row.id} value={String(row.id)}>
+                        {row.numero_lote}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
-          <label className="grid gap-1">
-            <span className="text-sm">Fecha *</span>
-            <input
-              name="fecha"
-              type="date"
-              defaultValue={new Date().toISOString().slice(0, 10)}
-                className="rounded border px-2 py-1"
-              />
-            <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
-          </label>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="grid gap-1">
+                  <span className="text-sm">Monto *</span>
+                  <input name="monto" type="number" min="0" step="0.01" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" required />
+                </label>
 
-          <label className="grid gap-1 sm:col-span-3">
-            <span className="text-sm">Motivo (observaciones)</span>
-            <textarea name="motivo" className="rounded border px-2 py-1" placeholder="Motivo del adelanto (opcional)" />
-          </label>
+                <label className="grid gap-1">
+                  <span className="text-sm">Fecha *</span>
+                  <input
+                    name="fecha"
+                    type="date"
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </label>
 
-          <ComprobanteInternoFields />
+                <label className="grid gap-1">
+                  <span className="text-sm">&nbsp;</span>
+                  <div className="text-xs text-gray-500 mt-2">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</div>
+                </label>
+              </div>
 
-          <label className="grid gap-1 sm:col-span-3">
-            <span className="text-sm">Foto evidencia (opcional)</span>
-            <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
-            <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
-          </label>
+              <label className="grid gap-1">
+                <span className="text-sm">Motivo (observaciones)</span>
+                <textarea name="motivo" className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[80px]" placeholder="Motivo del adelanto (opcional)" />
+              </label>
 
-          <div className="sm:col-span-3">
-            <button type="submit" className="rounded border px-3 py-1 font-medium">
-              Registrar adelanto
-            </button>
+              <div className="mt-2">
+                <ComprobanteInternoFields />
+              </div>
+
+              <label className="grid gap-1">
+                <span className="text-sm">Foto evidencia (opcional)</span>
+                <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <span className="text-xs text-gray-500">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
+              </label>
+
+              <div className="mt-3 flex justify-end">
+                <button type="submit" className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC]">
+                  Registrar adelanto
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
 
-        <div style={{ marginTop: '18px' }}>
-          <PagoLiquidacionForm
-            liquidaciones={liquidaciones}
-            pagosLiquidacion={pagos}
-            adelantosProductor={adelantos}
-            personaMap={personaMap}
-            loteMap={loteMap}
-            pedidoMap={pedidoMap}
-          />
+          {/* Pago de liquidación card */}
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <PagoLiquidacionForm
+              liquidaciones={liquidaciones}
+              pagosLiquidacion={pagos}
+              adelantosProductor={adelantos}
+              personaMap={personaMap}
+              loteMap={loteMap}
+              pedidoMap={pedidoMap}
+            />
+          </div>
         </div>
       </section>
 
@@ -1103,11 +1078,21 @@ export default async function LiquidacionesPage({
                 {adelantos.map((row) => (
                   <tr key={row.id} className="border-b">
                     <td className="p-2">
-                      {fotoAdelantoMap.get(Number(row.id)) ? (
-                        <Image src={fotoAdelantoMap.get(Number(row.id)) ?? ""} alt={`Adelanto ${row.id}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
-                      ) : (
-                        <span className="text-xs text-gray-500">-</span>
-                      )}
+                      {(() => {
+                        const fo = getFotoObject(fotoAdelantoMap, Number(row.id));
+                        if (!fo) return <span className="text-xs text-gray-500">-</span>;
+                        const thumb = fo.thumb;
+                        const image = fo.image;
+                        return image ? (
+                          <a href={image} target="_blank" rel="noopener noreferrer" title="Ver imagen">
+                            <Image src={thumb ?? image} alt={`Adelanto ${row.id}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
+                          </a>
+                        ) : thumb ? (
+                          <Image src={thumb} alt={`Adelanto ${row.id}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
+                        ) : (
+                          <span className="text-xs text-gray-500">-</span>
+                        );
+                      })()}
                     </td>
                     <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
                     <td className="p-2">{row.numero_comprobante ?? "-"}</td>

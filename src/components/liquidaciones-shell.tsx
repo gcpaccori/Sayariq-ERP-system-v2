@@ -46,13 +46,24 @@ export default function LiquidacionesShell({
             ))}
           </nav>
         </div>
-        <div className="mt-4 flex flex-wrap gap-3 items-center">
-          {/* KPI chips */}
-          <div className="flex items-center gap-3">
-            <div className="px-3 py-1 rounded-full border bg-blue-50 text-sm text-[#1A73E8] font-semibold">Total Lq: <strong>{kpis.totalLiquidaciones ?? "-"}</strong></div>
-            <div className="px-3 py-1 rounded-full border bg-green-50 text-sm text-green-700 font-semibold">Prod. pendientes: <strong>{kpis.productoresPendientes ?? "-"}</strong></div>
-            <div className="px-3 py-1 rounded-full border bg-yellow-50 text-sm text-yellow-700 font-semibold">Total por pagar: <strong>{kpis.totalPorPagar ?? "-"}</strong></div>
-            <div className="px-3 py-1 rounded-full border bg-purple-50 text-sm text-purple-700 font-semibold">Pagos reg.: <strong>{kpis.totalPagos ?? "-"}</strong></div>
+        <div className="mt-4">
+          <div className="mb-4 grid gap-4 sm:grid-cols-4">
+            {[
+              { label: "Total liquidaciones", value: kpis.totalLiquidaciones ?? "-", color: "from-blue-50 to-blue-50", textColor: "text-[#1A73E8]", icon: "📋" },
+              { label: "Prod. pendientes", value: kpis.productoresPendientes ?? "-", color: "from-yellow-50 to-yellow-50", textColor: "text-yellow-700", icon: "🟡" },
+              { label: "Total por pagar", value: kpis.totalPorPagar ?? "-", color: "from-green-50 to-green-50", textColor: "text-green-700", icon: "✅" },
+              { label: "Pagos registrados", value: kpis.totalPagos ?? "-", color: "from-purple-50 to-purple-50", textColor: "text-purple-700", icon: "🏦" },
+            ].map((card) => (
+              <div key={card.label} className={`rounded-xl border border-gray-200 bg-gradient-to-br ${card.color} p-4 shadow-sm transition duration-300 hover:shadow-md hover:border-gray-300`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">{card.label}</p>
+                    <p className={`mt-2 text-3xl font-bold ${card.textColor}`}>{card.value}</p>
+                  </div>
+                  <div className="text-4xl opacity-30">{card.icon}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </header>

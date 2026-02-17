@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -225,14 +226,22 @@ export default function PersonasModuleUI({
                 Padrón maestro: productores, clientes y operación interna
               </p>
             </div>
-            <button
-              type="button"
-              onClick={openCreateModal}
-              className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md active:shadow-none"
-            >
-              <Plus size={18} className="flex-shrink-0" />
-              <span>Registrar Persona</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md active:shadow-none"
+              >
+                <Plus size={18} className="flex-shrink-0" />
+                <span>Registrar Persona</span>
+              </button>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+              >
+                ← Inicio
+              </Link>
+            </div>
           </div>
 
           {/* Resumen Cards - Mejorado */}

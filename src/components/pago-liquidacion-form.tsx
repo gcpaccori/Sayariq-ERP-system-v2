@@ -2,7 +2,6 @@
 
 import { createPagoLiquidacionAction } from '@/app/liquidaciones/actions';
 import { useRef } from 'react';
-import ComprobanteInternoFields from './comprobante-interno-fields';
 
 interface Liquidacion {
   id: number;
@@ -205,21 +204,20 @@ export function PagoLiquidacionForm({
   };
 
   return (
-    <section className="mb-6 rounded border p-4">
+    <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <h2 className="mb-3 text-lg font-semibold">Registrar pago de liquidación</h2>
-      <p className="mb-3 text-xs">
+      <p className="mb-3 text-xs text-gray-600">
         Selecciona una liquidación para ver su detalle, historial de pagos y adelantos del productor.
       </p>
 
-      <form ref={formRef} action={createPagoLiquidacionAction} className="grid gap-3">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '12px' }}>
-          {/* Seleccionar liquidación */}
-          <label style={{ display: 'grid', gap: '4px' }}>
-            <span style={{ fontSize: '13px', fontWeight: '600' }}>Liquidación *</span>
+      <form ref={formRef} action={createPagoLiquidacionAction} className="grid gap-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="grid gap-1">
+            <span className="text-sm font-semibold">Liquidación *</span>
             <select
               name="liquidacion_id"
               defaultValue=""
-              style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
               required
               onChange={handleLiquidacionChange}
             >
@@ -242,39 +240,36 @@ export function PagoLiquidacionForm({
             </select>
           </label>
 
-          {/* Monto */}
-          <label style={{ display: 'grid', gap: '4px' }}>
-            <span style={{ fontSize: '13px', fontWeight: '600' }}>Monto a pagar *</span>
+          <label className="grid gap-1">
+            <span className="text-sm font-semibold">Monto a pagar *</span>
             <input
               name="monto_pago"
               type="number"
               min="0"
               step="0.01"
-              style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
               required
               placeholder="0.00"
             />
           </label>
 
-          {/* Fecha */}
-          <label style={{ display: 'grid', gap: '4px' }}>
-            <span style={{ fontSize: '13px', fontWeight: '600' }}>Fecha *</span>
+          <label className="grid gap-1">
+            <span className="text-sm font-semibold">Fecha *</span>
             <input
               name="fecha_pago"
               type="date"
               defaultValue={new Date().toISOString().slice(0, 10)}
-              style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
               required
             />
           </label>
 
-          {/* Forma pago */}
-          <label style={{ display: 'grid', gap: '4px' }}>
-            <span style={{ fontSize: '13px', fontWeight: '600' }}>Forma de pago</span>
+          <label className="grid gap-1">
+            <span className="text-sm font-semibold">Forma de pago</span>
             <select
               name="forma_pago"
               defaultValue=""
-              style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
             >
               <option value="">(sin definir)</option>
               <option value="efectivo">efectivo</option>
@@ -284,68 +279,94 @@ export function PagoLiquidacionForm({
             </select>
           </label>
 
-          {/* Numero comprobante */}
-          <label style={{ display: 'grid', gap: '4px' }}>
-            <span style={{ fontSize: '13px', fontWeight: '600' }}>N° comprobante</span>
+          <label className="grid gap-1">
+            <span className="text-sm font-semibold">N° comprobante</span>
             <input
               name="numero_comprobante"
-              style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
               placeholder="Ref. bancaria o interno"
             />
           </label>
         </div>
 
         {/* Detalle de liquidación seleccionada */}
-        <div id="liq-detalle" style={{ display: 'none' }}></div>
+        <div id="liq-detalle" className="hidden"></div>
 
         {/* Historial de pagos del lote */}
-        <div id="liq-pagos-historial" style={{ display: 'none', marginTop: '16px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-            Historial de pagos de este lote
-          </h3>
-          <div
-            id="liq-pagos-tabla"
-            style={{ overflowX: 'auto', border: '1px solid #ddd', borderRadius: '4px' }}
-          ></div>
+        <div id="liq-pagos-historial" className="hidden mt-4">
+          <h3 className="text-sm font-semibold mb-2">Historial de pagos de este lote</h3>
+          <div id="liq-pagos-tabla" className="overflow-x-auto border border-gray-100 rounded-md"></div>
         </div>
 
         {/* Adelantos pendientes del productor */}
-        <div id="liq-adelantos" style={{ display: 'none', marginTop: '16px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-            Adelantos pendientes del productor
-          </h3>
-          <div
-            id="liq-adelantos-tabla"
-            style={{ overflowX: 'auto', border: '1px solid #ddd', borderRadius: '4px' }}
-          ></div>
+        <div id="liq-adelantos" className="hidden mt-4">
+          <h3 className="text-sm font-semibold mb-2">Adelantos pendientes del productor</h3>
+          <div id="liq-adelantos-tabla" className="overflow-x-auto border border-gray-100 rounded-md"></div>
         </div>
 
         {/* Observaciones */}
-        <label style={{ display: 'grid', gap: '4px' }}>
-          <span style={{ fontSize: '13px', fontWeight: '600' }}>Observaciones y decisiones</span>
+        <label className="grid gap-1">
+          <span className="text-sm font-semibold">Observaciones y decisiones</span>
           <textarea
             name="observaciones"
-            style={{
-              padding: '8px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              minHeight: '60px',
-              fontFamily: 'monospace',
-              fontSize: '12px',
-            }}
+            className="rounded-lg border border-gray-300 px-3 py-2 min-h-[80px] text-sm"
             placeholder="Ej: Este pago cubre el adelanto de enero, el resto sigue en deuda..."
           />
         </label>
 
-        <ComprobanteInternoFields />
+        {/* Datos del comprobante interno (opcional) */}
+        <fieldset className="border border-gray-100 p-3 rounded-md mt-3">
+          <legend className="px-1 text-sm font-semibold">Datos del comprobante interno (opcional)</legend>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mt-2 text-sm">
+            <label className="grid gap-1">
+              <span className="text-xs">Receptor (nombre)</span>
+              <input name="receptor_nombre" className="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="Ej: Juan Pérez" />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs">Documento</span>
+              <input name="receptor_documento" className="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="DNI o RUC" />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs">Rol del receptor</span>
+              <input name="receptor_rol" className="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="productor, cliente, etc" />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs">Lugar de entrega</span>
+              <input name="lugar_recepcion" className="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="Oficina, campo, etc" />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs">Hora del evento</span>
+              <input name="hora_evento" type="time" className="rounded border border-gray-300 px-3 py-2 text-sm" />
+            </label>
 
-        <div style={{ marginTop: '16px' }}>
-          <button
-            type="submit"
-            className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md active:shadow-none"
-          >
-            Registrar pago
-          </button>
+            {/* Botón para obtener GPS automáticamente */}
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => obtenerGeolocation()}
+                className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700"
+              >
+                📍 Obtener GPS actual
+              </button>
+            </div>
+
+            <label className="grid gap-1">
+              <span className="text-xs">GPS Latitud</span>
+              <input name="gps_lat" type="number" step="0.000001" className="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="-12.0462" readOnly />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs">GPS Longitud</span>
+              <input name="gps_lng" type="number" step="0.000001" className="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="-77.0372" readOnly />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs">Precisión GPS (metros)</span>
+              <input name="gps_precision_m" type="number" step="0.01" className="rounded border border-gray-300 px-3 py-2 text-sm" placeholder="5" readOnly />
+            </label>
+          </div>
+        </fieldset>
+
+        <div className="mt-3">
+          <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1765CC]">Registrar pago</button>
         </div>
       </form>
     </section>
