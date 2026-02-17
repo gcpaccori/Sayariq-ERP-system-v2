@@ -1,3 +1,4 @@
+// M5-PR-SYNC: cambio de traza para consolidar PR del módulo 5
 "use server";
 
 import { revalidatePath } from "next/cache";
