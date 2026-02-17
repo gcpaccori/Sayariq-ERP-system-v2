@@ -101,13 +101,15 @@ export function PagoLiquidacionForm({
     if (!liq) return;
 
     if (formRef.current) {
-      const inputs = formRef.current.querySelectorAll('input:not([name="liquidacion_id"]):not([name="fecha_pago"]), textarea');
+      const inputs = formRef.current.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
+        'input:not([name="liquidacion_id"]):not([name="fecha_pago"]), textarea'
+      );
       inputs.forEach((input) => {
         if (input.type === 'number' || input.type === 'text' || input.tagName === 'TEXTAREA') {
           input.value = '';
         }
       });
-      const selects = formRef.current.querySelectorAll('select:not([name="liquidacion_id"])');
+      const selects = formRef.current.querySelectorAll<HTMLSelectElement>('select:not([name="liquidacion_id"])');
       selects.forEach((select) => {
         select.value = '';
       });
