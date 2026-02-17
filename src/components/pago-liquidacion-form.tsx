@@ -2,6 +2,7 @@
 
 import { createPagoLiquidacionAction } from '@/app/liquidaciones/actions';
 import { useRef } from 'react';
+import ComprobanteInternoFields from './comprobante-interno-fields';
 
 interface Liquidacion {
   id: number;
@@ -336,130 +337,12 @@ export function PagoLiquidacionForm({
           />
         </label>
 
-        {/* Datos del comprobante interno (opcional) */}
-        <fieldset style={{ border: '1px solid #ddd', padding: '12px', borderRadius: '4px', marginTop: '12px' }}>
-          <legend style={{ fontSize: '12px', fontWeight: '600', padding: '0 4px' }}>
-            Datos del comprobante interno (opcional)
-          </legend>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '12px',
-              marginTop: '8px',
-              fontSize: '13px',
-            }}
-          >
-            <label style={{ display: 'grid', gap: '4px' }}>
-              <span>Receptor (nombre)</span>
-              <input
-                name="receptor_nombre"
-                style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '3px' }}
-                placeholder="Ej: Juan Pérez"
-              />
-            </label>
-            <label style={{ display: 'grid', gap: '4px' }}>
-              <span>Documento</span>
-              <input
-                name="receptor_documento"
-                style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '3px' }}
-                placeholder="DNI o RUC"
-              />
-            </label>
-            <label style={{ display: 'grid', gap: '4px' }}>
-              <span>Rol del receptor</span>
-              <input
-                name="receptor_rol"
-                style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '3px' }}
-                placeholder="productor, cliente, etc"
-              />
-            </label>
-            <label style={{ display: 'grid', gap: '4px' }}>
-              <span>Lugar de entrega</span>
-              <input
-                name="lugar_recepcion"
-                style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '3px' }}
-                placeholder="Oficina, campo, etc"
-              />
-            </label>
-            <label style={{ display: 'grid', gap: '4px' }}>
-              <span>Hora del evento</span>
-              <input
-                name="hora_evento"
-                type="time"
-                style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '3px' }}
-              />
-            </label>
-
-            {/* Botón para obtener GPS automáticamente */}
-            <button
-              type="button"
-              onClick={() => obtenerGeolocation()}
-              style={{
-                padding: '8px 12px',
-                backgroundColor: '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '3px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: '600',
-                alignSelf: 'flex-end',
-                marginTop: '8px',
-              }}
-            >
-              📍 Obtener GPS actual
-            </button>
-
-            <label style={{ display: 'grid', gap: '4px' }}>
-              <span>GPS Latitud</span>
-              <input
-                name="gps_lat"
-                type="number"
-                step="0.000001"
-                style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '3px' }}
-                placeholder="-12.0462"
-                readOnly
-              />
-            </label>
-            <label style={{ display: 'grid', gap: '4px' }}>
-              <span>GPS Longitud</span>
-              <input
-                name="gps_lng"
-                type="number"
-                step="0.000001"
-                style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '3px' }}
-                placeholder="-77.0372"
-                readOnly
-              />
-            </label>
-            <label style={{ display: 'grid', gap: '4px' }}>
-              <span>Precisión GPS (metros)</span>
-              <input
-                name="gps_precision_m"
-                type="number"
-                step="0.01"
-                style={{ padding: '6px', border: '1px solid #ccc', borderRadius: '3px' }}
-                placeholder="5"
-                readOnly
-              />
-            </label>
-          </div>
-        </fieldset>
+        <ComprobanteInternoFields />
 
         <div style={{ marginTop: '16px' }}>
           <button
             type="submit"
-            style={{
-              padding: '10px 16px',
-              backgroundColor: '#1976d2',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '600',
-            }}
+            className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md active:shadow-none"
           >
             Registrar pago
           </button>
