@@ -606,70 +606,17 @@ export default async function LiquidacionesPage({
 
   return (
     <main className="mx-auto w-full max-w-7xl p-6">
-        <LiquidacionesShell
-          initialTab="operaciones"
-          kpis={{
-            totalLiquidaciones,
-            productoresPendientes: productorPendientes.length,
-            totalPorPagar: totalPorPagarProductor,
-            totalPagos: totalPagosRegistrados,
-          }}
-        />
-        <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Módulo 5: Liquidaciones y Adelantos</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
-      </div>
+      <LiquidacionesShell
+        initialTab="resumen"
+        kpis={{
+          totalLiquidaciones,
+          productoresPendientes: productorPendientes.length,
+          totalPorPagar: totalPorPagarProductor,
+          totalPagos: totalPagosRegistrados,
+        }}
+      />
       
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-2 text-lg font-semibold">Resumen de pagos</h2>
-        <p className="mb-3 text-sm">
-          Pagos registrados: <strong>{pagos.length}</strong> | Total importe: <strong>S/ {totalPagosRegistrados}</strong>
-        </p>
-
-        <p className="text-xs">Qué muestra esta tabla: historial de pagos parciales por liquidación.</p>
-        <div className="overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Fecha</th>
-                <th className="p-2">Liquidación</th>
-                <th className="p-2">Comp. interno</th>
-                <th className="p-2">Persona</th>
-                <th className="p-2">Lote</th>
-                <th className="p-2">Monto</th>
-                <th className="p-2">Forma</th>
-                <th className="p-2">Nro. comp.</th>
-                <th className="p-2">Obs.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagos.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="p-3 text-center">
-                    Sin pagos registrados.
-                  </td>
-                </tr>
-              ) : null}
-
-              {pagos.map((row) => (
-                <tr key={row.id} className="border-b">
-                      <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
-                  <td className="p-2">{liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id}</td>
-                  <td className="p-2">{compLiquidacionMap.get(row.liquidacion_id) ?? "-"}</td>
-                  <td className="p-2">{personaMap.get(liquidacionPersonaMap.get(row.liquidacion_id) ?? 0) ?? "-"}</td>
-                  <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
-                  <td className="p-2">{row.monto}</td>
-                  <td className="p-2">{row.forma_pago ?? "-"}</td>
-                  <td className="p-2">{row.numero_comprobante ?? "-"}</td>
-                  <td className="p-2">{row.observaciones ?? "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      
 
       <section className="mb-4 rounded border p-4">
         <p className="text-sm">
@@ -707,6 +654,65 @@ export default async function LiquidacionesPage({
           <p className="text-sm">Cli. total por cobrar</p>
           <p className="text-2xl font-bold">{totalPorCobrarCliente}</p>
         </div>
+        <div className="sm:col-span-5 mt-4">
+          <p className="mb-2 text-xs">Qué muestra esta tabla: consolidado de liquidaciones emitidas con estado financiero y de pago.</p>
+          <div className="overflow-x-auto rounded border">
+            <table className="min-w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="p-2">Foto</th>
+                  <th className="p-2">Nro. liquidación</th>
+                  <th className="p-2">Comprobante</th>
+                  <th className="p-2">Comp. interno</th>
+                  <th className="p-2">Tipo</th>
+                  <th className="p-2">Persona</th>
+                  <th className="p-2">Lote/Pedido</th>
+                  <th className="p-2">Fecha</th>
+                  <th className="p-2">Total bruto</th>
+                  <th className="p-2">Descuentos</th>
+                  <th className="p-2">Adelantos</th>
+                  <th className="p-2">Total a pagar</th>
+                  <th className="p-2">Estado</th>
+                  <th className="p-2">Estado pago</th>
+                  <th className="p-2">Monto pagado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {liquidaciones.length === 0 ? (
+                  <tr>
+                    <td colSpan={15} className="p-3 text-center">Sin liquidaciones.</td>
+                  </tr>
+                ) : null}
+
+                {liquidaciones.map((row) => (
+                  <tr key={row.id} className="border-b">
+                    <td className="p-2">
+                      {fotoLiquidacionMap.get(Number(row.id)) ? (
+                        <Image src={fotoLiquidacionMap.get(Number(row.id)) ?? ""} alt={`Liquidación ${row.numero_liquidacion}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
+                      ) : (
+                        <span className="text-xs text-gray-500">-</span>
+                      )}
+                    </td>
+                    <td className="p-2">{row.numero_liquidacion}</td>
+                    <td className="p-2">{row.numero_comprobante ?? "-"}</td>
+                    <td className="p-2">{compLiquidacionMap.get(Number(row.id)) ?? "-"}</td>
+                    <td className="p-2">{row.tipo}</td>
+                    <td className="p-2">{personaMap.get(row.persona_id) ?? row.persona_id}</td>
+                    <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : row.pedido_id ? pedidoMap.get(row.pedido_id) ?? row.pedido_id : "-"}</td>
+                    <td className="p-2">{row.fecha_liquidacion}</td>
+                    <td className="p-2">{row.total_bruto}</td>
+                    <td className="p-2">{row.total_descuentos}</td>
+                    <td className="p-2">{row.total_adelantos}</td>
+                    <td className="p-2">{row.total_a_pagar}</td>
+                    <td className="p-2">{row.estado}</td>
+                    <td className="p-2">{row.estado_pago}</td>
+                    <td className="p-2">{row.monto_pagado}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <section id="tab-operaciones" className="mb-6 rounded border p-4" style={{display: 'none'}}>
@@ -714,70 +720,79 @@ export default async function LiquidacionesPage({
         <p className="mb-3 text-sm">
           Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor.
         </p>
-          <form action={createAdelantoAction} className="grid gap-3 sm:grid-cols-3">
-            <label className="grid gap-1">
-              <span className="text-sm">Productor *</span>
-              <select name="productor_id" defaultValue="" className="rounded border px-2 py-1" required>
-                <option value="" disabled>
-                  Seleccionar productor
+        <form action={createAdelantoAction} className="grid gap-3 sm:grid-cols-3">
+          <label className="grid gap-1">
+            <span className="text-sm">Productor *</span>
+            <select name="productor_id" defaultValue="" className="rounded border px-2 py-1" required>
+              <option value="" disabled>
+                Seleccionar productor
+              </option>
+              {productores.map((row) => (
+                <option key={row.id} value={String(row.id)}>
+                  {row.nombre_completo}
                 </option>
-                {productores.map((row) => (
-                  <option key={row.id} value={String(row.id)}>
-                    {row.nombre_completo}
-                  </option>
-                ))}
-              </select>
-            </label>
+              ))}
+            </select>
+          </label>
 
-            <label className="grid gap-1">
-              <span className="text-sm">Lote (opcional)</span>
-              <select name="lote_id" defaultValue="" className="rounded border px-2 py-1">
-                <option value="">Sin lote específico</option>
-                {lotesLiquidables.map((row) => (
-                  <option key={row.id} value={String(row.id)}>
-                    {row.numero_lote}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <label className="grid gap-1">
+            <span className="text-sm">Lote (opcional)</span>
+            <select name="lote_id" defaultValue="" className="rounded border px-2 py-1">
+              <option value="">Sin lote específico</option>
+              {lotesLiquidables.map((row) => (
+                <option key={row.id} value={String(row.id)}>
+                  {row.numero_lote}
+                </option>
+              ))}
+            </select>
+          </label>
 
-            <label className="grid gap-1">
-              <span className="text-sm">Monto *</span>
-              <input name="monto" type="number" min="0" step="0.01" className="rounded border px-2 py-1" required />
-            </label>
+          <label className="grid gap-1">
+            <span className="text-sm">Monto *</span>
+            <input name="monto" type="number" min="0" step="0.01" className="rounded border px-2 py-1" required />
+          </label>
 
-            <label className="grid gap-1">
-              <span className="text-sm">Fecha *</span>
-              <input
-                name="fecha"
-                type="date"
-                defaultValue={new Date().toISOString().slice(0, 10)}
+          <label className="grid gap-1">
+            <span className="text-sm">Fecha *</span>
+            <input
+              name="fecha"
+              type="date"
+              defaultValue={new Date().toISOString().slice(0, 10)}
                 className="rounded border px-2 py-1"
               />
-              <span className="text-xs">Fecha del adelanto.</span>
-            </label>
+            <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
+          </label>
 
-            <label className="grid gap-1">
-              <span className="text-sm">Motivo (opcional)</span>
-              <input name="motivo" className="rounded border px-2 py-1" placeholder="Ej: adelanto por cosecha" />
-            </label>
+          <label className="grid gap-1 sm:col-span-3">
+            <span className="text-sm">Motivo (observaciones)</span>
+            <textarea name="motivo" className="rounded border px-2 py-1" placeholder="Motivo del adelanto (opcional)" />
+          </label>
 
-            <div className="sm:col-span-3">
-              <ComprobanteInternoFields />
-            </div>
+          <ComprobanteInternoFields />
 
-            <label className="grid gap-1 sm:max-w-md">
-              <span className="text-sm">Foto evidencia de adelanto (opcional)</span>
-              <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
-              <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
-            </label>
+          <label className="grid gap-1 sm:col-span-3">
+            <span className="text-sm">Foto evidencia (opcional)</span>
+            <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
+            <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
+          </label>
 
-            <div className="sm:col-span-3">
-              <button type="submit" className="rounded border px-3 py-1 font-medium">
-                Registrar adelanto
-              </button>
-            </div>
-          </form>
+          <div className="sm:col-span-3">
+            <button type="submit" className="rounded border px-3 py-1 font-medium">
+              Registrar adelanto
+            </button>
+          </div>
+        </form>
+
+        <div style={{ marginTop: '18px' }}>
+          <PagoLiquidacionForm
+            liquidaciones={liquidaciones}
+            pagosLiquidacion={pagos}
+            adelantosProductor={adelantos}
+            personaMap={personaMap}
+            loteMap={loteMap}
+            pedidoMap={pedidoMap}
+          />
+        </div>
       </section>
 
       <section id="tab-liquidar" className="mb-6 rounded border p-4" style={{display: 'none'}}>
@@ -1003,6 +1018,113 @@ export default async function LiquidacionesPage({
       <section id="tab-control" className="mb-6 rounded border p-4" style={{display: 'none'}}>
         <h2 className="mb-2 text-lg font-semibold">Control</h2>
         <p className="mb-3 text-sm">Tablas completas con filtros, paginación y export (visual básico).</p>
+
+        <section className="mb-6 rounded border p-4">
+          <h2 className="mb-2 text-lg font-semibold">Resumen de pagos</h2>
+          <p className="mb-3 text-sm">
+            Pagos registrados: <strong>{pagos.length}</strong> | Total importe: <strong>S/ {totalPagosRegistrados}</strong>
+          </p>
+
+          <p className="text-xs">Qué muestra esta tabla: historial de pagos parciales por liquidación.</p>
+          <div className="overflow-x-auto rounded border">
+            <table className="min-w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="p-2">Fecha</th>
+                  <th className="p-2">Liquidación</th>
+                  <th className="p-2">Comp. interno</th>
+                  <th className="p-2">Persona</th>
+                  <th className="p-2">Lote</th>
+                  <th className="p-2">Monto</th>
+                  <th className="p-2">Forma</th>
+                  <th className="p-2">Nro. comp.</th>
+                  <th className="p-2">Obs.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagos.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="p-3 text-center">
+                      Sin pagos registrados.
+                    </td>
+                  </tr>
+                ) : null}
+
+                {pagos.map((row) => (
+                  <tr key={row.id} className="border-b">
+                    <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
+                    <td className="p-2">{liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id}</td>
+                    <td className="p-2">{compLiquidacionMap.get(row.liquidacion_id) ?? "-"}</td>
+                    <td className="p-2">{personaMap.get(liquidacionPersonaMap.get(row.liquidacion_id) ?? 0) ?? "-"}</td>
+                    <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
+                    <td className="p-2">{row.monto}</td>
+                    <td className="p-2">{row.forma_pago ?? "-"}</td>
+                    <td className="p-2">{row.numero_comprobante ?? "-"}</td>
+                    <td className="p-2">{row.observaciones ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded border p-4">
+          <h2 className="mb-2 text-lg font-semibold">Resumen de adelantos</h2>
+          <p className="mb-3 text-sm">
+            Por descontar en liquidación: <strong>{adelantosPendientes.length}</strong> | Monto por descontar: <strong>S/ {totalAdelantosPorDescontar}</strong>
+          </p>
+
+          <p className="text-xs">Qué muestra esta tabla: adelantos entregados, su estado y en qué liquidación se aplicaron.</p>
+          <div className="overflow-x-auto rounded border">
+            <table className="min-w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="p-2">Foto</th>
+                  <th className="p-2">Fecha</th>
+                  <th className="p-2">Comprobante</th>
+                  <th className="p-2">Comp. interno</th>
+                  <th className="p-2">Productor</th>
+                  <th className="p-2">Lote</th>
+                  <th className="p-2">Monto</th>
+                  <th className="p-2">Motivo</th>
+                  <th className="p-2">Estado</th>
+                  <th className="p-2">Liquidación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {adelantos.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="p-3 text-center">
+                      Sin adelantos.
+                    </td>
+                  </tr>
+                ) : null}
+
+                {adelantos.map((row) => (
+                  <tr key={row.id} className="border-b">
+                    <td className="p-2">
+                      {fotoAdelantoMap.get(Number(row.id)) ? (
+                        <Image src={fotoAdelantoMap.get(Number(row.id)) ?? ""} alt={`Adelanto ${row.id}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
+                      ) : (
+                        <span className="text-xs text-gray-500">-</span>
+                      )}
+                    </td>
+                    <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
+                    <td className="p-2">{row.numero_comprobante ?? "-"}</td>
+                    <td className="p-2">{compAdelantoMap.get(Number(row.id)) ?? "-"}</td>
+                    <td className="p-2">{personaMap.get(row.productor_id) ?? row.productor_id}</td>
+                    <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
+                    <td className="p-2">{row.monto}</td>
+                    <td className="p-2">{row.motivo ?? "-"}</td>
+                    <td className="p-2">{row.estado}</td>
+                    <td className="p-2">{row.liquidacion_id ? liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <h2 className="mb-3 text-lg font-semibold">Liquidación de cliente</h2>
         <p className="mb-3 text-sm">
           Selecciona un pedido para liquidar su saldo pendiente (si fue partido, se liquida por cortes).
@@ -1185,138 +1307,10 @@ export default async function LiquidacionesPage({
         ) : null}
       </section>
 
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-3 text-lg font-semibold">Registrar pago/cobro parcial</h2>
-        <PagoLiquidacionForm
-          liquidaciones={liquidaciones}
-          pagosLiquidacion={pagos}
-          adelantosProductor={adelantos}
-          personaMap={personaMap}
-          loteMap={loteMap}
-          pedidoMap={pedidoMap}
-        />
-      </section>
+      
 
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-2 text-lg font-semibold">Resumen de adelantos</h2>
-        <p className="mb-3 text-sm">
-          Por descontar en liquidación: <strong>{adelantosPendientes.length}</strong> | Monto por descontar: <strong>S/ {totalAdelantosPorDescontar}</strong>
-        </p>
-
-        <p className="text-xs">Qué muestra esta tabla: adelantos entregados, su estado y en qué liquidación se aplicaron.</p>
-        <div className="overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Foto</th>
-                <th className="p-2">Fecha</th>
-                <th className="p-2">Comprobante</th>
-                <th className="p-2">Comp. interno</th>
-                <th className="p-2">Productor</th>
-                <th className="p-2">Lote</th>
-                <th className="p-2">Monto</th>
-                <th className="p-2">Motivo</th>
-                <th className="p-2">Estado</th>
-                <th className="p-2">Liquidación</th>
-              </tr>
-            </thead>
-            <tbody>
-              {adelantos.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="p-3 text-center">
-                    Sin adelantos.
-                  </td>
-                </tr>
-              ) : null}
-
-              {adelantos.map((row) => (
-                <tr key={row.id} className="border-b">
-                  <td className="p-2">
-                    {fotoAdelantoMap.get(Number(row.id)) ? (
-                      <Image src={fotoAdelantoMap.get(Number(row.id)) ?? ""} alt={`Adelanto ${row.id}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
-                    ) : (
-                      <span className="text-xs text-gray-500">-</span>
-                    )}
-                  </td>
-                  <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
-                  <td className="p-2">{row.numero_comprobante ?? "-"}</td>
-                  <td className="p-2">{compAdelantoMap.get(Number(row.id)) ?? "-"}</td>
-                  <td className="p-2">{personaMap.get(row.productor_id) ?? row.productor_id}</td>
-                  <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
-                  <td className="p-2">{row.monto}</td>
-                  <td className="p-2">{row.motivo ?? "-"}</td>
-                  <td className="p-2">{row.estado}</td>
-                  <td className="p-2">{row.liquidacion_id ? liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id : "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="rounded border p-4">
-        <p className="mb-2 text-xs">Qué muestra esta tabla: consolidado de liquidaciones emitidas con estado financiero y de pago.</p>
-        <div className="overflow-x-auto rounded border">
-        <table className="min-w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-2">Foto</th>
-              <th className="p-2">Nro. liquidación</th>
-              <th className="p-2">Comprobante</th>
-              <th className="p-2">Comp. interno</th>
-              <th className="p-2">Tipo</th>
-              <th className="p-2">Persona</th>
-              <th className="p-2">Lote/Pedido</th>
-              <th className="p-2">Fecha</th>
-              <th className="p-2">Total bruto</th>
-              <th className="p-2">Descuentos</th>
-              <th className="p-2">Adelantos</th>
-              <th className="p-2">Total a pagar</th>
-              <th className="p-2">Estado</th>
-              <th className="p-2">Estado pago</th>
-              <th className="p-2">Monto pagado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {liquidaciones.length === 0 ? (
-              <tr>
-                <td colSpan={15} className="p-3 text-center">
-                  Sin liquidaciones.
-                </td>
-              </tr>
-            ) : null}
-
-            {liquidaciones.map((row) => (
-              <tr key={row.id} className="border-b">
-                <td className="p-2">
-                  {fotoLiquidacionMap.get(Number(row.id)) ? (
-                    <Image src={fotoLiquidacionMap.get(Number(row.id)) ?? ""} alt={`Liquidación ${row.numero_liquidacion}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
-                  ) : (
-                    <span className="text-xs text-gray-500">-</span>
-                  )}
-                </td>
-                <td className="p-2">{row.numero_liquidacion}</td>
-                <td className="p-2">{row.numero_comprobante ?? "-"}</td>
-                <td className="p-2">{compLiquidacionMap.get(Number(row.id)) ?? "-"}</td>
-                <td className="p-2">{row.tipo}</td>
-                <td className="p-2">{personaMap.get(row.persona_id) ?? row.persona_id}</td>
-                <td className="p-2">
-                  {row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : row.pedido_id ? pedidoMap.get(row.pedido_id) ?? row.pedido_id : "-"}
-                </td>
-                <td className="p-2">{row.fecha_liquidacion}</td>
-                <td className="p-2">{row.total_bruto}</td>
-                <td className="p-2">{row.total_descuentos}</td>
-                <td className="p-2">{row.total_adelantos}</td>
-                <td className="p-2">{row.total_a_pagar}</td>
-                <td className="p-2">{row.estado}</td>
-                <td className="p-2">{row.estado_pago}</td>
-                <td className="p-2">{row.monto_pagado}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </section>
+      
+      
     </main>
   );
 }

@@ -21,25 +21,38 @@ export default function LiquidacionesShell({
   }, [active]);
 
   return (
-    <div className="mb-6">
-      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b py-3 px-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Módulo 5: Liquidaciones y Adelantos</h1>
+    <div className="mb-8">
+      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b py-4 px-6 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Módulo 5: Liquidaciones y Adelantos</h1>
           <nav className="flex gap-2">
-            <button className={`px-3 py-1 rounded ${active === "resumen" ? "bg-slate-800 text-white" : "border"}`} onClick={() => setActive("resumen")}>Resumen</button>
-            <button className={`px-3 py-1 rounded ${active === "operaciones" ? "bg-slate-800 text-white" : "border"}`} onClick={() => setActive("operaciones")}>Operaciones</button>
-            <button className={`px-3 py-1 rounded ${active === "liquidar" ? "bg-slate-800 text-white" : "border"}`} onClick={() => setActive("liquidar")}>Liquidar</button>
-            <button className={`px-3 py-1 rounded ${active === "control" ? "bg-slate-800 text-white" : "border"}`} onClick={() => setActive("control")}>Control</button>
+            {[
+              { key: "resumen", label: "Resumen" },
+              { key: "operaciones", label: "Operaciones" },
+              { key: "liquidar", label: "Liquidar" },
+              { key: "control", label: "Control" },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition duration-200 border border-transparent focus:outline-none focus:ring-2 focus:ring-[#1A73E8]/30 ${
+                  active === tab.key
+                    ? "bg-[#1A73E8] text-white shadow-md hover:bg-[#1765CC]"
+                    : "bg-white text-gray-700 border-gray-200 hover:bg-slate-50"
+                }`}
+                onClick={() => setActive(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
           </nav>
         </div>
-
-        <div className="mt-3 flex flex-wrap gap-2 items-center">
+        <div className="mt-4 flex flex-wrap gap-3 items-center">
           {/* KPI chips */}
-          <div className="flex items-center gap-2">
-            <div className="px-3 py-1 rounded-full border bg-white text-sm">Total Lq: <strong>{kpis.totalLiquidaciones ?? "-"}</strong></div>
-            <div className="px-3 py-1 rounded-full border bg-white text-sm">Prod. pendientes: <strong>{kpis.productoresPendientes ?? "-"}</strong></div>
-            <div className="px-3 py-1 rounded-full border bg-white text-sm">Total por pagar: <strong>{kpis.totalPorPagar ?? "-"}</strong></div>
-            <div className="px-3 py-1 rounded-full border bg-white text-sm">Pagos reg.: <strong>{kpis.totalPagos ?? "-"}</strong></div>
+          <div className="flex items-center gap-3">
+            <div className="px-3 py-1 rounded-full border bg-blue-50 text-sm text-[#1A73E8] font-semibold">Total Lq: <strong>{kpis.totalLiquidaciones ?? "-"}</strong></div>
+            <div className="px-3 py-1 rounded-full border bg-green-50 text-sm text-green-700 font-semibold">Prod. pendientes: <strong>{kpis.productoresPendientes ?? "-"}</strong></div>
+            <div className="px-3 py-1 rounded-full border bg-yellow-50 text-sm text-yellow-700 font-semibold">Total por pagar: <strong>{kpis.totalPorPagar ?? "-"}</strong></div>
+            <div className="px-3 py-1 rounded-full border bg-purple-50 text-sm text-purple-700 font-semibold">Pagos reg.: <strong>{kpis.totalPagos ?? "-"}</strong></div>
           </div>
         </div>
       </header>

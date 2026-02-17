@@ -1,12 +1,9 @@
-import Image from "next/image";
-import Link from "next/link";
-
-import { clasificarLoteAction, createLoteAction } from "./actions";
+import AlmacenModuleUI from "@/components/almacen-module-ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type SearchParams = {
   q?: string;
-  estado?: "todos" | "sin_clasificar" | "clasificado" | "asignado" | "liquidado" | "cancelado";
+  estado?: string;
   productor?: string;
   desde?: string;
   hasta?: string;
@@ -16,19 +13,8 @@ type SearchParams = {
   error?: string;
 };
 
-type Productor = {
-  id: number;
-  nombre_completo: string;
-};
-
-type Categoria = {
-  id: number;
-  codigo: string;
-  nombre: string;
-  precio_kg: number;
-  orden: number;
-};
-
+type Productor = { id: number; nombre_completo: string };
+type Categoria = { id: number; codigo: string; nombre: string; precio_kg: number; orden: number };
 type Lote = {
   id: number;
   numero_lote: string;
@@ -36,52 +22,10 @@ type Lote = {
   producto: string;
   categoria_id: number | null;
   fecha_ingreso: string;
-  guia_ingreso: string | null;
   peso_bruto_ingreso: number;
   numero_jabas: number | null;
-  chofer: string | null;
-  placa_vehiculo: string | null;
-  estado: "sin_clasificar" | "clasificado" | "asignado" | "liquidado" | "cancelado";
-  observaciones: string | null;
-};
-
-type ClasificacionRow = {
-  id: number;
-  lote_id: number;
-  categoria_id: number;
-  codigo_clasificacion: string | null;
-  peso_bruto: number;
-  numero_jabas: number;
-  peso_jabas: number;
-  porcentaje_humedad: number;
-  peso_descuento_humedad: number;
-  peso_neto: number;
-  fecha_clasificacion: string;
-  observaciones: string | null;
-};
-
-type AsignacionLoteRow = {
-  id: number;
-  pedido_id: number;
-  categoria_id: number;
-  codigo_division: string | null;
-  kg_asignados: number;
-  precio_kg: number;
-  subtotal: number;
-  fecha_asignacion: string;
-};
-
-type PedidoRow = {
-  id: number;
-  numero_pedido: string;
-  cliente_id: number;
-  precio_kg: number;
   estado: string;
-};
-
-type PersonaRow = {
-  id: number;
-  nombre_completo: string;
+  observaciones: string | null;
 };
 
 function escapeLike(input: string) {
@@ -90,791 +34,84 @@ function escapeLike(input: string) {
 
 async function getProductoresActivos() {
   const supabase = getSupabaseServerClient();
-  const { data: rolesData } = await supabase
-    .from("persona_roles")
-    .select("persona_id")
-    .eq("rol", "productor");
-
-  const ids = [...new Set((rolesData ?? []).map((row) => Number(row.persona_id)))];
+  const { data: rolesData } = await supabase.from("persona_roles").select("persona_id").eq("rol", "productor");
+  const ids = [...new Set((rolesData ?? []).map((r: any) => Number(r.persona_id)))] as number[];
   if (ids.length === 0) return [] as Productor[];
-
-  const { data: personasData } = await supabase
-    .from("personas")
-    .select("id,nombre_completo,estado")
-    .in("id", ids)
-    .eq("estado", "activo")
-    .order("nombre_completo", { ascending: true });
-
-  return (personasData ?? []).map((row) => ({
-    id: Number(row.id),
-    nombre_completo: String(row.nombre_completo),
-  }));
+  const { data: personas } = await supabase.from("personas").select("id,nombre_completo").in("id", ids).eq("estado", "activo").order("nombre_completo", { ascending: true });
+  return (personas ?? []).map((p: any) => ({ id: Number(p.id), nombre_completo: String(p.nombre_completo) }));
 }
 
 async function getCategoriasActivas() {
   const supabase = getSupabaseServerClient();
-  const { data } = await supabase
-    .from("categorias")
-    .select("id,codigo,nombre,precio_kg,orden")
-    .eq("estado", "activo")
-    .order("orden", { ascending: true });
-
+  const { data } = await supabase.from("categorias").select("id,codigo,nombre,precio_kg,orden").eq("estado", "activo").order("orden", { ascending: true });
   return (data ?? []) as Categoria[];
 }
 
 async function getLotes(search: SearchParams) {
   const supabase = getSupabaseServerClient();
-
-  const estado = search.estado ?? "todos";
-  const productor = Number(search.productor ?? "0");
   const q = (search.q ?? "").trim();
-
-  let lotesQuery = supabase
-    .from("lotes")
-    .select(
-      "id,numero_lote,productor_id,producto,categoria_id,fecha_ingreso,guia_ingreso,peso_bruto_ingreso,numero_jabas,chofer,placa_vehiculo,estado,observaciones"
-    )
-    .order("id", { ascending: false });
-
-  if (estado !== "todos") {
-    lotesQuery = lotesQuery.eq("estado", estado);
-  }
-
-  if (productor > 0) {
-    lotesQuery = lotesQuery.eq("productor_id", productor);
-  }
-
-  if (search.desde) {
-    lotesQuery = lotesQuery.gte("fecha_ingreso", search.desde);
-  }
-
-  if (search.hasta) {
-    lotesQuery = lotesQuery.lte("fecha_ingreso", search.hasta);
-  }
-
+  let lotesQuery = supabase.from("lotes").select("id,numero_lote,productor_id,producto,categoria_id,fecha_ingreso,peso_bruto_ingreso,numero_jabas,estado,observaciones").order("id", { ascending: false });
+  if (search.estado && search.estado !== "todos") lotesQuery = lotesQuery.eq("estado", search.estado);
   if (q) {
     const term = escapeLike(q);
     lotesQuery = lotesQuery.or(`numero_lote.ilike.%${term}%`);
   }
-
   const { data, error } = await lotesQuery;
-
-  if (error) {
-    return {
-      lotes: [] as Lote[],
-      productorMap: new Map<number, string>(),
-      fotoIngresoMap: new Map<number, string>(),
-      errorMessage: error.message,
-    };
-  }
-
+  if (error) return { lotes: [] as Lote[], productorMap: new Map<number, string>(), fotoIngresoMap: new Map<number, string>(), errorMessage: error.message };
   const lotes = (data ?? []) as Lote[];
-  const productorIds = [...new Set(lotes.map((lote) => Number(lote.productor_id)))];
+
+  const productorIds = [...new Set(lotes.map((l) => Number(l.productor_id)))] as number[];
   const productorMap = new Map<number, string>();
-
   if (productorIds.length > 0) {
-    const { data: personasData } = await supabase
-      .from("personas")
-      .select("id,nombre_completo")
-      .in("id", productorIds);
-
-    for (const row of personasData ?? []) {
-      productorMap.set(Number(row.id), String(row.nombre_completo));
-    }
+    const { data: personas } = await supabase.from("personas").select("id,nombre_completo").in("id", productorIds);
+    for (const p of personas ?? []) productorMap.set(Number(p.id), String(p.nombre_completo));
   }
 
-  const loteIds = lotes.map((row) => Number(row.id));
+  const loteIds = lotes.map((r) => Number(r.id));
   const fotoIngresoMap = new Map<number, string>();
   if (loteIds.length > 0) {
-    const { data: fotosData } = await supabase
-      .from("evidencias_fotos")
-      .select("entidad_id,ruta_thumb,created_at")
-      .eq("contexto", "lote_ingreso")
-      .eq("entidad_origen", "lotes")
-      .in("entidad_id", loteIds)
-      .order("created_at", { ascending: false });
-
-    for (const row of fotosData ?? []) {
-      const loteId = Number(row.entidad_id);
-      if (!fotoIngresoMap.has(loteId) && row.ruta_thumb) {
-        fotoIngresoMap.set(loteId, String(row.ruta_thumb));
-      }
+    const { data: fotos } = await supabase.from("evidencias_fotos").select("entidad_id,ruta_thumb").eq("contexto", "lote_ingreso").eq("entidad_origen", "lotes").in("entidad_id", loteIds).order("created_at", { ascending: false });
+    for (const f of fotos ?? []) {
+      const id = Number(f.entidad_id);
+      if (!fotoIngresoMap.has(id) && f.ruta_thumb) fotoIngresoMap.set(id, String(f.ruta_thumb));
     }
   }
 
-  return {
-    lotes,
-    productorMap,
-    fotoIngresoMap,
-    errorMessage: "",
-  };
+  return { lotes, productorMap, fotoIngresoMap, errorMessage: "" };
 }
 
 async function getResumenLotes() {
   const supabase = getSupabaseServerClient();
-
-  const { data: lotes } = await supabase
-    .from("lotes")
-    .select("estado,peso_bruto_ingreso")
-    .neq("estado", "cancelado");
-
+  const { data: lotes } = await supabase.from("lotes").select("estado,peso_bruto_ingreso").neq("estado", "cancelado");
   const totalLotes = (lotes ?? []).length;
-  const sinClasificar = (lotes ?? []).filter((row) => row.estado === "sin_clasificar").length;
-  const clasificados = (lotes ?? []).filter((row) => row.estado === "clasificado").length;
-  const kgAlmacen = (lotes ?? []).reduce(
-    (acc, row) => acc + Number(row.peso_bruto_ingreso ?? 0),
-    0
-  );
-
-  return {
-    totalLotes,
-    sinClasificar,
-    clasificados,
-    kgAlmacen: Math.round(kgAlmacen * 100) / 100,
-  };
+  const sinClasificar = (lotes ?? []).filter((r: any) => r.estado === "sin_clasificar").length;
+  const clasificados = (lotes ?? []).filter((r: any) => r.estado === "clasificado").length;
+  const kgAlmacen = Math.round(((lotes ?? []).reduce((acc: number, row: any) => acc + Number(row.peso_bruto_ingreso ?? 0), 0)) * 100) / 100;
+  return { totalLotes, sinClasificar, clasificados, kgAlmacen };
 }
 
-async function getClasificacionByLote(loteId: number) {
-  const supabase = getSupabaseServerClient();
-  const { data } = await supabase
-    .from("lote_clasificacion")
-    .select(
-      "id,lote_id,categoria_id,codigo_clasificacion,peso_bruto,numero_jabas,peso_jabas,porcentaje_humedad,peso_descuento_humedad,peso_neto,fecha_clasificacion,observaciones"
-    )
-    .eq("lote_id", loteId)
-    .order("id", { ascending: true });
-
-  return (data ?? []) as ClasificacionRow[];
-}
-
-async function getAsignacionesByLote(loteId: number) {
-  const supabase = getSupabaseServerClient();
-
-  const { data: asignaciones } = await supabase
-    .from("pedido_asignaciones")
-    .select("id,pedido_id,categoria_id,codigo_division,kg_asignados,precio_kg,subtotal,fecha_asignacion")
-    .eq("lote_id", loteId)
-    .order("id", { ascending: true });
-
-  const rows = (asignaciones ?? []) as AsignacionLoteRow[];
-  const pedidoIds = [...new Set(rows.map((row) => Number(row.pedido_id)))];
-
-  const { data: pedidos } =
-    pedidoIds.length > 0
-      ? await supabase
-          .from("pedidos")
-          .select("id,numero_pedido,cliente_id,precio_kg,estado")
-          .in("id", pedidoIds)
-      : { data: [] as PedidoRow[] };
-
-  const clienteIds = [...new Set((pedidos ?? []).map((row) => Number(row.cliente_id)))];
-  const { data: clientes } =
-    clienteIds.length > 0
-      ? await supabase
-          .from("personas")
-          .select("id,nombre_completo")
-          .in("id", clienteIds)
-      : { data: [] as PersonaRow[] };
-
-  const pedidoMap = new Map<number, PedidoRow>();
-  for (const row of pedidos ?? []) {
-    pedidoMap.set(Number(row.id), row as PedidoRow);
-  }
-
-  const clienteMap = new Map<number, string>();
-  for (const row of clientes ?? []) {
-    clienteMap.set(Number(row.id), String(row.nombre_completo));
-  }
-
-  return {
-    asignaciones: rows,
-    pedidoMap,
-    clienteMap,
-  };
-}
-
-function getEstadoLabel(estado: Lote["estado"]) {
-  return estado;
-}
-
-export default async function AlmacenPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
+export default async function AlmacenPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const search = await searchParams;
+  const [productores, categorias, lotesData, resumen] = await Promise.all([getProductoresActivos(), getCategoriasActivas(), getLotes(search), getResumenLotes()]);
 
-  const [productores, categorias, lotesData, resumen] = await Promise.all([
-    getProductoresActivos(),
-    getCategoriasActivas(),
-    getLotes(search),
-    getResumenLotes(),
-  ]);
+  const clasificaciones = [] as any[];
+  const asignacionesDetalle = { asignaciones: [] as any[], pedidoMap: new Map<number, any>(), clienteMap: new Map<number, string>() };
 
-  const clasificarId = Number(search.clasificar ?? "0");
-  const verId = Number(search.ver ?? "0");
-
-  const loteAClasificar =
-    clasificarId > 0 ? lotesData.lotes.find((lote) => Number(lote.id) === clasificarId) ?? null : null;
-
-  const loteVerDetalle =
-    verId > 0 ? lotesData.lotes.find((lote) => Number(lote.id) === verId) ?? null : null;
-
-  let fotoClasificacionDetalle: string | null = null;
-  if (loteVerDetalle) {
-    const supabase = getSupabaseServerClient();
-    const { data: fotoClasif } = await supabase
-      .from("evidencias_fotos")
-      .select("ruta_thumb")
-      .eq("contexto", "lote_clasificacion")
-      .eq("entidad_origen", "lotes")
-      .eq("entidad_id", Number(loteVerDetalle.id))
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    fotoClasificacionDetalle = fotoClasif?.ruta_thumb ? String(fotoClasif.ruta_thumb) : null;
-  }
-
-  const clasificaciones = loteVerDetalle ? await getClasificacionByLote(loteVerDetalle.id) : [];
-  const asignacionesDetalle = loteVerDetalle
-    ? await getAsignacionesByLote(loteVerDetalle.id)
-    : { asignaciones: [] as AsignacionLoteRow[], pedidoMap: new Map<number, PedidoRow>(), clienteMap: new Map<number, string>() };
-  const categoriaMap = new Map(categorias.map((categoria) => [categoria.id, categoria.nombre]));
-
-  const asignadoPorCategoria = new Map<number, number>();
-  for (const row of asignacionesDetalle.asignaciones) {
-    const categoriaId = Number(row.categoria_id);
-    asignadoPorCategoria.set(categoriaId, (asignadoPorCategoria.get(categoriaId) ?? 0) + Number(row.kg_asignados ?? 0));
-  }
-
-  const resumenComercial = clasificaciones.map((row) => {
-    const asignado = Number(asignadoPorCategoria.get(Number(row.categoria_id)) ?? 0);
-    const sobrante = Math.max(0, Number(row.peso_neto ?? 0) - asignado);
-    return {
-      categoria_id: Number(row.categoria_id),
-      clasificado_neto: Math.round(Number(row.peso_neto ?? 0) * 100) / 100,
-      asignado: Math.round(asignado * 100) / 100,
-      sobrante: Math.round(sobrante * 100) / 100,
-    };
-  });
-
-  const totalBrutoClasificado = clasificaciones.reduce(
-    (acc, row) => acc + Number(row.peso_bruto ?? 0),
-    0
-  );
-  const totalNetoClasificado = clasificaciones.reduce(
-    (acc, row) => acc + Number(row.peso_neto ?? 0),
-    0
-  );
-
-  const detalleDiferencia = loteVerDetalle
-    ? Math.round((Number(loteVerDetalle.peso_bruto_ingreso) - totalBrutoClasificado) * 100) / 100
-    : 0;
-
-  const detalleMerma =
-    loteVerDetalle && Number(loteVerDetalle.peso_bruto_ingreso) > 0
-      ? Math.round((detalleDiferencia / Number(loteVerDetalle.peso_bruto_ingreso)) * 10000) / 100
-      : 0;
+  const productorMapObj = Object.fromEntries(lotesData.productorMap);
+  const fotoIngresoMapObj = Object.fromEntries(lotesData.fotoIngresoMap);
+  const categoriaMapObj = Object.fromEntries(categorias.map((c) => [c.id, c.nombre]));
 
   return (
-    <main className="mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Módulo 2: Almacén</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
-      </div>
-
-      <section className="mb-4 rounded border p-4">
-        <p className="text-sm">
-          Aquí controlas el ciclo físico del lote: ingreso, clasificación y avance de estado. Las cards
-          muestran foto operativa rápida (volumen total, lotes pendientes y kg en almacén) para priorizar
-          trabajo diario.
-        </p>
-      </section>
-
-      <section className="mb-6 grid gap-3 sm:grid-cols-4">
-        <div className="rounded border p-3">
-          <p className="text-sm">Total Lotes</p>
-          <p className="text-2xl font-bold">{resumen.totalLotes}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Sin Clasificar</p>
-          <p className="text-2xl font-bold">{resumen.sinClasificar}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Clasificados</p>
-          <p className="text-2xl font-bold">{resumen.clasificados}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Kg en Almacén</p>
-          <p className="text-2xl font-bold">{resumen.kgAlmacen}</p>
-        </div>
-      </section>
-
-      {search.ok ? (
-        <p className="mb-4 rounded border border-green-600 p-2 text-sm">{search.ok}</p>
-      ) : null}
-      {search.error || lotesData.errorMessage ? (
-        <p className="mb-4 rounded border border-red-600 p-2 text-sm">
-          {search.error || lotesData.errorMessage}
-        </p>
-      ) : null}
-
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-3 text-lg font-semibold">Registrar lote</h2>
-
-        <form action={createLoteAction} className="grid gap-3">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="grid gap-1">
-              <span className="text-sm">Número de lote (opcional, auto)</span>
-              <input name="numero_lote" className="rounded border px-2 py-1" />
-            </label>
-
-            <label className="grid gap-1">
-              <span className="text-sm">Productor *</span>
-              <select name="productor_id" defaultValue="" className="rounded border px-2 py-1" required>
-                <option value="" disabled>
-                  Seleccionar productor
-                </option>
-                {productores.map((productor) => (
-                  <option key={productor.id} value={String(productor.id)}>
-                    {productor.nombre_completo}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="grid gap-1">
-              <span className="text-sm">Producto *</span>
-              <select name="producto" defaultValue="Jengibre" className="rounded border px-2 py-1" required>
-                <option value="Jengibre">Jengibre</option>
-                <option value="Curcuma">Curcuma</option>
-              </select>
-            </label>
-
-            <label className="grid gap-1">
-              <span className="text-sm">Categoría (opcional)</span>
-              <select name="categoria_id" defaultValue="" className="rounded border px-2 py-1">
-                <option value="">Sin categoría</option>
-                {categorias.map((categoria) => (
-                  <option key={categoria.id} value={String(categoria.id)}>
-                    {categoria.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="grid gap-1">
-              <span className="text-sm">Fecha ingreso *</span>
-              <input name="fecha_ingreso" type="date" className="rounded border px-2 py-1" required />
-            </label>
-
-            <label className="grid gap-1">
-              <span className="text-sm">Guía ingreso</span>
-              <input name="guia_ingreso" className="rounded border px-2 py-1" />
-            </label>
-
-            <label className="grid gap-1">
-              <span className="text-sm">Peso bruto ingreso (kg) *</span>
-              <input
-                name="peso_bruto_ingreso"
-                type="number"
-                step="0.01"
-                min="0"
-                className="rounded border px-2 py-1"
-                required
-              />
-            </label>
-
-            <label className="grid gap-1">
-              <span className="text-sm">Número jabas</span>
-              <input
-                name="numero_jabas"
-                type="number"
-                min="0"
-                className="rounded border px-2 py-1"
-              />
-            </label>
-
-            <label className="grid gap-1">
-              <span className="text-sm">Chofer</span>
-              <input name="chofer" className="rounded border px-2 py-1" />
-            </label>
-
-            <label className="grid gap-1">
-              <span className="text-sm">Placa vehículo</span>
-              <input name="placa_vehiculo" className="rounded border px-2 py-1" />
-            </label>
-
-            <label className="grid gap-1 sm:col-span-3">
-              <span className="text-sm">Observaciones</span>
-              <textarea name="observaciones" className="min-h-20 rounded border px-2 py-1" />
-            </label>
-
-            <label className="grid gap-1 sm:col-span-3 sm:max-w-md">
-              <span className="text-sm">Foto de ingreso del lote (opcional)</span>
-              <input type="file" name="foto_lote_ingreso" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
-              <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se guarda miniatura.</span>
-            </label>
-          </div>
-
-          <div>
-            <button type="submit" className="rounded border px-3 py-1 font-medium">
-              Crear lote
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="mb-4 rounded border p-4">
-        <h2 className="mb-3 text-lg font-semibold">Filtros</h2>
-        <form className="grid gap-3 sm:grid-cols-5">
-          <input
-            name="q"
-            defaultValue={search.q ?? ""}
-            placeholder="Buscar por número de lote"
-            className="rounded border px-2 py-1 sm:col-span-2"
-          />
-
-          <select name="estado" defaultValue={search.estado ?? "todos"} className="rounded border px-2 py-1">
-            <option value="todos">Todos los estados</option>
-            <option value="sin_clasificar">sin_clasificar</option>
-            <option value="clasificado">clasificado</option>
-            <option value="asignado">asignado</option>
-            <option value="liquidado">liquidado</option>
-            <option value="cancelado">cancelado</option>
-          </select>
-
-          <select
-            name="productor"
-            defaultValue={search.productor ?? ""}
-            className="rounded border px-2 py-1"
-          >
-            <option value="">Todos los productores</option>
-            {productores.map((productor) => (
-              <option key={productor.id} value={String(productor.id)}>
-                {productor.nombre_completo}
-              </option>
-            ))}
-          </select>
-
-          <div className="grid gap-3 sm:grid-cols-2 sm:col-span-5">
-            <label className="grid gap-1">
-              <span className="text-sm">Desde</span>
-              <input name="desde" type="date" defaultValue={search.desde ?? ""} className="rounded border px-2 py-1" />
-            </label>
-            <label className="grid gap-1">
-              <span className="text-sm">Hasta</span>
-              <input name="hasta" type="date" defaultValue={search.hasta ?? ""} className="rounded border px-2 py-1" />
-            </label>
-          </div>
-
-          <div className="sm:col-span-5">
-            <button className="rounded border px-3 py-1">Aplicar filtros</button>
-          </div>
-        </form>
-      </section>
-
-      {loteAClasificar ? (
-        <section className="mb-6 rounded border p-4">
-          <h2 className="mb-2 text-lg font-semibold">Clasificar lote {loteAClasificar.numero_lote}</h2>
-          <p className="mb-3 text-sm">
-            Peso ingreso: {loteAClasificar.peso_bruto_ingreso} kg. Solo se guardan filas con peso bruto mayor a 0.
-          </p>
-
-          <form action={clasificarLoteAction} className="grid gap-3">
-            <input type="hidden" name="lote_id" value={String(loteAClasificar.id)} />
-
-            <label className="grid gap-1 max-w-xs">
-              <span className="text-sm">Fecha clasificación *</span>
-              <input
-                name="fecha_clasificacion"
-                type="date"
-                defaultValue={new Date().toISOString().slice(0, 10)}
-                className="rounded border px-2 py-1"
-                required
-              />
-            </label>
-
-            <p className="text-xs">Qué muestra esta tabla: formato de captura por categoría para registrar la clasificación del lote.</p>
-            <div className="overflow-x-auto rounded border">
-              <table className="min-w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="p-2">Categoría</th>
-                    <th className="p-2">Peso bruto (kg)</th>
-                    <th className="p-2">N° jabas</th>
-                    <th className="p-2">Peso jabas (kg)</th>
-                    <th className="p-2">% humedad</th>
-                    <th className="p-2">Observaciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categorias.map((categoria) => (
-                    <tr key={categoria.id} className="border-b align-top">
-                      <td className="p-2">
-                        {categoria.nombre} ({categoria.codigo})
-                      </td>
-                      <td className="p-2">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          name={`peso_bruto_${categoria.id}`}
-                          className="w-28 rounded border px-2 py-1"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <input
-                          type="number"
-                          min="0"
-                          name={`numero_jabas_${categoria.id}`}
-                          className="w-24 rounded border px-2 py-1"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          name={`peso_jabas_${categoria.id}`}
-                          className="w-28 rounded border px-2 py-1"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          name={`porcentaje_humedad_${categoria.id}`}
-                          className="w-24 rounded border px-2 py-1"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <input
-                          name={`observaciones_${categoria.id}`}
-                          className="w-48 rounded border px-2 py-1"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex gap-2">
-              <button type="submit" className="rounded border px-3 py-1 font-medium">
-                Guardar clasificación
-              </button>
-              <Link href="/almacen" className="rounded border px-3 py-1">
-                Cancelar
-              </Link>
-            </div>
-
-            <label className="grid gap-1 sm:max-w-md">
-              <span className="text-sm">Foto de clasificación (opcional)</span>
-              <input type="file" name="foto_lote_clasificacion" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
-              <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se guarda miniatura.</span>
-            </label>
-          </form>
-        </section>
-      ) : null}
-
-      {loteVerDetalle ? (
-        <section className="mb-6 rounded border p-4">
-          <h2 className="mb-2 text-lg font-semibold">Detalle clasificación: {loteVerDetalle.numero_lote}</h2>
-          <p className="mb-2 text-sm">
-            Total bruto clasificado: {Math.round(totalBrutoClasificado * 100) / 100} kg | Total neto clasificado:{" "}
-            {Math.round(totalNetoClasificado * 100) / 100} kg
-          </p>
-          <p className="mb-3 text-sm">
-            Diferencia: {detalleDiferencia} kg | Merma: {detalleMerma}%
-          </p>
-          {fotoClasificacionDetalle ? (
-            <div className="mb-3">
-              <p className="mb-1 text-xs">Miniatura correlacionada: evidencia de clasificación</p>
-              <Image src={fotoClasificacionDetalle} alt={`Clasificación ${loteVerDetalle.numero_lote}`} width={120} height={80} className="rounded border object-cover" />
-            </div>
-          ) : null}
-
-          <p className="text-xs">Qué muestra esta tabla: resultado técnico de clasificación (bruto, descuentos y neto) por categoría.</p>
-          <div className="overflow-x-auto rounded border">
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Código clasif.</th>
-                  <th className="p-2">Categoría</th>
-                  <th className="p-2">Peso bruto</th>
-                  <th className="p-2">Peso jabas</th>
-                  <th className="p-2">% humedad</th>
-                  <th className="p-2">Desc. humedad</th>
-                  <th className="p-2">Peso neto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clasificaciones.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-3 text-center">
-                      Este lote aún no tiene clasificación registrada.
-                    </td>
-                  </tr>
-                ) : null}
-
-                {clasificaciones.map((row) => (
-                  <tr key={row.id} className="border-b">
-                    <td className="p-2">{row.codigo_clasificacion ?? "-"}</td>
-                    <td className="p-2">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
-                    <td className="p-2">{row.peso_bruto}</td>
-                    <td className="p-2">{row.peso_jabas}</td>
-                    <td className="p-2">{row.porcentaje_humedad}</td>
-                    <td className="p-2">{row.peso_descuento_humedad}</td>
-                    <td className="p-2">{row.peso_neto}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <h3 className="mb-2 mt-4 text-base font-semibold">Trazabilidad comercial por categoría</h3>
-          <p className="mb-2 text-xs">Qué muestra esta tabla: comparación entre kg clasificados, asignados y sobrantes por categoría.</p>
-          <div className="mb-4 overflow-x-auto rounded border">
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Categoría</th>
-                  <th className="p-2">Kg clasificado neto</th>
-                  <th className="p-2">Kg enviado/asignado</th>
-                  <th className="p-2">Kg sobrante</th>
-                </tr>
-              </thead>
-              <tbody>
-                {resumenComercial.map((row) => (
-                  <tr key={row.categoria_id} className="border-b">
-                    <td className="p-2">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
-                    <td className="p-2">{row.clasificado_neto}</td>
-                    <td className="p-2">{row.asignado}</td>
-                    <td className="p-2">{row.sobrante}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <h3 className="mb-2 text-base font-semibold">Destinos de venta / intención de venta (asignaciones)</h3>
-          <p className="mb-2 text-xs">Qué muestra esta tabla: a qué pedido/cliente se destinó cada división del lote y su precio de venta.</p>
-          <div className="overflow-x-auto rounded border">
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Código división</th>
-                  <th className="p-2">Fecha</th>
-                  <th className="p-2">Pedido</th>
-                  <th className="p-2">Cliente</th>
-                  <th className="p-2">Estado pedido</th>
-                  <th className="p-2">Categoría</th>
-                  <th className="p-2">Kg enviados</th>
-                  <th className="p-2">Precio plan/kg</th>
-                  <th className="p-2">Precio venta/kg</th>
-                  <th className="p-2">Subtotal venta</th>
-                </tr>
-              </thead>
-              <tbody>
-                {asignacionesDetalle.asignaciones.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="p-3 text-center">
-                      Este lote aún no tiene asignaciones de venta.
-                    </td>
-                  </tr>
-                ) : null}
-
-                {asignacionesDetalle.asignaciones.map((row) => {
-                  const pedido = asignacionesDetalle.pedidoMap.get(Number(row.pedido_id));
-                  const cliente = pedido ? asignacionesDetalle.clienteMap.get(Number(pedido.cliente_id)) : "-";
-                  return (
-                    <tr key={row.id} className="border-b">
-                      <td className="p-2">{row.codigo_division ?? "-"}</td>
-                      <td className="p-2">{row.fecha_asignacion}</td>
-                      <td className="p-2">{pedido?.numero_pedido ?? row.pedido_id}</td>
-                      <td className="p-2">{cliente ?? "-"}</td>
-                      <td className="p-2">{pedido?.estado ?? "-"}</td>
-                      <td className="p-2">{categoriaMap.get(Number(row.categoria_id)) ?? row.categoria_id}</td>
-                      <td className="p-2">{row.kg_asignados}</td>
-                      <td className="p-2">{pedido ? Number(pedido.precio_kg) : "-"}</td>
-                      <td className="p-2">{row.precio_kg}</td>
-                      <td className="p-2">{row.subtotal}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
-
-      <section className="rounded border p-4">
-        <p className="mb-2 text-xs">Qué muestra esta tabla: listado general de lotes con estado operativo y accesos a acciones.</p>
-        <div className="overflow-x-auto rounded border">
-        <table className="min-w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-2">Foto</th>
-              <th className="p-2">Nro. lote</th>
-              <th className="p-2">Productor</th>
-              <th className="p-2">Producto</th>
-              <th className="p-2">Categoría</th>
-              <th className="p-2">Fecha ingreso</th>
-              <th className="p-2">Peso bruto</th>
-              <th className="p-2">Jabas</th>
-              <th className="p-2">Estado</th>
-              <th className="p-2">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lotesData.lotes.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="p-3 text-center">
-                  Sin lotes para mostrar.
-                </td>
-              </tr>
-            ) : null}
-
-            {lotesData.lotes.map((lote) => (
-              <tr key={lote.id} className="border-b align-top">
-                <td className="p-2">
-                  {lotesData.fotoIngresoMap.get(lote.id) ? (
-                    <Image src={lotesData.fotoIngresoMap.get(lote.id) ?? ""} alt={`Ingreso ${lote.numero_lote}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
-                  ) : (
-                    <span className="text-xs text-gray-500">-</span>
-                  )}
-                </td>
-                <td className="p-2">{lote.numero_lote}</td>
-                <td className="p-2">{lotesData.productorMap.get(lote.productor_id) ?? lote.productor_id}</td>
-                <td className="p-2">{lote.producto}</td>
-                <td className="p-2">{lote.categoria_id ? categoriaMap.get(lote.categoria_id) ?? lote.categoria_id : "-"}</td>
-                <td className="p-2">{lote.fecha_ingreso}</td>
-                <td className="p-2">{lote.peso_bruto_ingreso}</td>
-                <td className="p-2">{lote.numero_jabas ?? 0}</td>
-                <td className="p-2">{getEstadoLabel(lote.estado)}</td>
-                <td className="p-2">
-                  <div className="flex flex-wrap gap-2">
-                    {lote.estado === "sin_clasificar" ? (
-                      <Link href={`/almacen?clasificar=${lote.id}`} className="rounded border px-2 py-1">
-                        Clasificar
-                      </Link>
-                    ) : null}
-                    <Link href={`/almacen?ver=${lote.id}`} className="rounded border px-2 py-1">
-                      Ver detalle
-                    </Link>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </div>
-      </section>
-    </main>
+    <AlmacenModuleUI
+      productores={productores}
+      categorias={categorias}
+      lotes={lotesData.lotes as any}
+      productorMap={productorMapObj}
+      fotoIngresoMap={fotoIngresoMapObj}
+      resumen={resumen}
+      clasificaciones={clasificaciones}
+      asignaciones={asignacionesDetalle.asignaciones}
+      categoriaMap={categoriaMapObj}
+    />
   );
 }
