@@ -11,6 +11,7 @@ import {
 } from "./actions";
 import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
 import { PagoLiquidacionForm } from "@/components/pago-liquidacion-form";
+import OperationsSwitcher from "@/components/operations-switcher";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type SearchParams = {
@@ -674,110 +675,128 @@ export default async function LiquidacionesPage({
       </section>
 
       <section id="tab-operaciones" className="mb-6" style={{ display: 'none' }}>
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Adelanto card */}
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="mb-3">
-              <h2 className="text-lg font-semibold">Registrar adelanto</h2>
-              <p className="mt-1 text-sm text-gray-600">Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor.</p>
-            </div>
-
-            <form action={createAdelantoAction} className="grid gap-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid gap-1">
-                  <span className="text-sm">Productor *</span>
-                  <select name="productor_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" required>
-                    <option value="" disabled>
-                      Seleccionar productor
-                    </option>
-                    {productores.map((row) => (
-                      <option key={row.id} value={String(row.id)}>
-                        {row.nombre_completo}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="grid gap-1">
-                  <span className="text-sm">Lote (opcional)</span>
-                  <select name="lote_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-                    <option value="">Sin lote específico</option>
-                    {lotesLiquidables.map((row) => (
-                      <option key={row.id} value={String(row.id)}>
-                        {row.numero_lote}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <label className="grid gap-1">
-                  <span className="text-sm">Monto *</span>
-                  <input name="monto" type="number" min="0" step="0.01" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" required />
-                </label>
-
-                <label className="grid gap-1">
-                  <span className="text-sm">Fecha *</span>
-                  <input
-                    name="fecha"
-                    type="date"
-                    defaultValue={new Date().toISOString().slice(0, 10)}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </label>
-
-                <label className="grid gap-1">
-                  <span className="text-sm">&nbsp;</span>
-                  <div className="text-xs text-gray-500 mt-2">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</div>
-                </label>
-              </div>
-
-              <label className="grid gap-1">
-                <span className="text-sm">Motivo (observaciones)</span>
-                <textarea name="motivo" className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[80px]" placeholder="Motivo del adelanto (opcional)" />
-              </label>
-
-              <div className="mt-2">
-                <ComprobanteInternoFields />
-              </div>
-
-              <label className="grid gap-1">
-                <span className="text-sm">Foto evidencia (opcional)</span>
-                <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                <span className="text-xs text-gray-500">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
-              </label>
-
-              <div className="mt-3 flex justify-end">
-                <button type="submit" className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC]">
-                  Registrar adelanto
-                </button>
-              </div>
-            </form>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Operaciones</h2>
+            <p className="text-sm text-gray-600">Selecciona una sola acción para trabajar con foco y evitar errores de registro.</p>
           </div>
 
-          {/* Pago de liquidación card */}
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <PagoLiquidacionForm
-              liquidaciones={liquidaciones}
-              pagosLiquidacion={pagos}
-              adelantosProductor={adelantos}
-              personaMap={personaMap}
-              loteMap={loteMap}
-              pedidoMap={pedidoMap}
-            />
-          </div>
+          <OperationsSwitcher
+            adelantoContent={(
+              <div className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold">Registrar adelanto</h3>
+                  <p className="mt-1 text-sm text-gray-600">Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor.</p>
+                </div>
+
+                <form action={createAdelantoAction} className="grid gap-4">
+                  <section className="rounded-xl border border-gray-100 p-3 md:p-4">
+                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 1: Selección</h4>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="grid gap-1">
+                        <span className="text-sm">Productor *</span>
+                        <select name="productor_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" required>
+                          <option value="" disabled>
+                            Seleccionar productor
+                          </option>
+                          {productores.map((row) => (
+                            <option key={row.id} value={String(row.id)}>
+                              {row.nombre_completo}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="grid gap-1">
+                        <span className="text-sm">Lote (opcional)</span>
+                        <select name="lote_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                          <option value="">Sin lote específico</option>
+                          {lotesLiquidables.map((row) => (
+                            <option key={row.id} value={String(row.id)}>
+                              {row.numero_lote}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section className="rounded-xl border border-gray-100 p-3 md:p-4">
+                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 2: Monto y fecha</h4>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="grid gap-1">
+                        <span className="text-sm">Monto *</span>
+                        <input name="monto" type="number" min="0" step="0.01" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" required />
+                      </label>
+
+                      <label className="grid gap-1">
+                        <span className="text-sm">Fecha *</span>
+                        <input
+                          name="fecha"
+                          type="date"
+                          defaultValue={new Date().toISOString().slice(0, 10)}
+                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        />
+                      </label>
+                    </div>
+                  </section>
+
+                  <section className="rounded-xl border border-gray-100 p-3 md:p-4">
+                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 3: Motivo</h4>
+                    <label className="grid gap-1">
+                      <span className="text-sm">Motivo (observaciones)</span>
+                      <textarea name="motivo" className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[80px]" placeholder="Motivo del adelanto (opcional)" />
+                    </label>
+                  </section>
+
+                  <details className="rounded-xl border border-gray-100 p-3 md:p-4">
+                    <summary className="cursor-pointer text-sm font-semibold text-gray-700">Paso 4 (opcional): Comprobante interno</summary>
+                    <div className="mt-3">
+                      <ComprobanteInternoFields />
+                    </div>
+                  </details>
+
+                  <details className="rounded-xl border border-gray-100 p-3 md:p-4">
+                    <summary className="cursor-pointer text-sm font-semibold text-gray-700">Paso 5 (opcional): Evidencia</summary>
+                    <label className="mt-3 grid gap-1">
+                      <span className="text-sm">Foto evidencia (opcional)</span>
+                      <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                      <span className="text-xs text-gray-500">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
+                    </label>
+                  </details>
+
+                  <div className="mt-2 flex justify-end rounded-xl border-t border-gray-200 pt-3">
+                    <button type="submit" className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC]">
+                      Registrar adelanto
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+            pagoContent={(
+              <div className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
+                <PagoLiquidacionForm
+                  liquidaciones={liquidaciones}
+                  pagosLiquidacion={pagos}
+                  adelantosProductor={adelantos}
+                  personaMap={personaMap}
+                  loteMap={loteMap}
+                  pedidoMap={pedidoMap}
+                />
+              </div>
+            )}
+          />
         </div>
       </section>
 
-      <section id="tab-liquidar" className="mb-6 rounded border p-4" style={{display: 'none'}}>
+      <section id="tab-liquidar" className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" style={{display: 'none'}}>
         <h2 className="mb-3 text-lg font-semibold">Liquidación de productor</h2>
         <p className="mb-3 text-sm">
           Selecciona un lote para liquidar solo lo vendido pendiente (el lote puede partirse y liquidarse varias veces).
         </p>
 
         <p className="mb-2 text-xs">Qué muestra esta tabla: lotes habilitados para liquidación de productor.</p>
-        <div className="mb-3 overflow-x-auto rounded border">
+        <div className="mb-3 overflow-x-auto rounded-xl border border-gray-200 bg-white">
           <table className="min-w-full border-collapse text-sm">
             <thead>
               <tr className="border-b text-left">
@@ -815,7 +834,7 @@ export default async function LiquidacionesPage({
         </div>
 
         {selectedLoteData ? (
-          <form action={createLiquidacionProductorAction} className="grid gap-3 rounded border p-3">
+          <form action={createLiquidacionProductorAction} className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <input type="hidden" name="lote_id" value={String(selectedLoteData.lote.id)} />
 
             <p className="text-sm">
@@ -823,7 +842,7 @@ export default async function LiquidacionesPage({
             </p>
 
             {selectedLoteData.liquidacionSinClasificacion ? (
-              <div className="rounded border p-3">
+              <div className="rounded-xl border border-gray-200 p-3">
                 <p className="mb-2 text-sm">
                   Lote sin clasificar: esta liquidación se hará por <strong>monto directo</strong> (sin detalle por calidad).
                 </p>
@@ -842,7 +861,7 @@ export default async function LiquidacionesPage({
             ) : (
               <>
                 <p className="text-xs">Qué muestra esta tabla: detalle por categoría de kg vendidos, ya liquidados y pendientes por liquidar.</p>
-                <div className="overflow-x-auto rounded border">
+                <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
                   <table className="min-w-full border-collapse text-sm">
                     <thead>
                       <tr className="border-b text-left">
@@ -979,10 +998,10 @@ export default async function LiquidacionesPage({
             </label>
 
             <div className="flex gap-2">
-              <button type="submit" className="rounded border px-3 py-1 font-medium">
+              <button type="submit" className="rounded-lg bg-[#1A73E8] px-3 py-2 font-medium text-white hover:bg-[#1765CC]">
                 Crear liquidación productor
               </button>
-              <Link href="/liquidaciones" className="rounded border px-3 py-1">
+              <Link href="/liquidaciones" className="rounded-lg border border-gray-300 px-3 py-2 text-gray-700 hover:bg-gray-50">
                 Cancelar
               </Link>
             </div>
@@ -990,18 +1009,18 @@ export default async function LiquidacionesPage({
         ) : null}
       </section>
 
-      <section id="tab-control" className="mb-6 rounded border p-4" style={{display: 'none'}}>
+      <section id="tab-control" className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" style={{display: 'none'}}>
         <h2 className="mb-2 text-lg font-semibold">Control</h2>
         <p className="mb-3 text-sm">Tablas completas con filtros, paginación y export (visual básico).</p>
 
-        <section className="mb-6 rounded border p-4">
+        <section className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold">Resumen de pagos</h2>
           <p className="mb-3 text-sm">
             Pagos registrados: <strong>{pagos.length}</strong> | Total importe: <strong>S/ {totalPagosRegistrados}</strong>
           </p>
 
           <p className="text-xs">Qué muestra esta tabla: historial de pagos parciales por liquidación.</p>
-          <div className="overflow-x-auto rounded border">
+          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
             <table className="min-w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b text-left">
@@ -1043,14 +1062,14 @@ export default async function LiquidacionesPage({
           </div>
         </section>
 
-        <section className="mb-6 rounded border p-4">
+        <section className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <h2 className="mb-2 text-lg font-semibold">Resumen de adelantos</h2>
           <p className="mb-3 text-sm">
             Por descontar en liquidación: <strong>{adelantosPendientes.length}</strong> | Monto por descontar: <strong>S/ {totalAdelantosPorDescontar}</strong>
           </p>
 
           <p className="text-xs">Qué muestra esta tabla: adelantos entregados, su estado y en qué liquidación se aplicaron.</p>
-          <div className="overflow-x-auto rounded border">
+          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
             <table className="min-w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b text-left">
@@ -1116,7 +1135,7 @@ export default async function LiquidacionesPage({
         </p>
 
         <p className="mb-2 text-xs">Qué muestra esta tabla: pedidos habilitados para liquidación de cliente.</p>
-        <div className="mb-3 overflow-x-auto rounded border">
+        <div className="mb-3 overflow-x-auto rounded-xl border border-gray-200 bg-white">
           <table className="min-w-full border-collapse text-sm">
             <thead>
               <tr className="border-b text-left">
@@ -1154,7 +1173,7 @@ export default async function LiquidacionesPage({
         </div>
 
         {selectedPedidoData ? (
-          <form action={createLiquidacionClienteAction} className="grid gap-3 rounded border p-3">
+          <form action={createLiquidacionClienteAction} className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <input type="hidden" name="pedido_id" value={String(selectedPedidoData.pedido.id)} />
 
             <p className="text-sm">
@@ -1162,7 +1181,7 @@ export default async function LiquidacionesPage({
             </p>
 
             <p className="text-xs">Qué muestra esta tabla: saldo pendiente por categoría del pedido seleccionado.</p>
-            <div className="overflow-x-auto rounded border">
+            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
               <table className="min-w-full border-collapse text-sm">
                 <thead>
                   <tr className="border-b text-left">
@@ -1197,7 +1216,7 @@ export default async function LiquidacionesPage({
 
             <h3 className="mb-2 mt-3 text-sm font-semibold">Divisiones (códigos de corte del pedido)</h3>
             <p className="text-xs">Qué muestra esta tabla: cortes/divisiones que explican origen de kg y precio de la liquidación.</p>
-            <div className="overflow-x-auto rounded border">
+            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
               <table className="min-w-full border-collapse text-sm">
                 <thead>
                   <tr className="border-b text-left">
@@ -1281,10 +1300,10 @@ export default async function LiquidacionesPage({
             </label>
 
             <div className="flex gap-2">
-              <button type="submit" className="rounded border px-3 py-1 font-medium">
+              <button type="submit" className="rounded-lg bg-[#1A73E8] px-3 py-2 font-medium text-white hover:bg-[#1765CC]">
                 Crear liquidación cliente
               </button>
-              <Link href="/liquidaciones" className="rounded border px-3 py-1">
+              <Link href="/liquidaciones" className="rounded-lg border border-gray-300 px-3 py-2 text-gray-700 hover:bg-gray-50">
                 Cancelar
               </Link>
             </div>
