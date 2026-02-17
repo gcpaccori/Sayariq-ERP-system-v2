@@ -24,3 +24,5 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.m5-pr-sync-flag { --m5-pr-sync: 1; }
