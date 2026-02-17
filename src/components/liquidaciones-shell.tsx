@@ -50,21 +50,17 @@ export default function LiquidacionesShell({
           </nav>
         </div>
         <div className="mt-4">
-          <div className="mb-4 grid gap-4 sm:grid-cols-4">
+          <div className="mb-2 flex flex-wrap gap-2">
             {[
               { label: "Total liquidaciones", value: kpis.totalLiquidaciones ?? "-", color: "from-blue-50 to-blue-50", textColor: "text-[#1A73E8]", icon: "📋" },
               { label: "Prod. pendientes", value: kpis.productoresPendientes ?? "-", color: "from-yellow-50 to-yellow-50", textColor: "text-yellow-700", icon: "🟡" },
               { label: "Total por pagar", value: kpis.totalPorPagar ?? "-", color: "from-green-50 to-green-50", textColor: "text-green-700", icon: "✅" },
               { label: "Pagos registrados", value: kpis.totalPagos ?? "-", color: "from-purple-50 to-purple-50", textColor: "text-purple-700", icon: "🏦" },
             ].map((card) => (
-              <div key={card.label} className={`rounded-xl border border-gray-200 bg-gradient-to-br ${card.color} p-4 shadow-sm transition duration-300 hover:shadow-md hover:border-gray-300`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">{card.label}</p>
-                    <p className={`mt-2 text-3xl font-bold ${card.textColor}`}>{card.value}</p>
-                  </div>
-                  <div className="text-4xl opacity-30">{card.icon}</div>
-                </div>
+              <div key={card.label} className={`inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gradient-to-br ${card.color} px-3 py-2 shadow-sm`}>
+                <span className="text-lg">{card.icon}</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">{card.label}</span>
+                <span className={`text-sm font-bold ${card.textColor}`}>{card.value}</span>
               </div>
             ))}
           </div>
