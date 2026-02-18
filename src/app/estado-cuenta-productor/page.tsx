@@ -425,6 +425,10 @@ export default async function EstadoCuentaProductorPage({
     saldoLiquidacionesPendiente + adelantosPendientesMonto
   );
 
+  const totalPagado = round2(
+    pagosKardex.reduce((acc, row) => acc + Number(row.monto ?? 0), 0)
+  );
+
   const timelineRows: TimelineRow[] = [
     ...adelantos.map((row) => ({
       fecha: row.fecha,
