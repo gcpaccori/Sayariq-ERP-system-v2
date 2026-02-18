@@ -7,6 +7,7 @@ import {
 } from "./actions";
 import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import ModuleNavigation from "@/components/module-navigation";
 
 type SearchParams = {
   pedido?: string;
