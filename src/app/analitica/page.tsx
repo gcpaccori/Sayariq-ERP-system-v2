@@ -452,6 +452,10 @@ export default async function AnaliticaPage({
     })
     .sort((a, b) => b.ventasMes - a.ventasMes);
 
+  const topTrazabilidad = trazabilidadRows.slice(0, 10);
+  const maxTrazabilidadVentas = Math.max(1, ...topTrazabilidad.map((row) => row.ventasMes));
+  const maxTrazabilidadKg = Math.max(1, ...topTrazabilidad.map((row) => row.kgVendidoMes));
+
   const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
   const temporalSeries =
     mode === "anual"
@@ -620,51 +624,44 @@ export default async function AnaliticaPage({
       <section className="mb-6 rounded border p-4">
         <h2 className="mb-2 text-lg font-semibold">Trazabilidad estratégica por lote/categoría ({periodShort})</h2>
         <p className="mb-3 text-sm">
-          Muestra dónde se envió cada división, a qué precio se planeó/vendió, cuánto se movió y cuánto sobró del lote.
+          Se reemplaza la cascada de filas por visuales: top lotes/categorías por venta y volumen del periodo.
         </p>
-        <p className="mb-2 text-xs">Qué muestra esta tabla: trazabilidad comercial-financiera por lote y categoría dentro del periodo activo.</p>
-        <div className="overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Lote</th>
-                <th className="p-2">Código clasif.</th>
-                <th className="p-2">Categoría</th>
-                <th className="p-2">Códigos división</th>
-                <th className="p-2">Destinos (pedidos)</th>
-                <th className="p-2">Clientes</th>
-                <th className="p-2">Kg clasif.</th>
-                <th className="p-2">Kg vendidos {periodShort}</th>
-                <th className="p-2">Kg sobrante actual</th>
-                <th className="p-2">Precio plan/kg</th>
-                <th className="p-2">Precio venta/kg</th>
-                <th className="p-2">Venta {periodShort} (S/)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trazabilidadRows.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="p-3 text-center">Sin divisiones/ventas en este mes.</td>
-                </tr>
-              ) : null}
-              {trazabilidadRows.map((row, index) => (
-                <tr key={`${row.lote}-${row.categoria}-${index}`} className="border-b align-top">
-                  <td className="p-2">{row.lote}</td>
-                  <td className="p-2">{row.codigoClasificacion}</td>
-                  <td className="p-2">{row.categoria}</td>
-                  <td className="p-2">{row.codigosDivision || "-"}</td>
-                  <td className="p-2">{row.destinos || "-"}</td>
-                  <td className="p-2">{row.clientes || "-"}</td>
-                  <td className="p-2">{row.kgClasif}</td>
-                  <td className="p-2">{row.kgVendidoMes}</td>
-                  <td className="p-2">{row.kgSobrante}</td>
-                  <td className="p-2">{row.precioPlanProm}</td>
-                  <td className="p-2">{row.precioVentaProm}</td>
-                  <td className="p-2">{row.ventasMes}</td>
-                </tr>
+        {topTrazabilidad.length === 0 ? <p className="text-sm">Sin divisiones/ventas en este periodo.</p> : null}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded border p-3">
+            <h3 className="mb-2 text-sm font-semibold">Top venta por lote/categoría</h3>
+            <div className="space-y-2 text-xs">
+              {topTrazabilidad.map((row, index) => (
+                <div key={`${row.lote}-${row.categoria}-${index}`} className="rounded border p-2">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="font-medium">{row.lote} · {row.categoria}</span>
+                    <span>{currency(row.ventasMes)}</span>
+                  </div>
+                  <div className="h-2 rounded border">
+                    <div className="h-full rounded bg-blue-600" style={{ width: `${Math.max(5, (row.ventasMes / maxTrazabilidadVentas) * 100)}%` }} />
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </div>
+
+          <div className="rounded border p-3">
+            <h3 className="mb-2 text-sm font-semibold">Top volumen vendido (kg)</h3>
+            <div className="space-y-2 text-xs">
+              {topTrazabilidad.map((row, index) => (
+                <div key={`${row.lote}-${row.categoria}-${index}-kg`} className="rounded border p-2">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="font-medium">{row.lote} · {row.categoria}</span>
+                    <span>{row.kgVendidoMes} kg</span>
+                  </div>
+                  <div className="h-2 rounded border">
+                    <div className="h-full rounded bg-emerald-600" style={{ width: `${Math.max(5, (row.kgVendidoMes / maxTrazabilidadKg) * 100)}%` }} />
+                  </div>
+                  <p className="mt-1 text-[11px]">Sobrante: {row.kgSobrante} kg · Precio venta/kg: {row.precioVentaProm}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 

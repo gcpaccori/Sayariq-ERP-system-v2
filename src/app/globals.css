@@ -125,3 +125,32 @@ body {
   background: #eef3fd;
   color: #174ea6;
 }
+
+
+/* Tipografía uniforme para módulos 1-9 */
+.google-2027-theme {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.google-2027-theme p,
+.google-2027-theme label,
+.google-2027-theme span,
+.google-2027-theme li,
+.google-2027-theme td,
+.google-2027-theme th,
+.google-2027-theme input,
+.google-2027-theme select,
+.google-2027-theme textarea,
+.google-2027-theme button,
+.google-2027-theme a {
+  font-size: 0.95rem;
+}
+
+.google-2027-theme h1 {
+  font-size: clamp(1.6rem, 2.4vw, 2rem);
+}
+
+.google-2027-theme h2 {
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+}
