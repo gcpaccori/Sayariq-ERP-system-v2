@@ -14,6 +14,7 @@ import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
 import { PagoLiquidacionForm } from "@/components/pago-liquidacion-form";
 import OperationsSwitcher from "@/components/operations-switcher";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import ModuleNavigation from "@/components/module-navigation";
 
 type SearchParams = {
   lote?: string;
@@ -634,9 +635,11 @@ export default async function LiquidacionesPage({
   );
 
   return (
-    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Módulo 5: Liquidaciones</h1>
+    <>
+      <ModuleNavigation currentModule="liquidaciones" />
+      <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">Módulo 5: Liquidaciones</h1>
         <Link href="/" className="text-sm underline">
           Volver al inicio
         </Link>
@@ -1323,5 +1326,6 @@ export default async function LiquidacionesPage({
       
       
     </main>
+    </>
   );
 }

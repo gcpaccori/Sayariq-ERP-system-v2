@@ -4,6 +4,7 @@ import { RentabilidadFilters } from "@/components/rentabilidad-filters";
 import { LoteProfitabilityCard } from "@/components/lote-profitability-card";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import ModuleNavigation from "@/components/module-navigation";
 
 type SearchParams = {
   producto?: "todos" | "Jengibre" | "Curcuma";
@@ -319,11 +320,13 @@ export default async function RentabilidadLotesPage({
     .sort((a, b) => b.id - a.id);
 
   return (
-    <main className="google-2027-theme mx-auto w-full max-w-7xl px-3 sm:px-6 py-4 sm:py-6">
-      {/* Header */}
-      <div className="mb-5 sm:mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
-          Módulo 9: Rentabilidad
+    <>
+      <ModuleNavigation currentModule="rentabilidad-lotes" />
+      <main className="google-2027-theme mx-auto w-full max-w-7xl px-3 sm:px-6 py-4 sm:py-6">
+        {/* Header */}
+        <div className="mb-5 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+            Módulo 9: Rentabilidad
         </h1>
         <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3">
           Análisis de ganancias por lote y producto
@@ -514,6 +517,7 @@ export default async function RentabilidadLotesPage({
           </div>
         )}
       </section>
-    </main>
+      </main>
+    </>
   );
 }

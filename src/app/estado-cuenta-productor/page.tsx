@@ -11,6 +11,7 @@ import {
   DataCard,
   Tabs,
 } from "@/components/EstadoCuentaComponents";
+import ModuleNavigation from "@/components/module-navigation";
 
 type SearchParams = {
   productor?: string;
@@ -210,15 +211,18 @@ export default async function EstadoCuentaProductorPage({
 
   if (!productorSeleccionadoId) {
     return (
-      <main className="google-2027-theme w-full min-h-screen bg-white">
-        <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6">
-          <Header title="Estado de Cuenta" subtitle="Sin productores disponibles" productoresValidos={[]} productorSeleccionadoId={0} />
+      <>
+        <ModuleNavigation currentModule="estado-cuenta-productor" />
+        <main className="google-2027-theme w-full min-h-screen bg-white">
+          <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6">
+            <Header title="Estado de Cuenta" subtitle="Sin productores disponibles" productoresValidos={[]} productorSeleccionadoId={0} />
           <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-6 text-center">
             <p className="font-semibold text-[#202124]">No hay productores</p>
             <p className="text-sm text-[#5F6368] mt-2">Crea personas con rol productor en el módulo de Gestión.</p>
           </div>
         </div>
-      </main>
+        </main>
+      </>
     );
   }
 
@@ -468,11 +472,13 @@ export default async function EstadoCuentaProductorPage({
     `Productor ${productorSeleccionadoId}`;
 
   return (
-    <main className="google-2027-theme w-full min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 space-y-4 lg:space-y-6">
-        <Header
-          title="Estado de Cuenta"
-          subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
+    <>
+      <ModuleNavigation currentModule="estado-cuenta-productor" />
+      <main className="google-2027-theme w-full min-h-screen bg-white">
+        <div className="max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 space-y-4 lg:space-y-6">
+          <Header
+            title="Estado de Cuenta"
+            subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
           productoresValidos={productoresValidos}
           productorSeleccionadoId={productorSeleccionadoId}
         />
@@ -732,6 +738,7 @@ export default async function EstadoCuentaProductorPage({
         </Section>
         </div>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import ModuleNavigation from "@/components/module-navigation";
 
 type SearchParams = {
   mode?: "mensual" | "anual";
@@ -399,9 +400,11 @@ export default async function AnaliticaPage({
   const categoriaY = (value: number) => categoriaSvg.marginTop + (1 - Math.abs(value) / maxCategoria) * categoriaPlotHeight;
 
   return (
-    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Módulo 7: Analítica Estratégica</h1>
+    <>
+      <ModuleNavigation currentModule="analitica" />
+      <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Módulo 7: Analítica Estratégica</h1>
         <Link href="/" className="text-sm underline">
           Volver al inicio
         </Link>
@@ -573,5 +576,6 @@ export default async function AnaliticaPage({
         </div>
       </section>
     </main>
+    </>
   );
 }

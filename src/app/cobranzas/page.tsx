@@ -297,8 +297,10 @@ export default async function CobranzasPage({
   );
 
   return (
-    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <>
+      <ModuleNavigation currentModule="cobranzas" />
+      <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
+        <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Módulo 6: Cobranzas de Clientes</h1>
         <Link href="/" className="text-sm underline">
           Volver al inicio
@@ -618,5 +620,6 @@ export default async function CobranzasPage({
         </div>
       </section>
     </main>
+    </>
   );
 }
