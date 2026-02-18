@@ -47,48 +47,11 @@ type KardexDinero = {
   monto: number;
 };
 
-type Asignacion = {
-  id: number;
-  pedido_id: number;
-  lote_id: number;
-  categoria_id: number;
-  codigo_division: string | null;
-  kg_asignados: number;
-  precio_kg: number;
-  subtotal: number;
-  fecha_asignacion: string;
-};
-
-type Pedido = {
-  id: number;
-  numero_pedido: string;
-  cliente_id: number;
-  precio_kg: number;
-};
-
-type Lote = {
-  id: number;
-  numero_lote: string;
-  productor_id: number;
-};
-
-type Persona = {
-  id: number;
-  nombre_completo: string;
-};
-
 type Categoria = {
   id: number;
   nombre: string;
   codigo: string;
   orden: number;
-};
-
-type LoteClasificacion = {
-  lote_id: number;
-  categoria_id: number;
-  codigo_clasificacion: string | null;
-  peso_neto: number;
 };
 
 function round2(value: number) {
@@ -161,7 +124,6 @@ export default async function AnaliticaPage({
     liqProductorRes,
     adelantosMesRes,
     kardexDineroMesRes,
-    asignacionesMesRes,
     pendientesLiqRes,
     adelantosPendRes,
   ] = await Promise.all([
@@ -196,11 +158,6 @@ export default async function AnaliticaPage({
       .gte("fecha", `${start}T00:00:00`)
       .lte("fecha", `${end}T23:59:59`),
     supabase
-      .from("pedido_asignaciones")
-      .select("id,pedido_id,lote_id,categoria_id,codigo_division,kg_asignados,precio_kg,subtotal,fecha_asignacion")
-      .gte("fecha_asignacion", start)
-      .lte("fecha_asignacion", end),
-    supabase
       .from("liquidaciones")
       .select("id,tipo,total_a_pagar,monto_pagado,estado,estado_pago")
       .neq("estado", "anulada"),
@@ -212,7 +169,6 @@ export default async function AnaliticaPage({
   const liqProductores = (liqProductorRes.data ?? []) as Liquidacion[];
   const adelantosMes = (adelantosMesRes.data ?? []) as Adelanto[];
   const kardexDineroMes = (kardexDineroMesRes.data ?? []) as KardexDinero[];
-  const asignacionesMes = (asignacionesMesRes.data ?? []) as Asignacion[];
   const pendientesLiq = (pendientesLiqRes.data ?? []) as Array<{
     id: number;
     tipo: "productor" | "cliente";
@@ -244,55 +200,6 @@ export default async function AnaliticaPage({
   const detCliente = (detClienteRes.data ?? []) as LiquidacionDetalle[];
   const detProductor = (detProductorRes.data ?? []) as LiquidacionDetalle[];
 
-  const loteIds = [...new Set(asignacionesMes.map((row) => Number(row.lote_id)))];
-  const pedidoIds = [...new Set(asignacionesMes.map((row) => Number(row.pedido_id)))];
-
-  const [lotesRes, pedidosRes, clasifRes, asignacionesAllRes] = await Promise.all([
-    loteIds.length > 0
-      ? supabase.from("lotes").select("id,numero_lote,productor_id").in("id", loteIds)
-      : Promise.resolve({ data: [] }),
-    pedidoIds.length > 0
-      ? supabase.from("pedidos").select("id,numero_pedido,cliente_id,precio_kg").in("id", pedidoIds)
-      : Promise.resolve({ data: [] }),
-    loteIds.length > 0
-      ? supabase
-          .from("lote_clasificacion")
-          .select("lote_id,categoria_id,codigo_clasificacion,peso_neto")
-          .in("lote_id", loteIds)
-      : Promise.resolve({ data: [] }),
-    loteIds.length > 0
-      ? supabase
-          .from("pedido_asignaciones")
-          .select("lote_id,categoria_id,kg_asignados")
-          .in("lote_id", loteIds)
-      : Promise.resolve({ data: [] }),
-  ]);
-
-  const lotes = (lotesRes.data ?? []) as Lote[];
-  const pedidos = (pedidosRes.data ?? []) as Pedido[];
-  const clasifRows = (clasifRes.data ?? []) as LoteClasificacion[];
-  const asignacionesAll = (asignacionesAllRes.data ?? []) as Array<{ lote_id: number; categoria_id: number; kg_asignados: number }>;
-
-  const personaIds = [
-    ...new Set([
-      ...lotes.map((row) => Number(row.productor_id)),
-      ...pedidos.map((row) => Number(row.cliente_id)),
-      ...liqClientes.map((row) => Number(row.persona_id)),
-      ...liqProductores.map((row) => Number(row.persona_id)),
-      ...adelantosMes.map((row) => Number(row.productor_id)),
-    ]),
-  ];
-
-  const personasRes =
-    personaIds.length > 0
-      ? await supabase.from("personas").select("id,nombre_completo").in("id", personaIds)
-      : { data: [] };
-
-  const personas = (personasRes.data ?? []) as Persona[];
-
-  const personaMap = new Map<number, string>(personas.map((row) => [Number(row.id), row.nombre_completo]));
-  const loteMap = new Map<number, Lote>(lotes.map((row) => [Number(row.id), row]));
-  const pedidoMap = new Map<number, Pedido>(pedidos.map((row) => [Number(row.id), row]));
   const categoriaMap = new Map<number, Categoria>(categorias.map((row) => [Number(row.id), row]));
 
   const ventasPeriodo = round2(liqClientes.reduce((acc, row) => acc + Number(row.total_a_pagar ?? 0), 0));
@@ -361,100 +268,6 @@ export default async function AnaliticaPage({
       };
     })
     .sort((a, b) => b.margen - a.margen);
-
-  const clasifMap = new Map<string, { kgClasif: number; codigo: string | null }>();
-  for (const row of clasifRows) {
-    const key = `${row.lote_id}-${row.categoria_id}`;
-    clasifMap.set(key, {
-      kgClasif: Number(row.peso_neto ?? 0),
-      codigo: row.codigo_clasificacion,
-    });
-  }
-
-  const asignadoTotalMap = new Map<string, number>();
-  for (const row of asignacionesAll) {
-    const key = `${row.lote_id}-${row.categoria_id}`;
-    asignadoTotalMap.set(key, (asignadoTotalMap.get(key) ?? 0) + Number(row.kg_asignados ?? 0));
-  }
-
-  const lotCatAgg = new Map<string, {
-    loteId: number;
-    categoriaId: number;
-    codigosDivision: Set<string>;
-    pedidos: Set<string>;
-    clientes: Set<string>;
-    kgVendidoMes: number;
-    ventasMes: number;
-    precioVentaAcum: number;
-    countPrecioVenta: number;
-    precioPlanAcum: number;
-    countPrecioPlan: number;
-  }>();
-
-  for (const row of asignacionesMes) {
-    const key = `${row.lote_id}-${row.categoria_id}`;
-    const pedido = pedidoMap.get(Number(row.pedido_id));
-    const clienteNombre = pedido ? personaMap.get(Number(pedido.cliente_id)) ?? `Cliente ${pedido.cliente_id}` : "-";
-
-    const current = lotCatAgg.get(key) ?? {
-      loteId: Number(row.lote_id),
-      categoriaId: Number(row.categoria_id),
-      codigosDivision: new Set<string>(),
-      pedidos: new Set<string>(),
-      clientes: new Set<string>(),
-      kgVendidoMes: 0,
-      ventasMes: 0,
-      precioVentaAcum: 0,
-      countPrecioVenta: 0,
-      precioPlanAcum: 0,
-      countPrecioPlan: 0,
-    };
-
-    if (row.codigo_division) current.codigosDivision.add(String(row.codigo_division));
-    if (pedido?.numero_pedido) current.pedidos.add(pedido.numero_pedido);
-    if (clienteNombre) current.clientes.add(clienteNombre);
-
-    current.kgVendidoMes += Number(row.kg_asignados ?? 0);
-    current.ventasMes += Number(row.subtotal ?? 0);
-    current.precioVentaAcum += Number(row.precio_kg ?? 0);
-    current.countPrecioVenta += 1;
-
-    if (pedido) {
-      current.precioPlanAcum += Number(pedido.precio_kg ?? 0);
-      current.countPrecioPlan += 1;
-    }
-
-    lotCatAgg.set(key, current);
-  }
-
-  const trazabilidadRows = [...lotCatAgg.values()]
-    .map((row) => {
-      const key = `${row.loteId}-${row.categoriaId}`;
-      const clasif = clasifMap.get(key);
-      const kgClasif = round2(Number(clasif?.kgClasif ?? 0));
-      const kgAsignadoHistorico = round2(Number(asignadoTotalMap.get(key) ?? 0));
-      const kgSobrante = round2(Math.max(0, kgClasif - kgAsignadoHistorico));
-
-      return {
-        lote: loteMap.get(row.loteId)?.numero_lote ?? String(row.loteId),
-        categoria: categoriaMap.get(row.categoriaId)?.nombre ?? String(row.categoriaId),
-        codigoClasificacion: clasif?.codigo ?? "-",
-        codigosDivision: [...row.codigosDivision].join(", "),
-        destinos: [...row.pedidos].join(", "),
-        clientes: [...row.clientes].join(", "),
-        kgClasif,
-        kgVendidoMes: round2(row.kgVendidoMes),
-        kgSobrante,
-        precioPlanProm: row.countPrecioPlan > 0 ? round2(row.precioPlanAcum / row.countPrecioPlan) : 0,
-        precioVentaProm: row.countPrecioVenta > 0 ? round2(row.precioVentaAcum / row.countPrecioVenta) : 0,
-        ventasMes: round2(row.ventasMes),
-      };
-    })
-    .sort((a, b) => b.ventasMes - a.ventasMes);
-
-  const topTrazabilidad = trazabilidadRows.slice(0, 10);
-  const maxTrazabilidadVentas = Math.max(1, ...topTrazabilidad.map((row) => row.ventasMes));
-  const maxTrazabilidadKg = Math.max(1, ...topTrazabilidad.map((row) => row.kgVendidoMes));
 
   const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
   const temporalSeries =
@@ -617,50 +430,6 @@ export default async function AnaliticaPage({
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-2 text-lg font-semibold">Trazabilidad estratégica por lote/categoría ({periodShort})</h2>
-        <p className="mb-3 text-sm">
-          Se reemplaza la cascada de filas por visuales: top lotes/categorías por venta y volumen del periodo.
-        </p>
-        {topTrazabilidad.length === 0 ? <p className="text-sm">Sin divisiones/ventas en este periodo.</p> : null}
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded border p-3">
-            <h3 className="mb-2 text-sm font-semibold">Top venta por lote/categoría</h3>
-            <div className="space-y-2 text-xs">
-              {topTrazabilidad.map((row, index) => (
-                <div key={`${row.lote}-${row.categoria}-${index}`} className="rounded border p-2">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="font-medium">{row.lote} · {row.categoria}</span>
-                    <span>{currency(row.ventasMes)}</span>
-                  </div>
-                  <div className="h-2 rounded border">
-                    <div className="h-full rounded bg-blue-600" style={{ width: `${Math.max(5, (row.ventasMes / maxTrazabilidadVentas) * 100)}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded border p-3">
-            <h3 className="mb-2 text-sm font-semibold">Top volumen vendido (kg)</h3>
-            <div className="space-y-2 text-xs">
-              {topTrazabilidad.map((row, index) => (
-                <div key={`${row.lote}-${row.categoria}-${index}-kg`} className="rounded border p-2">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="font-medium">{row.lote} · {row.categoria}</span>
-                    <span>{row.kgVendidoMes} kg</span>
-                  </div>
-                  <div className="h-2 rounded border">
-                    <div className="h-full rounded bg-emerald-600" style={{ width: `${Math.max(5, (row.kgVendidoMes / maxTrazabilidadKg) * 100)}%` }} />
-                  </div>
-                  <p className="mt-1 text-[11px]">Sobrante: {row.kgSobrante} kg · Precio venta/kg: {row.precioVentaProm}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </section>
