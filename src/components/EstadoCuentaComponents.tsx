@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 interface KPICardProps {
@@ -181,29 +182,44 @@ export function Header({
         </div>
       </div>
       {productoresValidos.length > 1 && (
-        <form className="px-3 py-2 md:px-4 border-t bg-gray-50" onChange={(e: React.FormEvent<HTMLFormElement>) => {
-          const form = e.currentTarget;
-          const select = form.querySelector('select') as HTMLSelectElement;
-          if (select) {
-            const url = new URL(window.location.href);
-            url.searchParams.set('productor', select.value);
-            window.location.href = url.toString();
-          }
-        }}>
-          <label className="text-xs font-medium text-gray-700 block mb-1">Cambiar productor</label>
-          <select
-            name="productor"
-            defaultValue={String(productorSeleccionadoId)}
-            className="w-full text-xs px-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:border-blue-500"
-          >
-            {productoresValidos.map((row) => (
-              <option key={row.id} value={String(row.id)}>
-                {row.nombre_completo}
-              </option>
-            ))}
-          </select>
-        </form>
+        <ProductorSelector 
+          productoresValidos={productoresValidos}
+          productorSeleccionadoId={productorSeleccionadoId}
+        />
       )}
     </header>
+  );
+}
+
+interface ProductorSelectorProps {
+  productoresValidos: Array<{ id: number; nombre_completo: string }>;
+  productorSeleccionadoId: number;
+}
+
+function ProductorSelector({ productoresValidos, productorSeleccionadoId }: ProductorSelectorProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('productor', e.target.value);
+    router.push(`?${params.toString()}`);
+  };
+
+  return (
+    <div className="px-3 py-2 md:px-4 border-t bg-gray-50">
+      <label className="text-xs font-medium text-gray-700 block mb-1">Cambiar productor</label>
+      <select
+        onChange={handleChange}
+        defaultValue={String(productorSeleccionadoId)}
+        className="w-full text-xs px-2 py-1.5 rounded border border-gray-300 focus:outline-none focus:border-blue-500"
+      >
+        {productoresValidos.map((row) => (
+          <option key={row.id} value={String(row.id)}>
+            {row.nombre_completo}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
