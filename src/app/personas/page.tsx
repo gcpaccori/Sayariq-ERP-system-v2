@@ -249,6 +249,8 @@ function isChecked(roles: Rol[], rol: Rol) {
   return roles.includes(rol);
 }
 
+import { AppLayout } from "@/components/app-layout";
+
 export default async function PersonasPage({
   searchParams,
 }: {
@@ -271,13 +273,18 @@ export default async function PersonasPage({
   const alertMessage = search.error ?? errorMessage;
 
   return (
-    <PersonasModuleUI
-      personas={personas}
-      rolesMap={rolesMap}
-      fotoMap={fotoMap}
-      resumen={resumen}
-      successMessage={successMessage}
-      alertMessage={alertMessage}
-    />
+    <AppLayout
+      title="Personas"
+      description="Gestión de productores, clientes y personal"
+    >
+      <PersonasModuleUI
+        personas={personas}
+        rolesMap={rolesMap}
+        fotoMap={fotoMap}
+        resumen={resumen}
+        successMessage={successMessage}
+        alertMessage={alertMessage}
+      />
+    </AppLayout>
   );
 }
