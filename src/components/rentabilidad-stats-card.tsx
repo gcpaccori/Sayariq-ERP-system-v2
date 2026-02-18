@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-type StatusType = 'success' | 'danger' | 'warning' | 'neutral';
+type StatusType = 'success' | 'danger' | 'warning' | 'neutral' | 'info';
 
 interface StatsCardProps {
   title: string;
@@ -34,6 +34,11 @@ const statusColors: Record<StatusType, { bg: string; text: string; border: strin
     bg: 'bg-slate-50 dark:bg-slate-900',
     text: 'text-slate-700 dark:text-slate-300',
     border: 'border-slate-200 dark:border-slate-700',
+  },
+  info: {
+    bg: 'bg-blue-50 dark:bg-blue-950',
+    text: 'text-blue-700 dark:text-blue-300',
+    border: 'border-blue-200 dark:border-blue-800',
   },
 };
 
