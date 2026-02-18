@@ -62,6 +62,15 @@ function currency(value: number) {
   return `S/ ${round2(value).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function compactCurrency(value: number) {
+  return new Intl.NumberFormat("es-PE", {
+    style: "currency",
+    currency: "PEN",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 function parseYm(input?: string) {
   const now = new Date();
   const fallback = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -343,12 +352,51 @@ export default async function AnaliticaPage({
     ...temporalChartPoints.map((row) => Math.max(row.ventas, row.costos, row.adelantos))
   );
 
+  const temporalChartData = temporalChartPoints.map((row, index) => ({ ...row, index }));
+
+  const temporalSvg = {
+    width: 920,
+    height: 320,
+    marginTop: 20,
+    marginRight: 20,
+    marginBottom: 60,
+    marginLeft: 54,
+  };
+  const temporalPlotWidth = temporalSvg.width - temporalSvg.marginLeft - temporalSvg.marginRight;
+  const temporalPlotHeight = temporalSvg.height - temporalSvg.marginTop - temporalSvg.marginBottom;
+  const temporalCount = Math.max(1, temporalChartData.length - 1);
+  const temporalX = (index: number) => temporalSvg.marginLeft + (index / temporalCount) * temporalPlotWidth;
+  const temporalY = (value: number) => temporalSvg.marginTop + (1 - value / maxTemporalChart) * temporalPlotHeight;
+  const buildLinePath = (values: number[]) =>
+    values.map((value, index) => `${index === 0 ? "M" : "L"}${temporalX(index)},${temporalY(value)}`).join(" ");
+
+  const yTicks = 4;
+  const temporalTicks = Array.from({ length: yTicks + 1 }, (_, idx) => {
+    const value = round2((maxTemporalChart / yTicks) * idx);
+    return { value, y: temporalY(value) };
+  });
+
   const categoriasTop = categoriasStrategic.slice(0, 8);
 
   const maxCategoria = Math.max(
     1,
     ...categoriasTop.map((row) => Math.max(Math.abs(row.ventas), Math.abs(row.costos), Math.abs(row.margen)))
   );
+
+  const categoriaSvg = {
+    width: 920,
+    height: 340,
+    marginTop: 24,
+    marginRight: 20,
+    marginBottom: 84,
+    marginLeft: 54,
+  };
+  const categoriaPlotWidth = categoriaSvg.width - categoriaSvg.marginLeft - categoriaSvg.marginRight;
+  const categoriaPlotHeight = categoriaSvg.height - categoriaSvg.marginTop - categoriaSvg.marginBottom;
+  const categoriaGroupWidth = categoriasTop.length > 0 ? categoriaPlotWidth / categoriasTop.length : categoriaPlotWidth;
+  const categoriaBarWidth = Math.max(12, categoriaGroupWidth / 4);
+  const categoriaX = (index: number) => categoriaSvg.marginLeft + index * categoriaGroupWidth;
+  const categoriaY = (value: number) => categoriaSvg.marginTop + (1 - Math.abs(value) / maxCategoria) * categoriaPlotHeight;
 
   return (
     <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
@@ -403,70 +451,104 @@ export default async function AnaliticaPage({
         <div className="rounded border p-4">
           <h2 className="mb-2 text-lg font-semibold">Gráfico temporal del periodo</h2>
           <p className="mb-3 text-sm">
-            Vista ejecutiva {mode === "anual" ? "mensual" : "semanal"} para evitar listas largas y facilitar lectura.
+            Gráfico cartesiano real (eje X: {mode === "anual" ? "meses" : "semanas"}, eje Y: monto S/) para ventas, costos y adelantos.
           </p>
-          <div className="mb-3 flex flex-wrap gap-3 text-xs">
-            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-600" />Ventas</span>
-            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Costos</span>
-            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-orange-500" />Adelantos</span>
-          </div>
-          <div className="space-y-2 text-xs">
-            {temporalChartPoints.map((row) => (
-              <div key={row.key} className="rounded border p-2.5">
-                <div className="mb-1 flex items-center justify-between">
-                  <p className="font-medium">{row.label}</p>
-                  <p className="text-[11px] text-slate-500">Total: {currency(row.ventas - row.costos)}</p>
-                </div>
-                <div className="grid grid-cols-[70px_1fr_52px] items-center gap-2">
-                  <span>Ventas</span>
-                  <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-green-600" style={{ width: `${Math.max(3, (row.ventas / maxTemporalChart) * 100)}%` }} /></div>
-                  <span className="text-right">{row.ventas}</span>
-                </div>
-                <div className="mt-1 grid grid-cols-[70px_1fr_52px] items-center gap-2">
-                  <span>Costos</span>
-                  <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-red-600" style={{ width: `${Math.max(3, (row.costos / maxTemporalChart) * 100)}%` }} /></div>
-                  <span className="text-right">{row.costos}</span>
-                </div>
-                <div className="mt-1 grid grid-cols-[70px_1fr_52px] items-center gap-2">
-                  <span>Adelantos</span>
-                  <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-orange-500" style={{ width: `${Math.max(3, (row.adelantos / maxTemporalChart) * 100)}%` }} /></div>
-                  <span className="text-right">{row.adelantos}</span>
-                </div>
+          {temporalChartData.length === 0 ? (
+            <div className="rounded border border-dashed p-6 text-center text-sm text-slate-500">Sin datos del periodo.</div>
+          ) : (
+            <>
+              <div className="mb-3 flex flex-wrap gap-3 text-xs">
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-600" />Ventas</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Costos</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-orange-500" />Adelantos</span>
               </div>
-            ))}
-          </div>
+              <div className="overflow-x-auto">
+                <svg viewBox={`0 0 ${temporalSvg.width} ${temporalSvg.height}`} className="min-w-[760px] w-full rounded border bg-white">
+                  {temporalTicks.map((tick) => (
+                    <g key={`tick-${tick.value}`}>
+                      <line x1={temporalSvg.marginLeft} x2={temporalSvg.width - temporalSvg.marginRight} y1={tick.y} y2={tick.y} stroke="#e5e7eb" strokeDasharray="3 3" />
+                      <text x={temporalSvg.marginLeft - 8} y={tick.y + 4} textAnchor="end" fontSize="11" fill="#6b7280">
+                        {compactCurrency(tick.value)}
+                      </text>
+                    </g>
+                  ))}
+
+                  <line x1={temporalSvg.marginLeft} x2={temporalSvg.marginLeft} y1={temporalSvg.marginTop} y2={temporalSvg.height - temporalSvg.marginBottom} stroke="#94a3b8" />
+                  <line x1={temporalSvg.marginLeft} x2={temporalSvg.width - temporalSvg.marginRight} y1={temporalSvg.height - temporalSvg.marginBottom} y2={temporalSvg.height - temporalSvg.marginBottom} stroke="#94a3b8" />
+
+                  <path d={buildLinePath(temporalChartData.map((row) => row.ventas))} fill="none" stroke="#16a34a" strokeWidth="2.5" />
+                  <path d={buildLinePath(temporalChartData.map((row) => row.costos))} fill="none" stroke="#dc2626" strokeWidth="2.5" />
+                  <path d={buildLinePath(temporalChartData.map((row) => row.adelantos))} fill="none" stroke="#f97316" strokeWidth="2.5" />
+
+                  {temporalChartData.map((row, idx) => (
+                    <g key={row.key}>
+                      <circle cx={temporalX(idx)} cy={temporalY(row.ventas)} r="3.2" fill="#16a34a" />
+                      <circle cx={temporalX(idx)} cy={temporalY(row.costos)} r="3.2" fill="#dc2626" />
+                      <circle cx={temporalX(idx)} cy={temporalY(row.adelantos)} r="3.2" fill="#f97316" />
+                      <text x={temporalX(idx)} y={temporalSvg.height - temporalSvg.marginBottom + 16} textAnchor="middle" fontSize="10" fill="#64748b">
+                        {row.label}
+                      </text>
+                    </g>
+                  ))}
+                </svg>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="rounded border p-4">
           <h2 className="mb-2 text-lg font-semibold">Gráfico por categoría</h2>
-          <p className="mb-3 text-sm">Top categorías por aporte económico (ventas, costos y margen).</p>
-          <div className="space-y-3 text-xs">
-            {categoriasTop.length === 0 ? (
-              <div className="rounded border border-dashed p-6 text-center text-sm text-slate-500">
-                Sin liquidaciones detalladas para el periodo seleccionado.
+          <p className="mb-3 text-sm">Gráfico cartesiano de barras (X: categorías, Y: monto S/) con top categorías por aporte económico.</p>
+          {categoriasTop.length === 0 ? (
+            <div className="rounded border border-dashed p-6 text-center text-sm text-slate-500">
+              Sin liquidaciones detalladas para el periodo seleccionado.
+            </div>
+          ) : (
+            <>
+              <div className="mb-3 flex flex-wrap gap-3 text-xs">
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-600" />Ventas</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Costos</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-600" />Margen</span>
               </div>
-            ) : null}
-            {categoriasTop.map((row) => (
-              <div key={row.categoriaId} className="rounded border p-2.5">
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <p className="font-medium">{row.categoria}</p>
-                  <p className={`text-[11px] font-semibold ${row.margen >= 0 ? "text-green-700" : "text-red-700"}`}>
-                    Margen: {currency(row.margen)}
-                  </p>
-                </div>
-                <div className="grid grid-cols-[64px_1fr_70px] items-center gap-2">
-                  <span>Ventas</span>
-                  <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(3, (Math.abs(row.ventas) / maxCategoria) * 100)}%` }} /></div>
-                  <span className="text-right">{currency(row.ventas)}</span>
-                </div>
-                <div className="mt-1 grid grid-cols-[64px_1fr_70px] items-center gap-2">
-                  <span>Costos</span>
-                  <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-red-600" style={{ width: `${Math.max(3, (Math.abs(row.costos) / maxCategoria) * 100)}%` }} /></div>
-                  <span className="text-right">{currency(row.costos)}</span>
-                </div>
+              <div className="overflow-x-auto">
+                <svg viewBox={`0 0 ${categoriaSvg.width} ${categoriaSvg.height}`} className="min-w-[760px] w-full rounded border bg-white">
+                  {Array.from({ length: 5 }, (_, idx) => {
+                    const value = round2((maxCategoria / 4) * idx);
+                    const y = categoriaY(value);
+                    return (
+                      <g key={`ctick-${value}`}>
+                        <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.width - categoriaSvg.marginRight} y1={y} y2={y} stroke="#e5e7eb" strokeDasharray="3 3" />
+                        <text x={categoriaSvg.marginLeft - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#6b7280">
+                          {compactCurrency(value)}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.marginLeft} y1={categoriaSvg.marginTop} y2={categoriaSvg.height - categoriaSvg.marginBottom} stroke="#94a3b8" />
+                  <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.width - categoriaSvg.marginRight} y1={categoriaSvg.height - categoriaSvg.marginBottom} y2={categoriaSvg.height - categoriaSvg.marginBottom} stroke="#94a3b8" />
+
+                  {categoriasTop.map((row, idx) => {
+                    const groupX = categoriaX(idx);
+                    const baseY = categoriaSvg.height - categoriaSvg.marginBottom;
+                    const ventasHeight = Math.max(2, (Math.abs(row.ventas) / maxCategoria) * categoriaPlotHeight);
+                    const costosHeight = Math.max(2, (Math.abs(row.costos) / maxCategoria) * categoriaPlotHeight);
+                    const margenHeight = Math.max(2, (Math.abs(row.margen) / maxCategoria) * categoriaPlotHeight);
+                    return (
+                      <g key={row.categoriaId}>
+                        <rect x={groupX + categoriaBarWidth * 0.3} y={baseY - ventasHeight} width={categoriaBarWidth} height={ventasHeight} fill="#2563eb" rx="2" />
+                        <rect x={groupX + categoriaBarWidth * 1.5} y={baseY - costosHeight} width={categoriaBarWidth} height={costosHeight} fill="#dc2626" rx="2" />
+                        <rect x={groupX + categoriaBarWidth * 2.7} y={baseY - margenHeight} width={categoriaBarWidth} height={margenHeight} fill="#059669" rx="2" />
+                        <text x={groupX + categoriaGroupWidth / 2} y={baseY + 16} textAnchor="middle" fontSize="10" fill="#64748b">
+                          {row.categoria.length > 12 ? `${row.categoria.slice(0, 12)}…` : row.categoria}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </section>
 
