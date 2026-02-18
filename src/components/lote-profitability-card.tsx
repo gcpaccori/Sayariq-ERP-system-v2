@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+// Force rebuild - v2
 
 interface LoteCategoriaRow {
   categoria: string;
