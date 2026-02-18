@@ -11,7 +11,6 @@ import {
   DataCard,
   Tabs,
 } from "@/components/EstadoCuentaComponents";
-import { EstadoCuentaClientWrapper } from "@/components/EstadoCuentaClientWrapper";
 
 type SearchParams = {
   productor?: string;
@@ -469,19 +468,18 @@ export default async function EstadoCuentaProductorPage({
     `Productor ${productorSeleccionadoId}`;
 
   return (
-    <EstadoCuentaClientWrapper>
-      <main className="google-2027-theme w-full min-h-screen bg-white">
-        <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6 space-y-4">
-          <Header
-            title="Estado de Cuenta"
-            subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
-            productoresValidos={productoresValidos}
-            productorSeleccionadoId={productorSeleccionadoId}
-          />
+    <main className="google-2027-theme w-full min-h-screen bg-white">
+      <div className="max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 space-y-4 lg:space-y-6">
+        <Header
+          title="Estado de Cuenta"
+          subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
+          productoresValidos={productoresValidos}
+          productorSeleccionadoId={productorSeleccionadoId}
+        />
 
-          <div className="space-y-4">
+        <div className="space-y-4">
         {/* KPIs Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4">
           <KPICard label="Adelantos otorgados" value={currency(totalAdelantos)} />
           <KPICard label="Por descontar" value={currency(adelantosPendientesMonto)} variant={adelantosPendientesMonto > 0 ? 'critical' : 'default'} trend={adelantosPendientesMonto > 0 ? 'down' : 'neutral'} />
           <KPICard label="Total liquidado" value={currency(totalLiquidado)} trend="up" variant="success" />
@@ -732,9 +730,8 @@ export default async function EstadoCuentaProductorPage({
             ]}
           />
         </Section>
-          </div>
         </div>
-      </main>
-    </EstadoCuentaClientWrapper>
+      </div>
+    </main>
   );
 }
