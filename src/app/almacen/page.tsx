@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { clasificarLoteAction, createLoteAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import ModuleNavigation from "@/components/module-navigation";
 
 type SearchParams = {
   q?: string;
@@ -379,6 +380,7 @@ export default async function AlmacenPage({
 
   return (
     <main className="google-2027-theme relative min-h-screen bg-white text-gray-900">
+      <ModuleNavigation currentModule="almacen" />
       <div
         className="pointer-events-none absolute inset-0"
         style={{
