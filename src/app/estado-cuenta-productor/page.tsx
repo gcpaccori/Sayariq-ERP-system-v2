@@ -11,6 +11,7 @@ import {
   DataCard,
   Tabs,
 } from "@/components/EstadoCuentaComponents";
+import { EstadoCuentaClientWrapper } from "@/components/EstadoCuentaClientWrapper";
 
 type SearchParams = {
   productor?: string;
@@ -210,12 +211,12 @@ export default async function EstadoCuentaProductorPage({
 
   if (!productorSeleccionadoId) {
     return (
-      <main className="google-2027-theme mx-auto w-full bg-gray-50 pb-6">
-        <Header productorNombre="" exposicionTotal="S/ 0.00" productoresValidos={[]} productorSeleccionadoId={0} />
-        <div className="max-w-md mx-auto p-4 mt-6">
-          <div className="rounded border bg-white p-4 text-center">
-            <p className="font-semibold text-gray-900">No hay productores</p>
-            <p className="text-xs text-gray-600 mt-2">Crea personas con rol productor en el módulo 1.</p>
+      <main className="google-2027-theme w-full min-h-screen bg-white">
+        <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6">
+          <Header title="Estado de Cuenta" subtitle="Sin productores disponibles" productoresValidos={[]} productorSeleccionadoId={0} />
+          <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-6 text-center">
+            <p className="font-semibold text-[#202124]">No hay productores</p>
+            <p className="text-sm text-[#5F6368] mt-2">Crea personas con rol productor en el módulo de Gestión.</p>
           </div>
         </div>
       </main>
@@ -464,16 +465,17 @@ export default async function EstadoCuentaProductorPage({
     `Productor ${productorSeleccionadoId}`;
 
   return (
-    <main className="google-2027-theme w-full min-h-screen bg-white">
-      <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6 space-y-4">
-        <Header
-          title="Estado de Cuenta"
-          subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
-          productoresValidos={productoresValidos}
-          productorSeleccionadoId={productorSeleccionadoId}
-        />
+    <EstadoCuentaClientWrapper>
+      <main className="google-2027-theme w-full min-h-screen bg-white">
+        <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6 space-y-4">
+          <Header
+            title="Estado de Cuenta"
+            subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
+            productoresValidos={productoresValidos}
+            productorSeleccionadoId={productorSeleccionadoId}
+          />
 
-        <div className="space-y-4">
+          <div className="space-y-4">
         {/* KPIs Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <KPICard label="Adelantos otorgados" value={currency(totalAdelantos)} />
@@ -496,7 +498,7 @@ export default async function EstadoCuentaProductorPage({
         {/* Estado Operativo */}
         <Section title="Estado Operativo" subtitle="Lotes en proceso y cerrados" icon={<Wallet size={18} />}>
           {lotesResumen.length === 0 ? (
-            <p className="text-center text-gray-500 text-sm py-4">Sin lotes para este productor</p>
+            <p className="text-center text-[#5F6368] text-sm py-4">Sin lotes para este productor</p>
           ) : (
             <div className="space-y-2">
               {lotesResumen.map((lote) => (
@@ -546,7 +548,7 @@ export default async function EstadoCuentaProductorPage({
                   </div>
                   {lote.detalleCategorias.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold text-gray-700 mb-2">Detalle por categoría:</p>
+                      <p className="text-xs font-semibold text-[#5F6368] mb-2">Detalle por categoría:</p>
                       <CompactTable
                         headers={['Categoría', 'Clasif', 'Asignado', 'Liquidado', 'Pendiente']}
                         rows={lote.detalleCategorias.map((c) => [
@@ -576,7 +578,7 @@ export default async function EstadoCuentaProductorPage({
         {/* Trazabilidad */}
         <Section title="Trazabilidad" subtitle="Clasificación, división y liquidación" icon={<TrendingUp size={18} />}>
           {clasificaciones.length === 0 ? (
-            <p className="text-center text-gray-500 text-sm py-4">Sin clasificaciones</p>
+            <p className="text-center text-[#5F6368] text-sm py-4">Sin clasificaciones</p>
           ) : (
             <CompactTable
               headers={['Lote', 'Categoría', 'Clasif.', 'División', 'Pedidos', 'Kg']}
@@ -675,7 +677,7 @@ export default async function EstadoCuentaProductorPage({
                 label: 'Comprobantes',
                 content:
                   comprobantesInternos.length === 0 ? (
-                    <p className="text-center text-gray-500 text-sm py-4">Sin comprobantes</p>
+                    <p className="text-center text-[#5F6368] text-sm py-4">Sin comprobantes</p>
                   ) : (
                     <CompactTable
                       headers={['Código', 'Tipo', 'Fecha', 'Monto', 'Receptor']}
@@ -698,7 +700,7 @@ export default async function EstadoCuentaProductorPage({
                 label: 'Línea de tiempo',
                 content:
                   timelineRows.length === 0 ? (
-                    <p className="text-center text-gray-500 text-sm py-4">Sin movimientos</p>
+                    <p className="text-center text-[#5F6368] text-sm py-4">Sin movimientos</p>
                   ) : (
                     <div className="space-y-2.5">
                       {timelineRows.map((row, idx) => {
@@ -726,8 +728,9 @@ export default async function EstadoCuentaProductorPage({
             ]}
           />
         </Section>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </EstadoCuentaClientWrapper>
   );
 }
