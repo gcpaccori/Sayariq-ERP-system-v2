@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Wallet, TrendingUp, DollarSign, Calendar } from "lucide-react";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -463,36 +464,37 @@ export default async function EstadoCuentaProductorPage({
     `Productor ${productorSeleccionadoId}`;
 
   return (
-    <main className="google-2027-theme w-full bg-gray-50">
-      <Header
-        productorNombre={productorNombre}
-        exposicionTotal={currency(exposicionProductor)}
-        productoresValidos={productoresValidos}
-        productorSeleccionadoId={productorSeleccionadoId}
-      />
+    <main className="google-2027-theme w-full min-h-screen bg-white">
+      <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6 space-y-4">
+        <Header
+          title="Estado de Cuenta"
+          subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
+          productoresValidos={productoresValidos}
+          productorSeleccionadoId={productorSeleccionadoId}
+        />
 
-      <div className="max-w-2xl mx-auto px-3 py-4 md:px-4 md:py-6 pb-6">
+        <div className="space-y-4">
         {/* KPIs Grid */}
-        <div className="mb-4 grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-3">
-          <KPICard label="Productor" value={productorNombre} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <KPICard label="Adelantos otorgados" value={currency(totalAdelantos)} />
-          <KPICard label="Por descontar" value={currency(adelantosPendientesMonto)} variant={adelantosPendientesMonto > 0 ? 'critical' : 'default'} />
-          <KPICard label="Total liquidado" value={currency(totalLiquidado)} />
-          <KPICard label="Saldo pendiente" value={currency(saldoLiquidacionesPendiente)} variant={saldoLiquidacionesPendiente > 0 ? 'critical' : 'success'} />
-          <KPICard label="Exposición total" value={currency(exposicionProductor)} variant={exposicionProductor > 0 ? 'critical' : 'success'} />
+          <KPICard label="Por descontar" value={currency(adelantosPendientesMonto)} variant={adelantosPendientesMonto > 0 ? 'critical' : 'default'} trend={adelantosPendientesMonto > 0 ? 'down' : 'neutral'} />
+          <KPICard label="Total liquidado" value={currency(totalLiquidado)} trend="up" variant="success" />
+          <KPICard label="Saldo pendiente" value={currency(saldoLiquidacionesPendiente)} variant={saldoLiquidacionesPendiente > 0 ? 'critical' : 'success'} trend={saldoLiquidacionesPendiente > 0 ? 'down' : 'up'} />
+          <KPICard label="Pagado" value={currency(totalPagado)} trend="up" variant="success" />
+          <KPICard label="Exposición total" value={currency(exposicionProductor)} variant={exposicionProductor > 0 ? 'critical' : 'default'} trend={exposicionProductor > 0 ? 'down' : 'up'} />
         </div>
 
         {/* Alerta de adelantos */}
         {adelantosPendientesMonto > 0 && (
-          <div className="mb-4 rounded border border-orange-300 bg-orange-50 p-2.5 md:p-3">
-            <p className="text-xs md:text-sm text-orange-900">
-              <strong>⚠ Adelantos por descontar:</strong> Usa el botón "Liquidar" para aplicar el descuento en un lote.
+          <div className="rounded-xl border border-[#FCE5CD] bg-[#FEF7E0] p-4">
+            <p className="text-sm text-[#EA8300] font-medium">
+              <strong>⚠ Adelantos pendientes:</strong> S/ {round2(adelantosPendientesMonto)} en adelantos sin descontar. Accede a <Link href="/liquidaciones" className="underline font-bold hover:text-[#D67C00]">Liquidaciones</Link> para procesarlos.
             </p>
           </div>
         )}
 
         {/* Estado Operativo */}
-        <Section title="Estado Operativo" subtitle="Lotes en proceso y cerrados">
+        <Section title="Estado Operativo" subtitle="Lotes en proceso y cerrados" icon={<Wallet size={18} />}>
           {lotesResumen.length === 0 ? (
             <p className="text-center text-gray-500 text-sm py-4">Sin lotes para este productor</p>
           ) : (
@@ -503,42 +505,42 @@ export default async function EstadoCuentaProductorPage({
                   title={`${lote.numero_lote} · ${lote.producto} · ${lote.kgClasificado}kg`}
                   defaultOpen={lote.estadoCuenta === 'en_proceso'}
                 >
-                  <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div className="grid grid-cols-2 gap-2.5 mb-4">
                     <DataCard
                       fields={[
                         { label: 'Ingreso', value: shortDate(lote.fecha_ingreso) },
-                        { label: 'Estado lote', value: lote.estado },
                       ]}
+                      color="blue"
                     />
                     <DataCard
                       fields={[
-                        { label: 'Estado cuenta', value: lote.estadoCuenta },
-                        { label: 'Bruto ingreso', value: `${lote.peso_bruto_ingreso} kg` },
+                        { label: 'Estado', value: lote.estado },
                       ]}
+                      color="blue"
                     />
                   </div>
-                  <div className="bg-gray-50 rounded p-2 mb-3">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">Resumen de Kg:</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="text-xs">
-                        <p className="text-gray-600">Clasificado</p>
-                        <p className="font-bold text-blue-600">{lote.kgClasificado}</p>
+                  <div className="bg-[#F8FBFF] rounded-xl p-3.5 mb-4 border border-[#E5E7EB]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#5F6368] mb-3">Resumen por Kg</p>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                      <div>
+                        <p className="text-xs text-[#5F6368]">Clasif.</p>
+                        <p className="font-bold text-[#1A73E8] mt-1">{lote.kgClasificado}</p>
                       </div>
-                      <div className="text-xs">
-                        <p className="text-gray-600">Asignado</p>
-                        <p className="font-bold text-blue-600">{lote.kgAsignado}</p>
+                      <div>
+                        <p className="text-xs text-[#5F6368]">Asignado</p>
+                        <p className="font-bold text-[#1A73E8] mt-1">{lote.kgAsignado}</p>
                       </div>
-                      <div className="text-xs">
-                        <p className="text-gray-600">Liquidado</p>
-                        <p className="font-bold text-green-600">{lote.kgLiquidado}</p>
+                      <div>
+                        <p className="text-xs text-[#5F6368]">Liquidado</p>
+                        <p className="font-bold text-[#0D652D] mt-1">{lote.kgLiquidado}</p>
                       </div>
-                      <div className="text-xs">
-                        <p className="text-gray-600">Pendiente</p>
-                        <p className="font-bold text-red-600">{lote.kgPendienteLiquidar}</p>
+                      <div>
+                        <p className="text-xs text-[#5F6368]">Pendiente</p>
+                        <p className="font-bold text-[#D33B27] mt-1">{lote.kgPendienteLiquidar}</p>
                       </div>
-                      <div className="text-xs">
-                        <p className="text-gray-600">Stock libre</p>
-                        <p className="font-bold text-gray-900">{lote.kgSobranteSinAsignar}</p>
+                      <div>
+                        <p className="text-xs text-[#5F6368]">Stock libre</p>
+                        <p className="font-bold text-[#202124] mt-1">{lote.kgSobranteSinAsignar}</p>
                       </div>
                     </div>
                   </div>
@@ -560,7 +562,7 @@ export default async function EstadoCuentaProductorPage({
                   {lote.kgPendienteLiquidar > 0.01 && (
                     <Link
                       href={`/liquidaciones?lote=${lote.id}`}
-                      className="block mt-3 text-center bg-blue-500 text-white text-xs py-1.5 rounded hover:bg-blue-600 font-semibold"
+                      className="block mt-4 text-center bg-[#1A73E8] text-white text-sm px-4 py-2.5 rounded-lg hover:bg-[#1765CC] font-semibold transition-colors"
                     >
                       Liquidar este lote
                     </Link>
@@ -572,7 +574,7 @@ export default async function EstadoCuentaProductorPage({
         </Section>
 
         {/* Trazabilidad */}
-        <Section title="Trazabilidad" subtitle="Clasificación, división y liquidación">
+        <Section title="Trazabilidad" subtitle="Clasificación, división y liquidación" icon={<TrendingUp size={18} />}>
           {clasificaciones.length === 0 ? (
             <p className="text-center text-gray-500 text-sm py-4">Sin clasificaciones</p>
           ) : (
@@ -601,12 +603,12 @@ export default async function EstadoCuentaProductorPage({
         </Section>
 
         {/* Sección de Finanzas */}
-        <Section title="Finanzas" subtitle="Adelantos, liquidaciones y pagos">
-          <AccordionItem title={`Adelantos (${adelantos.length})`} defaultOpen={adelantosRes.data ? adelantosRes.data.length > 0 : false}>
+        <Section title="Finanzas" subtitle="Adelantos, liquidaciones y pagos" icon={<DollarSign size={18} />}>
+          <AccordionItem title="Adelantos" badge={String(adelantos.length)} badgeColor={adelantosPendientesMonto > 0 ? 'red' : 'blue'} defaultOpen={adelantosRes.data ? adelantosRes.data.length > 0 : false}>
             {adelantos.length === 0 ? (
-              <p className="text-center text-gray-500 text-sm py-4">Sin adelantos</p>
+              <p className="text-center text-[#5F6368] text-sm py-4">Sin adelantos</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {adelantos.map((row) => (
                   <DataCard
                     key={row.id}
@@ -625,9 +627,9 @@ export default async function EstadoCuentaProductorPage({
             )}
           </AccordionItem>
 
-          <AccordionItem title={`Liquidaciones (${liquidaciones.length})`} defaultOpen={true}>
+          <AccordionItem title="Liquidaciones" badge={String(liquidaciones.length)} badgeColor="green" defaultOpen={true}>
             {liquidaciones.length === 0 ? (
-              <p className="text-center text-gray-500 text-sm py-4">Sin liquidaciones</p>
+              <p className="text-center text-[#5F6368] text-sm py-4">Sin liquidaciones</p>
             ) : (
               <CompactTable
                 headers={['Fecha', 'Liquidación', 'Lote', 'A pagar', 'Pagado', 'Saldo']}
@@ -648,9 +650,9 @@ export default async function EstadoCuentaProductorPage({
             )}
           </AccordionItem>
 
-          <AccordionItem title={`Pagos registrados (${pagosKardex.length})`}>
+          <AccordionItem title="Pagos registrados" badge={String(pagosKardex.length)} badgeColor="blue">
             {pagosKardex.length === 0 ? (
-              <p className="text-center text-gray-500 text-sm py-4">Sin pagos registrados</p>
+              <p className="text-center text-[#5F6368] text-sm py-4">Sin pagos registrados</p>
             ) : (
               <CompactTable
                 headers={['Fecha', 'Liquidación', 'Monto', 'Detalle']}
@@ -666,7 +668,7 @@ export default async function EstadoCuentaProductorPage({
         </Section>
 
         {/* Auditoría */}
-        <Section title="Auditoría" subtitle="Comprobantes internos y línea de tiempo">
+        <Section title="Auditoría" subtitle="Comprobantes internos y línea de tiempo" icon={<Calendar size={18} />}>
           <Tabs
             tabs={[
               {
@@ -698,28 +700,33 @@ export default async function EstadoCuentaProductorPage({
                   timelineRows.length === 0 ? (
                     <p className="text-center text-gray-500 text-sm py-4">Sin movimientos</p>
                   ) : (
-                    <div className="space-y-2">
-                      {timelineRows.map((row, idx) => (
-                        <div key={idx} className="border-l-4 border-blue-300 pl-3 py-2">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="text-xs font-bold text-gray-900">{row.referencia}</p>
-                              <p className="text-xs text-gray-600">{shortDate(row.fecha)}</p>
+                    <div className="space-y-2.5">
+                      {timelineRows.map((row, idx) => {
+                        const tipoColor = row.tipo === 'adelanto' ? 'blue' : row.tipo === 'liquidacion' ? 'green' : 'orange';
+                        const typoBgColor = tipoColor === 'blue' ? 'bg-[#E8F0FE] text-[#1A73E8]' : tipoColor === 'green' ? 'bg-[#E6F4EA] text-[#0D652D]' : 'bg-[#FEF7E0] text-[#EA8300]';
+                        return (
+                          <div key={idx} className="border-l-4 border-[#1A73E8] pl-3 py-3 rounded-r-lg">
+                            <div className="flex justify-between items-start mb-1">
+                              <div>
+                                <p className="text-sm font-bold text-[#202124]">{row.referencia}</p>
+                                <p className="text-xs text-[#5F6368]">{shortDate(row.fecha)}</p>
+                              </div>
+                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${typoBgColor}`}>
+                                {row.tipo.charAt(0).toUpperCase() + row.tipo.slice(1)}
+                              </span>
                             </div>
-                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                              {row.tipo.toUpperCase()}
-                            </span>
+                            <p className="text-base font-bold text-[#202124]">{currency(row.monto)}</p>
+                            <p className="text-xs text-[#5F6368] mt-1">{row.extra}</p>
                           </div>
-                          <p className="text-sm font-semibold text-gray-900 mt-1">{currency(row.monto)}</p>
-                          <p className="text-xs text-gray-600 mt-0.5">{row.extra}</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ),
               },
             ]}
           />
         </Section>
+        </div>
       </div>
     </main>
   );
