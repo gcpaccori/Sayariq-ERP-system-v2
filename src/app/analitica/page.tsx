@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ModuleLayout from "@/components/module-layout";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -399,13 +400,10 @@ export default async function AnaliticaPage({
   const categoriaY = (value: number) => categoriaSvg.marginTop + (1 - Math.abs(value) / maxCategoria) * categoriaPlotHeight;
 
   return (
-    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Módulo 7: Analítica Estratégica</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
-      </div>
+    <ModuleLayout 
+      title="Módulo · Analítica" 
+      description="KPIs accionables para entender performance comercial, operativa y financiera"
+    >
 
       <section className="mb-4 rounded border p-4">
         <p className="mb-3 text-sm">
@@ -570,8 +568,8 @@ export default async function AnaliticaPage({
             <p className="text-2xl font-bold">{currency(adelantosPendientesMonto)}</p>
             <p className="text-[11px]">Adelantos entregados que aún no se aplican en una liquidación.</p>
           </div>
-        </div>
-      </section>
-    </main>
+  </div>
+  </section>
+    </ModuleLayout>
   );
 }

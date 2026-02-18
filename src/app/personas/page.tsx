@@ -1,4 +1,5 @@
 import PersonasModuleUI from "@/components/personas-module-ui";
+import ModuleLayout from "@/components/module-layout";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type Rol =
@@ -271,13 +272,15 @@ export default async function PersonasPage({
   const alertMessage = search.error ?? errorMessage;
 
   return (
-    <PersonasModuleUI
-      personas={personas}
-      rolesMap={rolesMap}
-      fotoMap={fotoMap}
-      resumen={resumen}
-      successMessage={successMessage}
-      alertMessage={alertMessage}
-    />
+    <ModuleLayout title="Módulo · Personas" description="Directorio maestro para productores, clientes y operación interna">
+      <PersonasModuleUI
+        personas={personas}
+        rolesMap={rolesMap}
+        fotoMap={fotoMap}
+        resumen={resumen}
+        successMessage={successMessage}
+        alertMessage={alertMessage}
+      />
+    </ModuleLayout>
   );
 }

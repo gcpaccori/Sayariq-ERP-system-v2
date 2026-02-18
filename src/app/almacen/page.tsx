@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { clasificarLoteAction, createLoteAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import ModuleLayout from "@/components/module-layout";
 
 type SearchParams = {
   q?: string;
@@ -378,34 +379,12 @@ export default async function AlmacenPage({
       : 0;
 
   return (
-    <main className="google-2027-theme relative min-h-screen bg-white text-gray-900">
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          opacity: 0.02,
-          backgroundImage: "radial-gradient(#111827 0.8px, transparent 0.8px)",
-          backgroundSize: "16px 16px",
-        }}
-      />
-
-      <div className="relative z-10 mx-auto w-full max-w-7xl p-6">
-        <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center md:gap-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Módulo 2: Almacén</h1>
-            <p className="mt-1.5 text-sm font-medium text-gray-600">Aquí controlas el ciclo físico del lote: ingreso, clasificación y avance de estado.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
-            >
-              ← Inicio
-            </Link>
-          </div>
-        </div>
-
-        <section className="mb-8 grid gap-4 sm:grid-cols-4">
-          {[
+    <ModuleLayout 
+      title="Módulo · Almacén" 
+      description="Control de lotes y clasificación con trazabilidad operativa"
+    >
+      <section className="mb-8 grid gap-4 sm:grid-cols-4">
+        {[
             { label: "Total Lotes", value: resumen.totalLotes, color: "from-blue-50 to-blue-50", textColor: "text-[#1A73E8]", icon: "📦" },
             { label: "Sin clasificar", value: resumen.sinClasificar, color: "from-yellow-50 to-yellow-50", textColor: "text-yellow-700", icon: "🟡" },
             { label: "Clasificados", value: resumen.clasificados, color: "from-green-50 to-green-50", textColor: "text-green-700", icon: "✅" },
@@ -420,8 +399,8 @@ export default async function AlmacenPage({
                 <div className="text-3xl opacity-30">{card.icon}</div>
               </div>
             </div>
-          ))}
-        </section>
+        ))}
+      </section>
 
       {search.ok ? (
         <p className="mb-4 rounded border border-green-600 p-2 text-sm">{search.ok}</p>
@@ -882,7 +861,6 @@ export default async function AlmacenPage({
         </table>
         </div>
       </section>
-      </div>
-    </main>
+    </ModuleLayout>
   );
 }

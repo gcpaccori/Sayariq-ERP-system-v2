@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import ModuleLayout from "@/components/module-layout";
 
 type Tab = "stock" | "lotes" | "dinero";
 
@@ -396,13 +397,10 @@ export default async function KardexPage({
   if (search.q) queryParams.set("q", search.q);
 
   return (
-    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Módulo 4: Kardex General</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
-      </div>
+    <ModuleLayout 
+      title="Módulo · Kardex General" 
+      description="Historial unificado de producto y dinero para auditoría y conciliación"
+    >
 
       <section className="mb-4 rounded border p-4">
         <p className="text-sm">
@@ -791,6 +789,6 @@ export default async function KardexPage({
           </section>
         </>
       ) : null}
-    </main>
+    </ModuleLayout>
   );
 }

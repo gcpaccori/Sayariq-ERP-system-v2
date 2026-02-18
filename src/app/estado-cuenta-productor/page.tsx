@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Wallet, TrendingUp, DollarSign, Calendar } from "lucide-react";
+import ModuleLayout from "@/components/module-layout";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -209,17 +210,20 @@ export default async function EstadoCuentaProductorPage({
     0;
 
   if (!productorSeleccionadoId) {
-    return (
-      <main className="google-2027-theme w-full min-h-screen bg-white">
-        <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6">
-          <Header title="Estado de Cuenta" subtitle="Sin productores disponibles" productoresValidos={[]} productorSeleccionadoId={0} />
-          <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-6 text-center">
-            <p className="font-semibold text-[#202124]">No hay productores</p>
-            <p className="text-sm text-[#5F6368] mt-2">Crea personas con rol productor en el módulo de Gestión.</p>
-          </div>
-        </div>
-      </main>
-    );
+  return (
+  <ModuleLayout 
+    title="Módulo · Estado Productor" 
+    description="Vista de cuenta por productor para ordenar adelantos, pagos y saldos"
+  >
+  <div className="max-w-3xl mx-auto space-y-4">
+  <Header title="Estado de Cuenta" subtitle="Sin productores disponibles" productoresValidos={[]} productorSeleccionadoId={0} />
+  <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-6 text-center">
+  <p className="font-semibold text-[#202124]">No hay productores</p>
+  <p className="text-sm text-[#5F6368] mt-2">Crea personas con rol productor en el módulo de Gestión.</p>
+  </div>
+  </div>
+  </ModuleLayout>
+  );
   }
 
   const [lotesRes, liquidacionesRes, adelantosRes, kardexPagosRes, compRelacionadosRes, compVentasRes] = await Promise.all([
@@ -468,8 +472,11 @@ export default async function EstadoCuentaProductorPage({
     `Productor ${productorSeleccionadoId}`;
 
   return (
-    <main className="google-2027-theme w-full min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 space-y-4 lg:space-y-6">
+    <ModuleLayout 
+      title="Módulo · Estado Productor" 
+      description="Vista de cuenta por productor para ordenar adelantos, pagos y saldos"
+    >
+      <div className="max-w-7xl mx-auto space-y-4 lg:space-y-6">
         <Header
           title="Estado de Cuenta"
           subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
@@ -731,7 +738,6 @@ export default async function EstadoCuentaProductorPage({
           />
         </Section>
         </div>
-      </div>
-    </main>
+      </ModuleLayout>
   );
 }
