@@ -323,9 +323,31 @@ export default async function AnaliticaPage({
     ...temporalSeriesRounded.map((row) => Math.max(row.ventas, row.costos, row.adelantos))
   );
 
+  const temporalChartPoints =
+    mode === "mensual"
+      ? Array.from({ length: Math.ceil(daysInMonth / 7) }, (_, index) => {
+          const from = index * 7;
+          const segment = temporalSeriesRounded.slice(from, from + 7);
+          return {
+            key: `w-${index + 1}`,
+            label: `Semana ${index + 1}`,
+            ventas: round2(segment.reduce((acc, row) => acc + row.ventas, 0)),
+            costos: round2(segment.reduce((acc, row) => acc + row.costos, 0)),
+            adelantos: round2(segment.reduce((acc, row) => acc + row.adelantos, 0)),
+          };
+        })
+      : temporalSeriesRounded;
+
+  const maxTemporalChart = Math.max(
+    1,
+    ...temporalChartPoints.map((row) => Math.max(row.ventas, row.costos, row.adelantos))
+  );
+
+  const categoriasTop = categoriasStrategic.slice(0, 8);
+
   const maxCategoria = Math.max(
     1,
-    ...categoriasStrategic.map((row) => Math.max(Math.abs(row.ventas), Math.abs(row.costos), Math.abs(row.margen)))
+    ...categoriasTop.map((row) => Math.max(Math.abs(row.ventas), Math.abs(row.costos), Math.abs(row.margen)))
   );
 
   return (
@@ -380,25 +402,35 @@ export default async function AnaliticaPage({
       <section className="mb-6 grid gap-4 lg:grid-cols-2">
         <div className="rounded border p-4">
           <h2 className="mb-2 text-lg font-semibold">Gráfico temporal del periodo</h2>
-          <p className="mb-3 text-sm">Compara ventas, costos productor y adelantos por tramo ({mode === "anual" ? "mes" : "día"}).</p>
+          <p className="mb-3 text-sm">
+            Vista ejecutiva {mode === "anual" ? "mensual" : "semanal"} para evitar listas largas y facilitar lectura.
+          </p>
+          <div className="mb-3 flex flex-wrap gap-3 text-xs">
+            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-600" />Ventas</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Costos</span>
+            <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-orange-500" />Adelantos</span>
+          </div>
           <div className="space-y-2 text-xs">
-            {temporalSeriesRounded.map((row) => (
-              <div key={row.key} className="rounded border p-2">
-                <p className="mb-1 font-medium">{row.label}</p>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="w-14">Venta</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-green-600" style={{ width: `${Math.max(2, (row.ventas / maxTemporal) * 100)}%` }} /></div>
-                  <span>{round2(row.ventas)}</span>
+            {temporalChartPoints.map((row) => (
+              <div key={row.key} className="rounded border p-2.5">
+                <div className="mb-1 flex items-center justify-between">
+                  <p className="font-medium">{row.label}</p>
+                  <p className="text-[11px] text-slate-500">Total: {currency(row.ventas - row.costos)}</p>
                 </div>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="w-14">Costo</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-red-600" style={{ width: `${Math.max(2, (row.costos / maxTemporal) * 100)}%` }} /></div>
-                  <span>{round2(row.costos)}</span>
+                <div className="grid grid-cols-[70px_1fr_52px] items-center gap-2">
+                  <span>Ventas</span>
+                  <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-green-600" style={{ width: `${Math.max(3, (row.ventas / maxTemporalChart) * 100)}%` }} /></div>
+                  <span className="text-right">{row.ventas}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-14">Adelanto</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-orange-600" style={{ width: `${Math.max(2, (row.adelantos / maxTemporal) * 100)}%` }} /></div>
-                  <span>{round2(row.adelantos)}</span>
+                <div className="mt-1 grid grid-cols-[70px_1fr_52px] items-center gap-2">
+                  <span>Costos</span>
+                  <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-red-600" style={{ width: `${Math.max(3, (row.costos / maxTemporalChart) * 100)}%` }} /></div>
+                  <span className="text-right">{row.costos}</span>
+                </div>
+                <div className="mt-1 grid grid-cols-[70px_1fr_52px] items-center gap-2">
+                  <span>Adelantos</span>
+                  <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-orange-500" style={{ width: `${Math.max(3, (row.adelantos / maxTemporalChart) * 100)}%` }} /></div>
+                  <span className="text-right">{row.adelantos}</span>
                 </div>
               </div>
             ))}
@@ -407,26 +439,30 @@ export default async function AnaliticaPage({
 
         <div className="rounded border p-4">
           <h2 className="mb-2 text-lg font-semibold">Gráfico por categoría</h2>
-          <p className="mb-3 text-sm">Ventas, costos y margen del periodo por calidad/categoría.</p>
-          <div className="space-y-2 text-xs">
-            {categoriasStrategic.length === 0 ? <p>Sin liquidaciones detalladas este mes.</p> : null}
-            {categoriasStrategic.map((row) => (
-              <div key={row.categoriaId} className="rounded border p-2">
-                <p className="mb-1 font-medium">{row.categoria}</p>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="w-14">Venta</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-blue-600" style={{ width: `${Math.max(2, (Math.abs(row.ventas) / maxCategoria) * 100)}%` }} /></div>
-                  <span>{row.ventas}</span>
+          <p className="mb-3 text-sm">Top categorías por aporte económico (ventas, costos y margen).</p>
+          <div className="space-y-3 text-xs">
+            {categoriasTop.length === 0 ? (
+              <div className="rounded border border-dashed p-6 text-center text-sm text-slate-500">
+                Sin liquidaciones detalladas para el periodo seleccionado.
+              </div>
+            ) : null}
+            {categoriasTop.map((row) => (
+              <div key={row.categoriaId} className="rounded border p-2.5">
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <p className="font-medium">{row.categoria}</p>
+                  <p className={`text-[11px] font-semibold ${row.margen >= 0 ? "text-green-700" : "text-red-700"}`}>
+                    Margen: {currency(row.margen)}
+                  </p>
                 </div>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="w-14">Costo</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-red-600" style={{ width: `${Math.max(2, (Math.abs(row.costos) / maxCategoria) * 100)}%` }} /></div>
-                  <span>{row.costos}</span>
+                <div className="grid grid-cols-[64px_1fr_70px] items-center gap-2">
+                  <span>Ventas</span>
+                  <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(3, (Math.abs(row.ventas) / maxCategoria) * 100)}%` }} /></div>
+                  <span className="text-right">{currency(row.ventas)}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-14">Margen</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-green-600" style={{ width: `${Math.max(2, (Math.abs(row.margen) / maxCategoria) * 100)}%` }} /></div>
-                  <span>{row.margen}</span>
+                <div className="mt-1 grid grid-cols-[64px_1fr_70px] items-center gap-2">
+                  <span>Costos</span>
+                  <div className="h-2 rounded-full bg-slate-100"><div className="h-full rounded-full bg-red-600" style={{ width: `${Math.max(3, (Math.abs(row.costos) / maxCategoria) * 100)}%` }} /></div>
+                  <span className="text-right">{currency(row.costos)}</span>
                 </div>
               </div>
             ))}
