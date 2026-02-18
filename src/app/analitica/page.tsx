@@ -512,7 +512,7 @@ export default async function AnaliticaPage({
   );
 
   return (
-    <main className="mx-auto w-full max-w-7xl p-6">
+    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Módulo 7: Analítica Estratégica</h1>
         <Link href="/" className="text-sm underline">

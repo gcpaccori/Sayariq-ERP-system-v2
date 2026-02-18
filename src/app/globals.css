@@ -25,3 +25,107 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+
+.google-2027-theme {
+  --g-border: #dfe3eb;
+  --g-soft: #f7f9fc;
+  --g-text: #1f2937;
+  --g-subtle: #5f6368;
+  --g-accent: #1a73e8;
+  color: var(--g-text);
+}
+
+.google-2027-theme section,
+.google-2027-theme article,
+.google-2027-theme .surface,
+.google-2027-theme > div > div > section {
+  border: 1px solid var(--g-border);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 24px rgba(16, 24, 40, 0.04);
+}
+
+.google-2027-theme h1,
+.google-2027-theme h2,
+.google-2027-theme h3 {
+  letter-spacing: -0.02em;
+  color: #202124;
+}
+
+.google-2027-theme p,
+.google-2027-theme label,
+.google-2027-theme span {
+  color: var(--g-subtle);
+}
+
+.google-2027-theme input,
+.google-2027-theme select,
+.google-2027-theme textarea,
+.google-2027-theme button {
+  border-radius: 12px;
+  border: 1px solid #d2d7e0;
+  background: #fff;
+  transition: all 0.2s ease;
+}
+
+.google-2027-theme input:focus,
+.google-2027-theme select:focus,
+.google-2027-theme textarea:focus {
+  outline: none;
+  border-color: var(--g-accent);
+  box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.12);
+}
+
+.google-2027-theme button,
+.google-2027-theme a[class*="bg-[#1A73E8]"],
+.google-2027-theme a[class*="hover:bg-blue"] {
+  font-weight: 600;
+}
+
+.google-2027-theme table {
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.google-2027-theme thead {
+  background: #f8fafd;
+}
+
+.google-2027-theme tr {
+  border-color: #e8ecf3;
+}
+
+.google-2027-theme .chip,
+.google-2027-theme .badge {
+  border-radius: 999px;
+  background: #eef3fd;
+  color: #174ea6;
+}
+
+
+.google-2027-theme {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.google-2027-theme a {
+  color: #174ea6;
+}
+
+.google-2027-theme .rounded.border,
+.google-2027-theme .rounded-xl.border,
+.google-2027-theme .rounded-2xl.border,
+.google-2027-theme .rounded-3xl.border {
+  border-color: var(--g-border);
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 24px rgba(16, 24, 40, 0.04);
+}
+
+.google-2027-theme table th {
+  color: #3c4043;
+  font-weight: 600;
+}
+
+.google-2027-theme table td {
+  color: #5f6368;
+}
