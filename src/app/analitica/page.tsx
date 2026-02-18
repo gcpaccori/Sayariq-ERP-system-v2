@@ -47,48 +47,11 @@ type KardexDinero = {
   monto: number;
 };
 
-type Asignacion = {
-  id: number;
-  pedido_id: number;
-  lote_id: number;
-  categoria_id: number;
-  codigo_division: string | null;
-  kg_asignados: number;
-  precio_kg: number;
-  subtotal: number;
-  fecha_asignacion: string;
-};
-
-type Pedido = {
-  id: number;
-  numero_pedido: string;
-  cliente_id: number;
-  precio_kg: number;
-};
-
-type Lote = {
-  id: number;
-  numero_lote: string;
-  productor_id: number;
-};
-
-type Persona = {
-  id: number;
-  nombre_completo: string;
-};
-
 type Categoria = {
   id: number;
   nombre: string;
   codigo: string;
   orden: number;
-};
-
-type LoteClasificacion = {
-  lote_id: number;
-  categoria_id: number;
-  codigo_clasificacion: string | null;
-  peso_neto: number;
 };
 
 function round2(value: number) {
@@ -97,6 +60,15 @@ function round2(value: number) {
 
 function currency(value: number) {
   return `S/ ${round2(value).toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function compactCurrency(value: number) {
+  return new Intl.NumberFormat("es-PE", {
+    style: "currency",
+    currency: "PEN",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function parseYm(input?: string) {
@@ -161,7 +133,6 @@ export default async function AnaliticaPage({
     liqProductorRes,
     adelantosMesRes,
     kardexDineroMesRes,
-    asignacionesMesRes,
     pendientesLiqRes,
     adelantosPendRes,
   ] = await Promise.all([
@@ -196,11 +167,6 @@ export default async function AnaliticaPage({
       .gte("fecha", `${start}T00:00:00`)
       .lte("fecha", `${end}T23:59:59`),
     supabase
-      .from("pedido_asignaciones")
-      .select("id,pedido_id,lote_id,categoria_id,codigo_division,kg_asignados,precio_kg,subtotal,fecha_asignacion")
-      .gte("fecha_asignacion", start)
-      .lte("fecha_asignacion", end),
-    supabase
       .from("liquidaciones")
       .select("id,tipo,total_a_pagar,monto_pagado,estado,estado_pago")
       .neq("estado", "anulada"),
@@ -212,7 +178,6 @@ export default async function AnaliticaPage({
   const liqProductores = (liqProductorRes.data ?? []) as Liquidacion[];
   const adelantosMes = (adelantosMesRes.data ?? []) as Adelanto[];
   const kardexDineroMes = (kardexDineroMesRes.data ?? []) as KardexDinero[];
-  const asignacionesMes = (asignacionesMesRes.data ?? []) as Asignacion[];
   const pendientesLiq = (pendientesLiqRes.data ?? []) as Array<{
     id: number;
     tipo: "productor" | "cliente";
@@ -244,55 +209,6 @@ export default async function AnaliticaPage({
   const detCliente = (detClienteRes.data ?? []) as LiquidacionDetalle[];
   const detProductor = (detProductorRes.data ?? []) as LiquidacionDetalle[];
 
-  const loteIds = [...new Set(asignacionesMes.map((row) => Number(row.lote_id)))];
-  const pedidoIds = [...new Set(asignacionesMes.map((row) => Number(row.pedido_id)))];
-
-  const [lotesRes, pedidosRes, clasifRes, asignacionesAllRes] = await Promise.all([
-    loteIds.length > 0
-      ? supabase.from("lotes").select("id,numero_lote,productor_id").in("id", loteIds)
-      : Promise.resolve({ data: [] }),
-    pedidoIds.length > 0
-      ? supabase.from("pedidos").select("id,numero_pedido,cliente_id,precio_kg").in("id", pedidoIds)
-      : Promise.resolve({ data: [] }),
-    loteIds.length > 0
-      ? supabase
-          .from("lote_clasificacion")
-          .select("lote_id,categoria_id,codigo_clasificacion,peso_neto")
-          .in("lote_id", loteIds)
-      : Promise.resolve({ data: [] }),
-    loteIds.length > 0
-      ? supabase
-          .from("pedido_asignaciones")
-          .select("lote_id,categoria_id,kg_asignados")
-          .in("lote_id", loteIds)
-      : Promise.resolve({ data: [] }),
-  ]);
-
-  const lotes = (lotesRes.data ?? []) as Lote[];
-  const pedidos = (pedidosRes.data ?? []) as Pedido[];
-  const clasifRows = (clasifRes.data ?? []) as LoteClasificacion[];
-  const asignacionesAll = (asignacionesAllRes.data ?? []) as Array<{ lote_id: number; categoria_id: number; kg_asignados: number }>;
-
-  const personaIds = [
-    ...new Set([
-      ...lotes.map((row) => Number(row.productor_id)),
-      ...pedidos.map((row) => Number(row.cliente_id)),
-      ...liqClientes.map((row) => Number(row.persona_id)),
-      ...liqProductores.map((row) => Number(row.persona_id)),
-      ...adelantosMes.map((row) => Number(row.productor_id)),
-    ]),
-  ];
-
-  const personasRes =
-    personaIds.length > 0
-      ? await supabase.from("personas").select("id,nombre_completo").in("id", personaIds)
-      : { data: [] };
-
-  const personas = (personasRes.data ?? []) as Persona[];
-
-  const personaMap = new Map<number, string>(personas.map((row) => [Number(row.id), row.nombre_completo]));
-  const loteMap = new Map<number, Lote>(lotes.map((row) => [Number(row.id), row]));
-  const pedidoMap = new Map<number, Pedido>(pedidos.map((row) => [Number(row.id), row]));
   const categoriaMap = new Map<number, Categoria>(categorias.map((row) => [Number(row.id), row]));
 
   const ventasPeriodo = round2(liqClientes.reduce((acc, row) => acc + Number(row.total_a_pagar ?? 0), 0));
@@ -362,96 +278,6 @@ export default async function AnaliticaPage({
     })
     .sort((a, b) => b.margen - a.margen);
 
-  const clasifMap = new Map<string, { kgClasif: number; codigo: string | null }>();
-  for (const row of clasifRows) {
-    const key = `${row.lote_id}-${row.categoria_id}`;
-    clasifMap.set(key, {
-      kgClasif: Number(row.peso_neto ?? 0),
-      codigo: row.codigo_clasificacion,
-    });
-  }
-
-  const asignadoTotalMap = new Map<string, number>();
-  for (const row of asignacionesAll) {
-    const key = `${row.lote_id}-${row.categoria_id}`;
-    asignadoTotalMap.set(key, (asignadoTotalMap.get(key) ?? 0) + Number(row.kg_asignados ?? 0));
-  }
-
-  const lotCatAgg = new Map<string, {
-    loteId: number;
-    categoriaId: number;
-    codigosDivision: Set<string>;
-    pedidos: Set<string>;
-    clientes: Set<string>;
-    kgVendidoMes: number;
-    ventasMes: number;
-    precioVentaAcum: number;
-    countPrecioVenta: number;
-    precioPlanAcum: number;
-    countPrecioPlan: number;
-  }>();
-
-  for (const row of asignacionesMes) {
-    const key = `${row.lote_id}-${row.categoria_id}`;
-    const pedido = pedidoMap.get(Number(row.pedido_id));
-    const clienteNombre = pedido ? personaMap.get(Number(pedido.cliente_id)) ?? `Cliente ${pedido.cliente_id}` : "-";
-
-    const current = lotCatAgg.get(key) ?? {
-      loteId: Number(row.lote_id),
-      categoriaId: Number(row.categoria_id),
-      codigosDivision: new Set<string>(),
-      pedidos: new Set<string>(),
-      clientes: new Set<string>(),
-      kgVendidoMes: 0,
-      ventasMes: 0,
-      precioVentaAcum: 0,
-      countPrecioVenta: 0,
-      precioPlanAcum: 0,
-      countPrecioPlan: 0,
-    };
-
-    if (row.codigo_division) current.codigosDivision.add(String(row.codigo_division));
-    if (pedido?.numero_pedido) current.pedidos.add(pedido.numero_pedido);
-    if (clienteNombre) current.clientes.add(clienteNombre);
-
-    current.kgVendidoMes += Number(row.kg_asignados ?? 0);
-    current.ventasMes += Number(row.subtotal ?? 0);
-    current.precioVentaAcum += Number(row.precio_kg ?? 0);
-    current.countPrecioVenta += 1;
-
-    if (pedido) {
-      current.precioPlanAcum += Number(pedido.precio_kg ?? 0);
-      current.countPrecioPlan += 1;
-    }
-
-    lotCatAgg.set(key, current);
-  }
-
-  const trazabilidadRows = [...lotCatAgg.values()]
-    .map((row) => {
-      const key = `${row.loteId}-${row.categoriaId}`;
-      const clasif = clasifMap.get(key);
-      const kgClasif = round2(Number(clasif?.kgClasif ?? 0));
-      const kgAsignadoHistorico = round2(Number(asignadoTotalMap.get(key) ?? 0));
-      const kgSobrante = round2(Math.max(0, kgClasif - kgAsignadoHistorico));
-
-      return {
-        lote: loteMap.get(row.loteId)?.numero_lote ?? String(row.loteId),
-        categoria: categoriaMap.get(row.categoriaId)?.nombre ?? String(row.categoriaId),
-        codigoClasificacion: clasif?.codigo ?? "-",
-        codigosDivision: [...row.codigosDivision].join(", "),
-        destinos: [...row.pedidos].join(", "),
-        clientes: [...row.clientes].join(", "),
-        kgClasif,
-        kgVendidoMes: round2(row.kgVendidoMes),
-        kgSobrante,
-        precioPlanProm: row.countPrecioPlan > 0 ? round2(row.precioPlanAcum / row.countPrecioPlan) : 0,
-        precioVentaProm: row.countPrecioVenta > 0 ? round2(row.precioVentaAcum / row.countPrecioVenta) : 0,
-        ventasMes: round2(row.ventasMes),
-      };
-    })
-    .sort((a, b) => b.ventasMes - a.ventasMes);
-
   const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
   const temporalSeries =
     mode === "anual"
@@ -506,13 +332,74 @@ export default async function AnaliticaPage({
     ...temporalSeriesRounded.map((row) => Math.max(row.ventas, row.costos, row.adelantos))
   );
 
-  const maxCategoria = Math.max(
+  const temporalChartPoints =
+    mode === "mensual"
+      ? Array.from({ length: Math.ceil(daysInMonth / 7) }, (_, index) => {
+          const from = index * 7;
+          const segment = temporalSeriesRounded.slice(from, from + 7);
+          return {
+            key: `w-${index + 1}`,
+            label: `Semana ${index + 1}`,
+            ventas: round2(segment.reduce((acc, row) => acc + row.ventas, 0)),
+            costos: round2(segment.reduce((acc, row) => acc + row.costos, 0)),
+            adelantos: round2(segment.reduce((acc, row) => acc + row.adelantos, 0)),
+          };
+        })
+      : temporalSeriesRounded;
+
+  const maxTemporalChart = Math.max(
     1,
-    ...categoriasStrategic.map((row) => Math.max(Math.abs(row.ventas), Math.abs(row.costos), Math.abs(row.margen)))
+    ...temporalChartPoints.map((row) => Math.max(row.ventas, row.costos, row.adelantos))
   );
 
+  const temporalChartData = temporalChartPoints.map((row, index) => ({ ...row, index }));
+
+  const temporalSvg = {
+    width: 920,
+    height: 320,
+    marginTop: 20,
+    marginRight: 20,
+    marginBottom: 60,
+    marginLeft: 54,
+  };
+  const temporalPlotWidth = temporalSvg.width - temporalSvg.marginLeft - temporalSvg.marginRight;
+  const temporalPlotHeight = temporalSvg.height - temporalSvg.marginTop - temporalSvg.marginBottom;
+  const temporalCount = Math.max(1, temporalChartData.length - 1);
+  const temporalX = (index: number) => temporalSvg.marginLeft + (index / temporalCount) * temporalPlotWidth;
+  const temporalY = (value: number) => temporalSvg.marginTop + (1 - value / maxTemporalChart) * temporalPlotHeight;
+  const buildLinePath = (values: number[]) =>
+    values.map((value, index) => `${index === 0 ? "M" : "L"}${temporalX(index)},${temporalY(value)}`).join(" ");
+
+  const yTicks = 4;
+  const temporalTicks = Array.from({ length: yTicks + 1 }, (_, idx) => {
+    const value = round2((maxTemporalChart / yTicks) * idx);
+    return { value, y: temporalY(value) };
+  });
+
+  const categoriasTop = categoriasStrategic.slice(0, 8);
+
+  const maxCategoria = Math.max(
+    1,
+    ...categoriasTop.map((row) => Math.max(Math.abs(row.ventas), Math.abs(row.costos), Math.abs(row.margen)))
+  );
+
+  const categoriaSvg = {
+    width: 920,
+    height: 340,
+    marginTop: 24,
+    marginRight: 20,
+    marginBottom: 84,
+    marginLeft: 54,
+  };
+  const categoriaPlotWidth = categoriaSvg.width - categoriaSvg.marginLeft - categoriaSvg.marginRight;
+  const categoriaPlotHeight = categoriaSvg.height - categoriaSvg.marginTop - categoriaSvg.marginBottom;
+  const categoriaGroupWidth = categoriasTop.length > 0 ? categoriaPlotWidth / categoriasTop.length : categoriaPlotWidth;
+  const categoriaBarWidth = Math.max(12, categoriaGroupWidth / 4);
+  const categoriaX = (index: number) => categoriaSvg.marginLeft + index * categoriaGroupWidth;
+  const categoriaY = (value: number) => categoriaSvg.marginTop + (1 - Math.abs(value) / maxCategoria) * categoriaPlotHeight;
+
   return (
-    <main className="mx-auto w-full max-w-7xl p-6">
+    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Módulo 7: Analítica Estratégica</h1>
         <Link href="/" className="text-sm underline">
@@ -563,108 +450,105 @@ export default async function AnaliticaPage({
       <section className="mb-6 grid gap-4 lg:grid-cols-2">
         <div className="rounded border p-4">
           <h2 className="mb-2 text-lg font-semibold">Gráfico temporal del periodo</h2>
-          <p className="mb-3 text-sm">Compara ventas, costos productor y adelantos por tramo ({mode === "anual" ? "mes" : "día"}).</p>
-          <div className="space-y-2 text-xs">
-            {temporalSeriesRounded.map((row) => (
-              <div key={row.key} className="rounded border p-2">
-                <p className="mb-1 font-medium">{row.label}</p>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="w-14">Venta</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-green-600" style={{ width: `${Math.max(2, (row.ventas / maxTemporal) * 100)}%` }} /></div>
-                  <span>{round2(row.ventas)}</span>
-                </div>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="w-14">Costo</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-red-600" style={{ width: `${Math.max(2, (row.costos / maxTemporal) * 100)}%` }} /></div>
-                  <span>{round2(row.costos)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-14">Adelanto</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-orange-600" style={{ width: `${Math.max(2, (row.adelantos / maxTemporal) * 100)}%` }} /></div>
-                  <span>{round2(row.adelantos)}</span>
-                </div>
+          <p className="mb-3 text-sm">
+            Gráfico cartesiano real (eje X: {mode === "anual" ? "meses" : "semanas"}, eje Y: monto S/) para ventas, costos y adelantos.
+          </p>
+          {temporalChartData.length === 0 ? (
+            <div className="rounded border border-dashed p-6 text-center text-sm text-slate-500">Sin datos del periodo.</div>
+          ) : (
+            <>
+              <div className="mb-3 flex flex-wrap gap-3 text-xs">
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-600" />Ventas</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Costos</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-orange-500" />Adelantos</span>
               </div>
-            ))}
-          </div>
+              <div className="overflow-x-auto">
+                <svg viewBox={`0 0 ${temporalSvg.width} ${temporalSvg.height}`} className="min-w-[760px] w-full rounded border bg-white">
+                  {temporalTicks.map((tick) => (
+                    <g key={`tick-${tick.value}`}>
+                      <line x1={temporalSvg.marginLeft} x2={temporalSvg.width - temporalSvg.marginRight} y1={tick.y} y2={tick.y} stroke="#e5e7eb" strokeDasharray="3 3" />
+                      <text x={temporalSvg.marginLeft - 8} y={tick.y + 4} textAnchor="end" fontSize="11" fill="#6b7280">
+                        {compactCurrency(tick.value)}
+                      </text>
+                    </g>
+                  ))}
+
+                  <line x1={temporalSvg.marginLeft} x2={temporalSvg.marginLeft} y1={temporalSvg.marginTop} y2={temporalSvg.height - temporalSvg.marginBottom} stroke="#94a3b8" />
+                  <line x1={temporalSvg.marginLeft} x2={temporalSvg.width - temporalSvg.marginRight} y1={temporalSvg.height - temporalSvg.marginBottom} y2={temporalSvg.height - temporalSvg.marginBottom} stroke="#94a3b8" />
+
+                  <path d={buildLinePath(temporalChartData.map((row) => row.ventas))} fill="none" stroke="#16a34a" strokeWidth="2.5" />
+                  <path d={buildLinePath(temporalChartData.map((row) => row.costos))} fill="none" stroke="#dc2626" strokeWidth="2.5" />
+                  <path d={buildLinePath(temporalChartData.map((row) => row.adelantos))} fill="none" stroke="#f97316" strokeWidth="2.5" />
+
+                  {temporalChartData.map((row, idx) => (
+                    <g key={row.key}>
+                      <circle cx={temporalX(idx)} cy={temporalY(row.ventas)} r="3.2" fill="#16a34a" />
+                      <circle cx={temporalX(idx)} cy={temporalY(row.costos)} r="3.2" fill="#dc2626" />
+                      <circle cx={temporalX(idx)} cy={temporalY(row.adelantos)} r="3.2" fill="#f97316" />
+                      <text x={temporalX(idx)} y={temporalSvg.height - temporalSvg.marginBottom + 16} textAnchor="middle" fontSize="10" fill="#64748b">
+                        {row.label}
+                      </text>
+                    </g>
+                  ))}
+                </svg>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="rounded border p-4">
           <h2 className="mb-2 text-lg font-semibold">Gráfico por categoría</h2>
-          <p className="mb-3 text-sm">Ventas, costos y margen del periodo por calidad/categoría.</p>
-          <div className="space-y-2 text-xs">
-            {categoriasStrategic.length === 0 ? <p>Sin liquidaciones detalladas este mes.</p> : null}
-            {categoriasStrategic.map((row) => (
-              <div key={row.categoriaId} className="rounded border p-2">
-                <p className="mb-1 font-medium">{row.categoria}</p>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="w-14">Venta</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-blue-600" style={{ width: `${Math.max(2, (Math.abs(row.ventas) / maxCategoria) * 100)}%` }} /></div>
-                  <span>{row.ventas}</span>
-                </div>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="w-14">Costo</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-red-600" style={{ width: `${Math.max(2, (Math.abs(row.costos) / maxCategoria) * 100)}%` }} /></div>
-                  <span>{row.costos}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-14">Margen</span>
-                  <div className="h-2 flex-1 rounded border"><div className="h-full bg-green-600" style={{ width: `${Math.max(2, (Math.abs(row.margen) / maxCategoria) * 100)}%` }} /></div>
-                  <span>{row.margen}</span>
-                </div>
+          <p className="mb-3 text-sm">Gráfico cartesiano de barras (X: categorías, Y: monto S/) con top categorías por aporte económico.</p>
+          {categoriasTop.length === 0 ? (
+            <div className="rounded border border-dashed p-6 text-center text-sm text-slate-500">
+              Sin liquidaciones detalladas para el periodo seleccionado.
+            </div>
+          ) : (
+            <>
+              <div className="mb-3 flex flex-wrap gap-3 text-xs">
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-600" />Ventas</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Costos</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-600" />Margen</span>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+              <div className="overflow-x-auto">
+                <svg viewBox={`0 0 ${categoriaSvg.width} ${categoriaSvg.height}`} className="min-w-[760px] w-full rounded border bg-white">
+                  {Array.from({ length: 5 }, (_, idx) => {
+                    const value = round2((maxCategoria / 4) * idx);
+                    const y = categoriaY(value);
+                    return (
+                      <g key={`ctick-${value}`}>
+                        <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.width - categoriaSvg.marginRight} y1={y} y2={y} stroke="#e5e7eb" strokeDasharray="3 3" />
+                        <text x={categoriaSvg.marginLeft - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#6b7280">
+                          {compactCurrency(value)}
+                        </text>
+                      </g>
+                    );
+                  })}
 
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-2 text-lg font-semibold">Trazabilidad estratégica por lote/categoría ({periodShort})</h2>
-        <p className="mb-3 text-sm">
-          Muestra dónde se envió cada división, a qué precio se planeó/vendió, cuánto se movió y cuánto sobró del lote.
-        </p>
-        <p className="mb-2 text-xs">Qué muestra esta tabla: trazabilidad comercial-financiera por lote y categoría dentro del periodo activo.</p>
-        <div className="overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Lote</th>
-                <th className="p-2">Código clasif.</th>
-                <th className="p-2">Categoría</th>
-                <th className="p-2">Códigos división</th>
-                <th className="p-2">Destinos (pedidos)</th>
-                <th className="p-2">Clientes</th>
-                <th className="p-2">Kg clasif.</th>
-                <th className="p-2">Kg vendidos {periodShort}</th>
-                <th className="p-2">Kg sobrante actual</th>
-                <th className="p-2">Precio plan/kg</th>
-                <th className="p-2">Precio venta/kg</th>
-                <th className="p-2">Venta {periodShort} (S/)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trazabilidadRows.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="p-3 text-center">Sin divisiones/ventas en este mes.</td>
-                </tr>
-              ) : null}
-              {trazabilidadRows.map((row, index) => (
-                <tr key={`${row.lote}-${row.categoria}-${index}`} className="border-b align-top">
-                  <td className="p-2">{row.lote}</td>
-                  <td className="p-2">{row.codigoClasificacion}</td>
-                  <td className="p-2">{row.categoria}</td>
-                  <td className="p-2">{row.codigosDivision || "-"}</td>
-                  <td className="p-2">{row.destinos || "-"}</td>
-                  <td className="p-2">{row.clientes || "-"}</td>
-                  <td className="p-2">{row.kgClasif}</td>
-                  <td className="p-2">{row.kgVendidoMes}</td>
-                  <td className="p-2">{row.kgSobrante}</td>
-                  <td className="p-2">{row.precioPlanProm}</td>
-                  <td className="p-2">{row.precioVentaProm}</td>
-                  <td className="p-2">{row.ventasMes}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.marginLeft} y1={categoriaSvg.marginTop} y2={categoriaSvg.height - categoriaSvg.marginBottom} stroke="#94a3b8" />
+                  <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.width - categoriaSvg.marginRight} y1={categoriaSvg.height - categoriaSvg.marginBottom} y2={categoriaSvg.height - categoriaSvg.marginBottom} stroke="#94a3b8" />
+
+                  {categoriasTop.map((row, idx) => {
+                    const groupX = categoriaX(idx);
+                    const baseY = categoriaSvg.height - categoriaSvg.marginBottom;
+                    const ventasHeight = Math.max(2, (Math.abs(row.ventas) / maxCategoria) * categoriaPlotHeight);
+                    const costosHeight = Math.max(2, (Math.abs(row.costos) / maxCategoria) * categoriaPlotHeight);
+                    const margenHeight = Math.max(2, (Math.abs(row.margen) / maxCategoria) * categoriaPlotHeight);
+                    return (
+                      <g key={row.categoriaId}>
+                        <rect x={groupX + categoriaBarWidth * 0.3} y={baseY - ventasHeight} width={categoriaBarWidth} height={ventasHeight} fill="#2563eb" rx="2" />
+                        <rect x={groupX + categoriaBarWidth * 1.5} y={baseY - costosHeight} width={categoriaBarWidth} height={costosHeight} fill="#dc2626" rx="2" />
+                        <rect x={groupX + categoriaBarWidth * 2.7} y={baseY - margenHeight} width={categoriaBarWidth} height={margenHeight} fill="#059669" rx="2" />
+                        <text x={groupX + categoriaGroupWidth / 2} y={baseY + 16} textAnchor="middle" fontSize="10" fill="#64748b">
+                          {row.categoria.length > 12 ? `${row.categoria.slice(0, 12)}…` : row.categoria}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            </>
+          )}
         </div>
       </section>
 

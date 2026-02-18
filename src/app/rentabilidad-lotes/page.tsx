@@ -316,7 +316,7 @@ export default async function RentabilidadLotesPage({
     .sort((a, b) => b.id - a.id);
 
   return (
-    <main className="mx-auto w-full max-w-7xl p-6">
+    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Módulo 9: Rentabilidad por Lote y Producto</h1>
         <div className="flex items-center gap-3 text-sm">

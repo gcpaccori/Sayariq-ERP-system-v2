@@ -396,7 +396,7 @@ export default async function KardexPage({
   if (search.q) queryParams.set("q", search.q);
 
   return (
-    <main className="mx-auto w-full max-w-7xl p-6">
+    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Módulo 4: Kardex General</h1>
         <Link href="/" className="text-sm underline">

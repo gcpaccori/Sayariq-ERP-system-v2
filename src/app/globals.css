@@ -25,3 +25,132 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Tema visual Google 2027 (blanco) para módulos operativos */
+.google-2027-theme {
+  --g-border: #dfe3eb;
+  --g-border-strong: #ccd3df;
+  --g-surface: #ffffff;
+  --g-surface-soft: #f8fbff;
+  --g-text: #202124;
+  --g-muted: #5f6368;
+  --g-accent: #1a73e8;
+  min-height: 100vh;
+  color: var(--g-text);
+  background: linear-gradient(180deg, #ffffff 0%, var(--g-surface-soft) 100%);
+}
+
+.google-2027-theme h1,
+.google-2027-theme h2,
+.google-2027-theme h3,
+.google-2027-theme h4 {
+  color: var(--g-text);
+  letter-spacing: -0.02em;
+}
+
+.google-2027-theme p,
+.google-2027-theme label,
+.google-2027-theme small {
+  color: var(--g-muted);
+}
+
+.google-2027-theme section,
+.google-2027-theme article,
+.google-2027-theme .surface,
+.google-2027-theme .card,
+.google-2027-theme .rounded.border,
+.google-2027-theme .rounded-xl.border,
+.google-2027-theme .rounded-2xl.border,
+.google-2027-theme .rounded-3xl.border {
+  border-color: var(--g-border);
+  background: var(--g-surface);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 24px rgba(16, 24, 40, 0.05);
+}
+
+.google-2027-theme a {
+  color: #174ea6;
+}
+
+.google-2027-theme input,
+.google-2027-theme select,
+.google-2027-theme textarea,
+.google-2027-theme button {
+  border-radius: 12px;
+  border-color: var(--g-border-strong);
+  background: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.google-2027-theme input:hover,
+.google-2027-theme select:hover,
+.google-2027-theme textarea:hover,
+.google-2027-theme button:hover {
+  border-color: #b9c5d7;
+}
+
+.google-2027-theme input:focus,
+.google-2027-theme select:focus,
+.google-2027-theme textarea:focus {
+  outline: none;
+  border-color: var(--g-accent);
+  box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.14);
+}
+
+.google-2027-theme table {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.google-2027-theme thead {
+  background: #f6f9fe;
+}
+
+.google-2027-theme th {
+  color: #3c4043;
+  font-weight: 600;
+}
+
+.google-2027-theme td {
+  color: var(--g-muted);
+}
+
+.google-2027-theme tr {
+  border-color: #e6ebf3;
+}
+
+.google-2027-theme .chip,
+.google-2027-theme .badge {
+  border-radius: 999px;
+  border: 1px solid #d7e3fb;
+  background: #eef3fd;
+  color: #174ea6;
+}
+
+
+/* Tipografía uniforme para módulos 1-9 */
+.google-2027-theme {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.google-2027-theme p,
+.google-2027-theme label,
+.google-2027-theme span,
+.google-2027-theme li,
+.google-2027-theme td,
+.google-2027-theme th,
+.google-2027-theme input,
+.google-2027-theme select,
+.google-2027-theme textarea,
+.google-2027-theme button,
+.google-2027-theme a {
+  font-size: 0.95rem;
+}
+
+.google-2027-theme h1 {
+  font-size: clamp(1.6rem, 2.4vw, 2rem);
+}
+
+.google-2027-theme h2 {
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+}

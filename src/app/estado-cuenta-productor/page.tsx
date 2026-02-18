@@ -200,7 +200,7 @@ export default async function EstadoCuentaProductorPage({
 
   if (!productorSeleccionadoId) {
     return (
-      <main className="mx-auto w-full max-w-6xl p-6">
+      <main className="google-2027-theme mx-auto w-full max-w-6xl p-6">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-2xl font-semibold">Módulo 8: Estado de Cuenta Productor</h1>
           <Link href="/" className="text-sm underline">
@@ -457,7 +457,7 @@ export default async function EstadoCuentaProductorPage({
     `Productor ${productorSeleccionadoId}`;
 
   return (
-    <main className="mx-auto w-full max-w-7xl p-6">
+    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Módulo 8: Estado de Cuenta Productor</h1>
         <div className="flex items-center gap-3 text-sm">

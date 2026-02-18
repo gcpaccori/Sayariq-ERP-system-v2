@@ -379,7 +379,7 @@ export default async function PedidosPage({
   }
 
   return (
-    <main className="relative min-h-screen bg-white text-gray-900">
+    <main className="google-2027-theme relative min-h-screen bg-white text-gray-900">
       {/* Grid Background Pattern */}
       <div
         className="pointer-events-none absolute inset-0"
