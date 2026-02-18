@@ -1,6 +1,16 @@
 import Link from "next/link";
+import { Wallet, TrendingUp, DollarSign, Calendar } from "lucide-react";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  Header,
+  KPICard,
+  Section,
+  AccordionItem,
+  CompactTable,
+  DataCard,
+  Tabs,
+} from "@/components/EstadoCuentaComponents";
 
 type SearchParams = {
   productor?: string;
@@ -200,17 +210,14 @@ export default async function EstadoCuentaProductorPage({
 
   if (!productorSeleccionadoId) {
     return (
-      <main className="google-2027-theme mx-auto w-full max-w-6xl p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Módulo 8: Estado de Cuenta Productor</h1>
-          <Link href="/" className="text-sm underline">
-            Volver al inicio
-          </Link>
+      <main className="google-2027-theme w-full min-h-screen bg-white">
+        <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6">
+          <Header title="Estado de Cuenta" subtitle="Sin productores disponibles" productoresValidos={[]} productorSeleccionadoId={0} />
+          <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-6 text-center">
+            <p className="font-semibold text-[#202124]">No hay productores</p>
+            <p className="text-sm text-[#5F6368] mt-2">Crea personas con rol productor en el módulo de Gestión.</p>
+          </div>
         </div>
-        <section className="rounded border p-4">
-          <p>No hay productores registrados para mostrar estado de cuenta.</p>
-          <p className="mt-2 text-sm">Primero crea personas con rol productor en el módulo 1.</p>
-        </section>
       </main>
     );
   }
@@ -417,6 +424,10 @@ export default async function EstadoCuentaProductorPage({
     saldoLiquidacionesPendiente + adelantosPendientesMonto
   );
 
+  const totalPagado = round2(
+    pagosKardex.reduce((acc, row) => acc + Number(row.monto ?? 0), 0)
+  );
+
   const timelineRows: TimelineRow[] = [
     ...adelantos.map((row) => ({
       fecha: row.fecha,
@@ -457,456 +468,270 @@ export default async function EstadoCuentaProductorPage({
     `Productor ${productorSeleccionadoId}`;
 
   return (
-    <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Módulo 8: Estado de Cuenta Productor</h1>
-        <div className="flex items-center gap-3 text-sm">
-          <Link href="/liquidaciones" className="underline">
-            Ir a Liquidaciones
-          </Link>
-          <Link href="/" className="underline">
-            Volver al inicio
-          </Link>
+    <main className="google-2027-theme w-full min-h-screen bg-white">
+      <div className="max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 space-y-4 lg:space-y-6">
+        <Header
+          title="Estado de Cuenta"
+          subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
+          productoresValidos={productoresValidos}
+          productorSeleccionadoId={productorSeleccionadoId}
+        />
+
+        <div className="space-y-4">
+        {/* KPIs Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4">
+          <KPICard label="Adelantos otorgados" value={currency(totalAdelantos)} />
+          <KPICard label="Por descontar" value={currency(adelantosPendientesMonto)} variant={adelantosPendientesMonto > 0 ? 'critical' : 'default'} trend={adelantosPendientesMonto > 0 ? 'down' : 'neutral'} />
+          <KPICard label="Total liquidado" value={currency(totalLiquidado)} trend="up" variant="success" />
+          <KPICard label="Saldo pendiente" value={currency(saldoLiquidacionesPendiente)} variant={saldoLiquidacionesPendiente > 0 ? 'critical' : 'success'} trend={saldoLiquidacionesPendiente > 0 ? 'down' : 'up'} />
+          <KPICard label="Pagado" value={currency(totalPagado)} trend="up" variant="success" />
+          <KPICard label="Exposición total" value={currency(exposicionProductor)} variant={exposicionProductor > 0 ? 'critical' : 'default'} trend={exposicionProductor > 0 ? 'down' : 'up'} />
         </div>
-      </div>
 
-      <section className="mb-4 rounded border p-4">
-        <p className="text-sm">
-          Aquí ves la situación financiera completa del productor seleccionado. Las cards resumen adelantos,
-          liquidaciones y exposición total; las tablas separan estado del lote, deuda comprometida y movimientos
-          de pago para facilitar conciliación.
-        </p>
-      </section>
+        {/* Alerta de adelantos */}
+        {adelantosPendientesMonto > 0 && (
+          <div className="rounded-xl border border-[#FCE5CD] bg-[#FEF7E0] p-4">
+            <p className="text-sm text-[#EA8300] font-medium">
+              <strong>⚠ Adelantos pendientes:</strong> S/ {round2(adelantosPendientesMonto)} en adelantos sin descontar. Accede a <Link href="/liquidaciones" className="underline font-bold hover:text-[#D67C00]">Liquidaciones</Link> para procesarlos.
+            </p>
+          </div>
+        )}
 
-      <section className="mb-4 rounded border p-4">
-        <form className="flex flex-wrap items-end gap-3">
-          <label className="grid gap-1">
-            <span className="text-sm">Productor</span>
-            <select
-              name="productor"
-              defaultValue={String(productorSeleccionadoId)}
-              className="min-w-[280px] rounded border px-2 py-1"
-            >
-              {productoresValidos.map((row) => (
-                <option key={row.id} value={String(row.id)}>
-                  {row.nombre_completo}
-                </option>
+        {/* Estado Operativo */}
+        <Section title="Estado Operativo" subtitle="Lotes en proceso y cerrados" icon={<Wallet size={18} />}>
+          {lotesResumen.length === 0 ? (
+            <p className="text-center text-[#5F6368] text-sm py-4">Sin lotes para este productor</p>
+          ) : (
+            <div className="space-y-2">
+              {lotesResumen.map((lote) => (
+                <AccordionItem
+                  key={lote.id}
+                  title={`${lote.numero_lote} · ${lote.producto} · ${lote.kgClasificado}kg`}
+                  defaultOpen={lote.estadoCuenta === 'en_proceso'}
+                >
+                  <div className="grid grid-cols-2 gap-2.5 mb-4">
+                    <DataCard
+                      fields={[
+                        { label: 'Ingreso', value: shortDate(lote.fecha_ingreso) },
+                      ]}
+                      color="blue"
+                    />
+                    <DataCard
+                      fields={[
+                        { label: 'Estado', value: lote.estado },
+                      ]}
+                      color="blue"
+                    />
+                  </div>
+                  <div className="bg-[#F8FBFF] rounded-xl p-3.5 mb-4 border border-[#E5E7EB]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#5F6368] mb-3">Resumen por Kg</p>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                      <div>
+                        <p className="text-xs text-[#5F6368]">Clasif.</p>
+                        <p className="font-bold text-[#1A73E8] mt-1">{lote.kgClasificado}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[#5F6368]">Asignado</p>
+                        <p className="font-bold text-[#1A73E8] mt-1">{lote.kgAsignado}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[#5F6368]">Liquidado</p>
+                        <p className="font-bold text-[#0D652D] mt-1">{lote.kgLiquidado}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[#5F6368]">Pendiente</p>
+                        <p className="font-bold text-[#D33B27] mt-1">{lote.kgPendienteLiquidar}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-[#5F6368]">Stock libre</p>
+                        <p className="font-bold text-[#202124] mt-1">{lote.kgSobranteSinAsignar}</p>
+                      </div>
+                    </div>
+                  </div>
+                  {lote.detalleCategorias.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-[#5F6368] mb-2">Detalle por categoría:</p>
+                      <CompactTable
+                        headers={['Categoría', 'Clasif', 'Asignado', 'Liquidado', 'Pendiente']}
+                        rows={lote.detalleCategorias.map((c) => [
+                          c.categoria,
+                          `${c.kgClasificado} kg`,
+                          `${c.kgAsignado} kg`,
+                          `${c.kgLiquidado} kg`,
+                          `${c.kgPendiente} kg`,
+                        ])}
+                      />
+                    </div>
+                  )}
+                  {lote.kgPendienteLiquidar > 0.01 && (
+                    <Link
+                      href={`/liquidaciones?lote=${lote.id}`}
+                      className="block mt-4 text-center bg-[#1A73E8] text-white text-sm px-4 py-2.5 rounded-lg hover:bg-[#1765CC] font-semibold transition-colors"
+                    >
+                      Liquidar este lote
+                    </Link>
+                  )}
+                </AccordionItem>
               ))}
-            </select>
-          </label>
-          <button className="rounded border px-3 py-1">Ver estado</button>
-        </form>
-      </section>
+            </div>
+          )}
+        </Section>
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <div className="rounded border p-3">
-          <p className="text-xs">Productor</p>
-          <p className="text-base font-semibold">{productorNombre}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-xs">Adelantos otorgados</p>
-          <p className="text-lg font-bold">{currency(totalAdelantos)}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-xs">Adelantos por descontar</p>
-          <p className="text-lg font-bold">{currency(adelantosPendientesMonto)}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-xs">Total liquidado</p>
-          <p className="text-lg font-bold">{currency(totalLiquidado)}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-xs">Saldo liquidaciones pendiente</p>
-          <p className="text-lg font-bold">{currency(saldoLiquidacionesPendiente)}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-xs">Exposición total</p>
-          <p className="text-lg font-bold">{currency(exposicionProductor)}</p>
-        </div>
-      </section>
-
-      {adelantosPendientesMonto > 0 ? (
-        <section className="mb-4 rounded border p-3 text-sm">
-          Tienes adelantos por descontar. Si el lote ya tiene kg pendientes para liquidación, usa el botón
-          <strong> Liquidar lote</strong> en la tabla siguiente para aplicar el descuento.
-        </section>
-      ) : null}
-
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-2 text-lg font-semibold">Lotes en proceso y cerrados</h2>
-        <p className="mb-2 text-xs">Qué muestra esta tabla: estado operativo y financiero de cada lote del productor.</p>
-        <div className="overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Lote</th>
-                <th className="p-2">Producto</th>
-                <th className="p-2">Ingreso</th>
-                <th className="p-2">Estado lote</th>
-                <th className="p-2">Estado cuenta</th>
-                <th className="p-2">Kg clasif.</th>
-                <th className="p-2">Kg asignado</th>
-                <th className="p-2">Kg liquidado</th>
-                <th className="p-2">Kg pendiente liq.</th>
-                <th className="p-2">Kg stock libre</th>
-                <th className="p-2">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lotesResumen.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-center" colSpan={11}>
-                    Sin lotes para este productor.
-                  </td>
-                </tr>
-              ) : null}
-              {lotesResumen.map((row) => (
-                <tr key={row.id} className="border-b align-top">
-                  <td className="p-2">{row.numero_lote}</td>
-                  <td className="p-2">{row.producto}</td>
-                  <td className="p-2">{shortDate(row.fecha_ingreso)}</td>
-                  <td className="p-2">{row.estado}</td>
-                  <td className="p-2">{row.estadoCuenta}</td>
-                  <td className="p-2">{row.kgClasificado}</td>
-                  <td className="p-2">{row.kgAsignado}</td>
-                  <td className="p-2">{row.kgLiquidado}</td>
-                  <td className="p-2">{row.kgPendienteLiquidar}</td>
-                  <td className="p-2">{row.kgSobranteSinAsignar}</td>
-                  <td className="p-2">
-                    {row.kgPendienteLiquidar > 0.01 || row.estado === "sin_clasificar" ? (
-                      <Link href={`/liquidaciones?lote=${row.id}`} className="rounded border px-2 py-1 text-xs">
-                        Liquidar lote
-                      </Link>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-2 text-lg font-semibold">Trazabilidad por categoría (clasificación/división/liquidación)</h2>
-        <p className="mb-2 text-xs">Qué muestra esta tabla: relación entre clasificación, división comercial y avance de liquidación.</p>
-        <div className="overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Lote</th>
-                <th className="p-2">Categoría</th>
-                <th className="p-2">Código clasificación</th>
-                <th className="p-2">Códigos división</th>
-                <th className="p-2">Pedidos destino</th>
-                <th className="p-2">Kg clasif.</th>
-                <th className="p-2">Kg asignado</th>
-                <th className="p-2">Kg liquidado</th>
-                <th className="p-2">Kg pendiente liq.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clasificaciones.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-center" colSpan={9}>
-                    Sin clasificaciones para este productor.
-                  </td>
-                </tr>
-              ) : null}
-              {clasificaciones.map((row, index) => {
+        {/* Trazabilidad */}
+        <Section title="Trazabilidad" subtitle="Clasificación, división y liquidación" icon={<TrendingUp size={18} />}>
+          {clasificaciones.length === 0 ? (
+            <p className="text-center text-[#5F6368] text-sm py-4">Sin clasificaciones</p>
+          ) : (
+            <CompactTable
+              headers={['Lote', 'Categoría', 'Clasif.', 'División', 'Pedidos', 'Kg']}
+              rows={clasificaciones.map((row) => {
                 const key = `${row.lote_id}-${row.categoria_id}`;
-                const asignacionesRelacionadas = asignaciones.filter(
+                const asigRelacionadas = asignaciones.filter(
                   (item) =>
                     Number(item.lote_id) === Number(row.lote_id) &&
                     Number(item.categoria_id) === Number(row.categoria_id)
                 );
-
-                const codigosDivision = [
-                  ...new Set(
-                    asignacionesRelacionadas
-                      .map((item) => item.codigo_division)
-                      .filter((item): item is string => !!item)
-                  ),
+                const codDiv = [...new Set(asigRelacionadas.map((i) => i.codigo_division).filter(Boolean))].join(', ') || '-';
+                const pedidos = [...new Set(asigRelacionadas.map((i) => pedidoMap.get(Number(i.pedido_id)) ?? String(i.pedido_id)))].join(', ') || '-';
+                return [
+                  loteMap.get(Number(row.lote_id))?.numero_lote ?? row.lote_id,
+                  categoriaMap.get(Number(row.categoria_id)) ?? row.categoria_id,
+                  row.codigo_clasificacion ?? '-',
+                  codDiv,
+                  pedidos,
+                  `${round2(Number(row.peso_neto ?? 0))} kg`,
                 ];
-
-                const pedidosDestino = [
-                  ...new Set(
-                    asignacionesRelacionadas.map(
-                      (item) => pedidoMap.get(Number(item.pedido_id)) ?? String(item.pedido_id)
-                    )
-                  ),
-                ];
-
-                return (
-                  <tr key={`${key}-${index}`} className="border-b align-top">
-                    <td className="p-2">{loteMap.get(Number(row.lote_id))?.numero_lote ?? row.lote_id}</td>
-                    <td className="p-2">{categoriaMap.get(Number(row.categoria_id)) ?? row.categoria_id}</td>
-                    <td className="p-2">{row.codigo_clasificacion ?? "-"}</td>
-                    <td className="p-2">{codigosDivision.join(", ") || "-"}</td>
-                    <td className="p-2">{pedidosDestino.join(", ") || "-"}</td>
-                    <td className="p-2">{round2(Number(row.peso_neto ?? 0))}</td>
-                    <td className="p-2">{round2(Number(asignadoKeyMap.get(key) ?? 0))}</td>
-                    <td className="p-2">{round2(Number(liquidadoKeyMap.get(key) ?? 0))}</td>
-                    <td className="p-2">
-                      {round2(
-                        Math.max(
-                          0,
-                          Number(row.peso_neto ?? 0) - Number(liquidadoKeyMap.get(key) ?? 0)
-                        )
-                      )}
-                    </td>
-                  </tr>
-                );
               })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            />
+          )}
+        </Section>
 
-      <section className="mb-6 grid gap-4 lg:grid-cols-2">
-        <div className="rounded border p-4">
-          <h2 className="mb-2 text-lg font-semibold">Historial de adelantos</h2>
-          <p className="mb-2 text-xs">
-            Nota: estado <strong>pendiente</strong> = adelanto ya entregado, todavía no descontado en una liquidación.
-          </p>
-          <p className="mb-2 text-xs">Qué muestra esta tabla: adelantos entregados, su estado y su aplicación en liquidaciones.</p>
-          <div className="overflow-x-auto rounded border">
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Fecha</th>
-                  <th className="p-2">Comprobante</th>
-                  <th className="p-2">ID</th>
-                  <th className="p-2">Lote</th>
-                  <th className="p-2">Monto</th>
-                  <th className="p-2">Estado</th>
-                  <th className="p-2">Motivo</th>
-                  <th className="p-2">Aplicado en</th>
-                </tr>
-              </thead>
-              <tbody>
-                {adelantos.length === 0 ? (
-                  <tr>
-                    <td className="p-3 text-center" colSpan={8}>
-                      Sin adelantos registrados.
-                    </td>
-                  </tr>
-                ) : null}
+        {/* Sección de Finanzas */}
+        <Section title="Finanzas" subtitle="Adelantos, liquidaciones y pagos" icon={<DollarSign size={18} />}>
+          <AccordionItem title="Adelantos" badge={String(adelantos.length)} badgeColor={adelantosPendientesMonto > 0 ? 'red' : 'blue'} defaultOpen={adelantosRes.data ? adelantosRes.data.length > 0 : false}>
+            {adelantos.length === 0 ? (
+              <p className="text-center text-[#5F6368] text-sm py-4">Sin adelantos</p>
+            ) : (
+              <div className="space-y-2.5">
                 {adelantos.map((row) => (
-                  <tr key={row.id} className="border-b">
-                    <td className="p-2">{shortDate(row.fecha)}</td>
-                    <td className="p-2">{row.numero_comprobante ?? "-"}</td>
-                    <td className="p-2">{row.id}</td>
-                    <td className="p-2">
-                      {row.lote_id ? loteMap.get(Number(row.lote_id))?.numero_lote ?? row.lote_id : "-"}
-                    </td>
-                    <td className="p-2">{currency(Number(row.monto ?? 0))}</td>
-                    <td className="p-2">{adelantoEstadoLabel(row.estado)}</td>
-                    <td className="p-2">{row.motivo ?? "-"}</td>
-                    <td className="p-2">
-                      {row.liquidacion_id
-                        ? liqMap.get(Number(row.liquidacion_id))?.numero_liquidacion ?? `LIQ-${row.liquidacion_id}`
-                        : "-"}
-                    </td>
-                  </tr>
+                  <DataCard
+                    key={row.id}
+                    fields={[
+                      { label: 'Fecha', value: shortDate(row.fecha) },
+                      { label: 'Comprobante', value: row.numero_comprobante ?? `-` },
+                      { label: 'Monto', value: currency(Number(row.monto ?? 0)) },
+                      { label: 'Estado', value: adelantoEstadoLabel(row.estado) },
+                      { label: 'Lote', value: row.lote_id ? loteMap.get(Number(row.lote_id))?.numero_lote ?? String(row.lote_id) : '-' },
+                      { label: 'Motivo', value: row.motivo ?? '-' },
+                    ]}
+                    highlight={row.estado === 'pendiente'}
+                  />
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              </div>
+            )}
+          </AccordionItem>
 
-        <div className="rounded border p-4">
-          <h2 className="mb-2 text-lg font-semibold">Liquidaciones y pagos</h2>
-          <p className="mb-2 text-xs">
-            No son lo mismo: <strong>Liquidación</strong> = lo que se debe pagar en total por un lote; <strong>Pago</strong> = cada abono/movimiento que va cancelando esa liquidación.
-          </p>
-          <p className="mb-2 text-xs font-medium">Cuadro 1: Resumen por liquidación (total, pagado y saldo).</p>
-          <p className="mb-2 text-xs">Qué muestra esta tabla: deuda total por liquidación y su saldo pendiente.</p>
-          <div className="overflow-x-auto rounded border">
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Fecha</th>
-                  <th className="p-2">Liquidación</th>
-                  <th className="p-2">Lote</th>
-                  <th className="p-2">Total a pagar</th>
-                  <th className="p-2">Pagado</th>
-                  <th className="p-2">Saldo</th>
-                  <th className="p-2">Estado pago</th>
-                </tr>
-              </thead>
-              <tbody>
-                {liquidaciones.length === 0 ? (
-                  <tr>
-                    <td className="p-3 text-center" colSpan={7}>
-                      Sin liquidaciones para este productor.
-                    </td>
-                  </tr>
-                ) : null}
-                {liquidaciones.map((row) => {
+          <AccordionItem title="Liquidaciones" badge={String(liquidaciones.length)} badgeColor="green" defaultOpen={true}>
+            {liquidaciones.length === 0 ? (
+              <p className="text-center text-[#5F6368] text-sm py-4">Sin liquidaciones</p>
+            ) : (
+              <CompactTable
+                headers={['Fecha', 'Liquidación', 'Lote', 'A pagar', 'Pagado', 'Saldo']}
+                rows={liquidaciones.map((row) => {
                   const saldo = round2(
                     Math.max(0, Number(row.total_a_pagar ?? 0) - Number(row.monto_pagado ?? 0))
                   );
-                  return (
-                    <tr key={row.id} className="border-b">
-                      <td className="p-2">{shortDate(row.fecha_liquidacion)}</td>
-                      <td className="p-2">{row.numero_liquidacion}</td>
-                      <td className="p-2">
-                        {row.lote_id ? loteMap.get(Number(row.lote_id))?.numero_lote ?? row.lote_id : "-"}
-                      </td>
-                      <td className="p-2">{currency(Number(row.total_a_pagar ?? 0))}</td>
-                      <td className="p-2">{currency(Number(row.monto_pagado ?? 0))}</td>
-                      <td className="p-2">{currency(saldo)}</td>
-                      <td className="p-2">{row.estado_pago}</td>
-                    </tr>
-                  );
+                  return [
+                    shortDate(row.fecha_liquidacion),
+                    row.numero_liquidacion,
+                    row.lote_id ? loteMap.get(Number(row.lote_id))?.numero_lote ?? row.lote_id : '-',
+                    currency(Number(row.total_a_pagar ?? 0)),
+                    currency(Number(row.monto_pagado ?? 0)),
+                    saldo > 0 ? `${currency(saldo)} 🔴` : currency(saldo),
+                  ];
                 })}
-              </tbody>
-            </table>
-          </div>
+              />
+            )}
+          </AccordionItem>
 
-          <p className="mb-2 mt-3 text-xs font-medium">Cuadro 2: Detalle de pagos/abonos registrados en kardex.</p>
-          <p className="mb-2 text-xs">Qué muestra esta tabla: movimientos de pago que cancelan parcial o totalmente liquidaciones.</p>
-          <div className="mt-4 overflow-x-auto rounded border">
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Fecha</th>
-                  <th className="p-2">Liquidación</th>
-                  <th className="p-2">Monto pago</th>
-                  <th className="p-2">Detalle</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagosKardex.length === 0 ? (
-                  <tr>
-                    <td className="p-3 text-center" colSpan={4}>
-                      Sin pagos parciales registrados en kardex.
-                    </td>
-                  </tr>
-                ) : null}
-                {pagosKardex.map((row) => (
-                  <tr key={row.id} className="border-b">
-                    <td className="p-2">{shortDate(row.fecha)}</td>
-                    <td className="p-2">
-                      {row.origen_id
-                        ? liqMap.get(Number(row.origen_id))?.numero_liquidacion ?? `LIQ-${row.origen_id}`
-                        : "-"}
-                    </td>
-                    <td className="p-2">{currency(Number(row.monto ?? 0))}</td>
-                    <td className="p-2">{row.observaciones ?? row.concepto ?? "Pago parcial"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AccordionItem title="Pagos registrados" badge={String(pagosKardex.length)} badgeColor="blue">
+            {pagosKardex.length === 0 ? (
+              <p className="text-center text-[#5F6368] text-sm py-4">Sin pagos registrados</p>
+            ) : (
+              <CompactTable
+                headers={['Fecha', 'Liquidación', 'Monto', 'Detalle']}
+                rows={pagosKardex.map((row) => [
+                  shortDate(row.fecha),
+                  row.origen_id ? liqMap.get(Number(row.origen_id))?.numero_liquidacion ?? `LIQ-${row.origen_id}` : '-',
+                  currency(Number(row.monto ?? 0)),
+                  row.observaciones ?? row.concepto ?? 'Pago parcial',
+                ])}
+              />
+            )}
+          </AccordionItem>
+        </Section>
+
+        {/* Auditoría */}
+        <Section title="Auditoría" subtitle="Comprobantes internos y línea de tiempo" icon={<Calendar size={18} />}>
+          <Tabs
+            tabs={[
+              {
+                label: 'Comprobantes',
+                content:
+                  comprobantesInternos.length === 0 ? (
+                    <p className="text-center text-[#5F6368] text-sm py-4">Sin comprobantes</p>
+                  ) : (
+                    <CompactTable
+                      headers={['Código', 'Tipo', 'Fecha', 'Monto', 'Receptor']}
+                      rows={comprobantesInternos.map((row) => {
+                        const receptor = [row.receptor_nombre, row.receptor_documento]
+                          .filter(Boolean)
+                          .join(' | ') || '-';
+                        return [
+                          row.codigo_interno,
+                          row.tipo,
+                          shortDate(row.fecha_evento),
+                          currency(Number(row.monto ?? 0)),
+                          receptor,
+                        ];
+                      })}
+                    />
+                  ),
+              },
+              {
+                label: 'Línea de tiempo',
+                content:
+                  timelineRows.length === 0 ? (
+                    <p className="text-center text-[#5F6368] text-sm py-4">Sin movimientos</p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {timelineRows.map((row, idx) => {
+                        const tipoColor = row.tipo === 'adelanto' ? 'blue' : row.tipo === 'liquidacion' ? 'green' : 'orange';
+                        const typoBgColor = tipoColor === 'blue' ? 'bg-[#E8F0FE] text-[#1A73E8]' : tipoColor === 'green' ? 'bg-[#E6F4EA] text-[#0D652D]' : 'bg-[#FEF7E0] text-[#EA8300]';
+                        return (
+                          <div key={idx} className="border-l-4 border-[#1A73E8] pl-3 py-3 rounded-r-lg">
+                            <div className="flex justify-between items-start mb-1">
+                              <div>
+                                <p className="text-sm font-bold text-[#202124]">{row.referencia}</p>
+                                <p className="text-xs text-[#5F6368]">{shortDate(row.fecha)}</p>
+                              </div>
+                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${typoBgColor}`}>
+                                {row.tipo.charAt(0).toUpperCase() + row.tipo.slice(1)}
+                              </span>
+                            </div>
+                            <p className="text-base font-bold text-[#202124]">{currency(row.monto)}</p>
+                            <p className="text-xs text-[#5F6368] mt-1">{row.extra}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ),
+              },
+            ]}
+          />
+        </Section>
         </div>
-      </section>
-
-      <section className="rounded border p-4">
-        <h2 className="mb-2 text-lg font-semibold">Comprobantes internos (adelanto / venta / liquidación)</h2>
-        <p className="mb-3 text-sm">
-          Registro interno con receptor, ubicación y GPS para respaldo operativo y auditoría.
-        </p>
-        <p className="mb-2 text-xs">Qué muestra esta tabla: evidencia interna por evento financiero con datos de recepción y georreferencia.</p>
-        <div className="mb-4 overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Código interno</th>
-                <th className="p-2">Tipo</th>
-                <th className="p-2">Fecha</th>
-                <th className="p-2">Monto</th>
-                <th className="p-2">Referencia</th>
-                <th className="p-2">Receptor</th>
-                <th className="p-2">Lugar</th>
-                <th className="p-2">GPS</th>
-                <th className="p-2">Obs.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comprobantesInternos.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-center" colSpan={9}>
-                    Sin comprobantes internos para este productor.
-                  </td>
-                </tr>
-              ) : null}
-              {comprobantesInternos.map((row) => {
-                const refNumero =
-                  row.payload?.numero_comprobante_adelanto ??
-                  row.payload?.numero_liquidacion ??
-                  row.payload?.pedido_numero ??
-                  `${row.entidad_origen}-${row.entidad_origen_id}`;
-
-                const gps = row.gps_lat && row.gps_lng
-                  ? `${row.gps_lat}, ${row.gps_lng} (${row.gps_precision_m ?? "?"}m)`
-                  : "-";
-
-                const receptor = [row.receptor_nombre, row.receptor_documento, row.receptor_rol]
-                  .filter((value) => !!value)
-                  .join(" | ");
-
-                return (
-                  <tr key={row.id} className="border-b">
-                    <td className="p-2">{row.codigo_interno}</td>
-                    <td className="p-2">{row.tipo}</td>
-                    <td className="p-2">{shortDate(row.fecha_evento)} {row.hora_evento ?? ""}</td>
-                    <td className="p-2">{currency(Number(row.monto ?? 0))}</td>
-                    <td className="p-2">{refNumero}</td>
-                    <td className="p-2">{receptor || "-"}</td>
-                    <td className="p-2">{row.lugar_recepcion ?? "-"}</td>
-                    <td className="p-2">{gps}</td>
-                    <td className="p-2">{row.observaciones ?? "-"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="rounded border p-4">
-        <h2 className="mb-2 text-lg font-semibold">Línea de tiempo crediticia</h2>
-        <p className="mb-3 text-sm">
-          Vista unificada para auditoría: adelantos entregados, liquidaciones emitidas y pagos parciales.
-        </p>
-        <p className="mb-2 text-xs">Qué muestra esta tabla: secuencia cronológica de obligaciones y pagos del productor.</p>
-        <div className="overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Fecha</th>
-                <th className="p-2">Tipo</th>
-                <th className="p-2">Referencia</th>
-                <th className="p-2">Lote</th>
-                <th className="p-2">Monto</th>
-                <th className="p-2">Detalle</th>
-              </tr>
-            </thead>
-            <tbody>
-              {timelineRows.length === 0 ? (
-                <tr>
-                  <td className="p-3 text-center" colSpan={6}>
-                    Sin movimientos financieros para este productor.
-                  </td>
-                </tr>
-              ) : null}
-              {timelineRows.map((row, index) => (
-                <tr key={`${row.tipo}-${row.referencia}-${index}`} className="border-b">
-                  <td className="p-2">{shortDate(row.fecha)}</td>
-                  <td className="p-2">{row.tipo}</td>
-                  <td className="p-2">{row.referencia}</td>
-                  <td className="p-2">{row.lote}</td>
-                  <td className="p-2">{currency(row.monto)}</td>
-                  <td className="p-2">{row.extra}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      </div>
     </main>
   );
 }
