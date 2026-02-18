@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AppLayout } from "@/components/app-layout";
 import { StatsCard } from "@/components/rentabilidad-stats-card";
 import { RentabilidadFilters } from "@/components/rentabilidad-filters";
 import { LoteProfitabilityCard } from "@/components/lote-profitability-card";
@@ -319,15 +320,11 @@ export default async function RentabilidadLotesPage({
     .sort((a, b) => b.id - a.id);
 
   return (
+    <AppLayout
+      title="Rentabilidad"
+      description="Análisis de ganancias por lote y producto"
+    >
     <main className="google-2027-theme mx-auto w-full max-w-7xl px-3 sm:px-6 py-4 sm:py-6">
-      {/* Header */}
-      <div className="mb-5 sm:mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
-          Módulo 9: Rentabilidad
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3">
-          Análisis de ganancias por lote y producto
-        </p>
         <nav className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-wrap">
           <Link
             href="/analitica"
@@ -515,5 +512,6 @@ export default async function RentabilidadLotesPage({
         )}
       </section>
     </main>
+    </AppLayout>
   );
 }

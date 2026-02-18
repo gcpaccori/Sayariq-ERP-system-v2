@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Wallet, TrendingUp, DollarSign, Calendar } from "lucide-react";
-
+import { AppLayout } from "@/components/app-layout";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   Header,
@@ -210,6 +210,10 @@ export default async function EstadoCuentaProductorPage({
 
   if (!productorSeleccionadoId) {
     return (
+      <AppLayout
+        title="Estado de Cuenta"
+        description="Estado de cuenta del productor"
+      >
       <main className="google-2027-theme w-full min-h-screen bg-white">
         <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6">
           <Header title="Estado de Cuenta" subtitle="Sin productores disponibles" productoresValidos={[]} productorSeleccionadoId={0} />
@@ -219,6 +223,7 @@ export default async function EstadoCuentaProductorPage({
           </div>
         </div>
       </main>
+      </AppLayout>
     );
   }
 
@@ -468,14 +473,12 @@ export default async function EstadoCuentaProductorPage({
     `Productor ${productorSeleccionadoId}`;
 
   return (
+    <AppLayout
+      title="Estado de Cuenta"
+      description="Estado de cuenta del productor seleccionado"
+    >
     <main className="google-2027-theme w-full min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 space-y-4 lg:space-y-6">
-        <Header
-          title="Estado de Cuenta"
-          subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
-          productoresValidos={productoresValidos}
-          productorSeleccionadoId={productorSeleccionadoId}
-        />
 
         <div className="space-y-4">
         {/* KPIs Grid */}
@@ -733,5 +736,6 @@ export default async function EstadoCuentaProductorPage({
         </div>
       </div>
     </main>
+    </AppLayout>
   );
 }

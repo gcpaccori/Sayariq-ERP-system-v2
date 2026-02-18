@@ -7,7 +7,7 @@ import {
   AlertCircle,
   ClipboardList,
 } from "lucide-react";
-
+import { AppLayout } from "@/components/app-layout";
 import { asignarLotePedidoAction, createPedidoAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -379,34 +379,13 @@ export default async function PedidosPage({
   }
 
   return (
-    <main className="google-2027-theme relative min-h-screen bg-white text-gray-900">
-      {/* Grid Background Pattern */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          opacity: 0.02,
-          backgroundImage: "radial-gradient(#111827 0.8px, transparent 0.8px)",
-          backgroundSize: "16px 16px",
-        }}
-      />
-
-      <div className="relative z-10">
-        <section className="mx-auto max-w-7xl px-3 md:px-6">
-          {/* Header */}
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center md:gap-6 pt-6">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">Módulo 3: Pedidos</h1>
-              <p className="mt-1.5 text-sm font-medium text-gray-600">
-                Orquestación comercial de demanda con asignación de lotes
-              </p>
-            </div>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
-            >
-              ← Inicio
-            </Link>
-          </div>
+    <AppLayout
+      title="Pedidos"
+      description="Orquestación comercial de demanda con asignación de lotes"
+    >
+      <main className="google-2027-theme relative bg-white text-gray-900">
+        <div className="relative z-10">
+          <section className="mx-auto max-w-7xl px-3 md:px-6">
 
           {/* Resumen Cards */}
           <div className="mb-8 grid gap-4 sm:grid-cols-5">
@@ -819,5 +798,6 @@ export default async function PedidosPage({
         </section>
       </div>
     </main>
+    </AppLayout>
   );
 }

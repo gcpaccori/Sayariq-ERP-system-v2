@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-
+import { AppLayout } from "@/components/app-layout";
 import {
   createLiquidacionClienteModulo6Action,
   registrarCobroClienteAction,
@@ -296,13 +296,11 @@ export default async function CobranzasPage({
   );
 
   return (
+    <AppLayout
+      title="Cobranzas"
+      description="Gestión de cobros a clientes y cuentas por cobrar"
+    >
     <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Módulo 6: Cobranzas de Clientes</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
-      </div>
 
       <section className="mb-4 rounded border p-4">
         <p className="text-sm">
@@ -617,5 +615,6 @@ export default async function CobranzasPage({
         </div>
       </section>
     </main>
+    </AppLayout>
   );
 }

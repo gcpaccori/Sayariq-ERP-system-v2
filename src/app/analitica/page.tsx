@@ -1,5 +1,5 @@
 import Link from "next/link";
-
+import { AppLayout } from "@/components/app-layout";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type SearchParams = {
@@ -399,13 +399,11 @@ export default async function AnaliticaPage({
   const categoriaY = (value: number) => categoriaSvg.marginTop + (1 - Math.abs(value) / maxCategoria) * categoriaPlotHeight;
 
   return (
+    <AppLayout
+      title="Analítica"
+      description="Reportes y análisis estratégicos de operaciones"
+    >
     <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Módulo 7: Analítica Estratégica</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
-      </div>
 
       <section className="mb-4 rounded border p-4">
         <p className="mb-3 text-sm">
@@ -573,5 +571,6 @@ export default async function AnaliticaPage({
         </div>
       </section>
     </main>
+    </AppLayout>
   );
 }

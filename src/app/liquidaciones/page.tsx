@@ -1,6 +1,7 @@
 // M5-PR-SYNC: cambio de traza para consolidar PR del módulo 5
 import Image from "next/image";
 import Link from "next/link";
+import { AppLayout } from "@/components/app-layout";
 import LiquidacionesShell from "@/components/liquidaciones-shell";
 import LiquidacionesResumenTable from "@/components/liquidaciones-resumen-wrapper";
 
@@ -634,13 +635,11 @@ export default async function LiquidacionesPage({
   );
 
   return (
+    <AppLayout
+      title="Liquidaciones"
+      description="Cálculo y gestión de liquidaciones de productores y clientes"
+    >
     <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Módulo 5: Liquidaciones</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
-      </div>
       <LiquidacionesShell
         initialTab="resumen"
         kpis={{
@@ -1323,5 +1322,6 @@ export default async function LiquidacionesPage({
       
       
     </main>
+    </AppLayout>
   );
 }
