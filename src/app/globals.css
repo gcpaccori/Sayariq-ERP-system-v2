@@ -154,3 +154,179 @@ body {
 .google-2027-theme h2 {
   font-size: clamp(1.25rem, 2vw, 1.55rem);
 }
+
+/* Utilidades nuevas para Módulo 9 rediseñado */
+.google-2027-theme {
+  --status-success: #10b981;
+  --status-success-light: #d1fae5;
+  --status-warning: #f59e0b;
+  --status-warning-light: #fef3c7;
+  --status-danger: #ef4444;
+  --status-danger-light: #fee2e2;
+  --status-info: #3b82f6;
+  --status-info-light: #dbeafe;
+}
+
+/* Tarjetas de estado mejoradas */
+.google-2027-theme .stat-card {
+  border-radius: 12px;
+  border: 1px solid var(--g-border);
+  background: var(--g-surface);
+  padding: 1rem;
+  transition: all 0.2s ease;
+}
+
+.google-2027-theme .stat-card:hover {
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.1);
+  border-color: #c5d3e1;
+}
+
+/* Status badges */
+.google-2027-theme .badge-success {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.google-2027-theme .badge-danger {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.google-2027-theme .badge-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.google-2027-theme .badge-info {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #1e40af;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Responsive grid para tarjetas */
+.google-2027-theme .stat-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+@media (max-width: 640px) {
+  .google-2027-theme .stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Tabla responsive mejorada */
+.google-2027-theme .table-wrapper {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1);
+}
+
+.google-2027-theme .table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.google-2027-theme .table-wrapper thead {
+  background: #f3f5fa;
+  border-bottom: 2px solid var(--g-border);
+}
+
+.google-2027-theme .table-wrapper th {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  color: #202124;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.google-2027-theme .table-wrapper td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--g-border);
+  color: var(--g-muted);
+}
+
+.google-2027-theme .table-wrapper tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.google-2027-theme .table-wrapper tbody tr:hover {
+  background-color: #f8fbff;
+}
+
+/* Cards expandibles */
+.google-2027-theme .expand-card {
+  border: 1px solid var(--g-border);
+  border-radius: 12px;
+  background: var(--g-surface);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.google-2027-theme .expand-card:hover {
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+  border-color: #c5d3e1;
+}
+
+.google-2027-theme .expand-card-header {
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.google-2027-theme .expand-card-header:hover {
+  background-color: #f8fbff;
+}
+
+.google-2027-theme .expand-card-body {
+  padding: 1.25rem;
+  background-color: #f8fbff;
+  border-top: 1px solid var(--g-border);
+}
+
+/* Indicadores de ganancia */
+.google-2027-theme .profit-positive {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.google-2027-theme .profit-negative {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* Tabs navigation */
+.google-2027-theme .tabs-nav {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--g-border);
+  margin-bottom: 1.5rem;
+}
+
+.google-2027-theme .tabs-nav button {
+  padding: 0.75rem 1rem;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--g-muted);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+}
+
+.google-2027-theme .tabs-nav button:hover {
+  color: var(--g-text);
+  border-bottom-color: var(--g-accent);
+}
+
+.google-2027-theme .tabs-nav button.active {
+  color: var(--g-accent);
+  border-bottom-color: var(--g-accent);
+}
