@@ -58,27 +58,27 @@ export function StatsCard({
         rounded-lg border transition-all duration-200 ease-out
         hover:shadow-md hover:border-opacity-100
         ${colors.border} ${colors.bg}
-        ${compact ? 'p-3' : 'p-4'}
+        p-3 sm:p-4
       `}
     >
       {/* Header con icono y título */}
-      <div className="mb-2 flex items-start justify-between">
+      <div className="mb-1.5 flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-600 dark:text-slate-400 line-clamp-2">
             {title}
           </p>
         </div>
-        {icon && <span className="ml-2 text-lg opacity-60">{icon}</span>}
+        {icon && <span className="ml-2 text-lg opacity-60 flex-shrink-0">{icon}</span>}
       </div>
 
       {/* Valor principal */}
-      <p className={`${compact ? 'text-lg' : 'text-2xl'} font-bold ${colors.text}`}>
+      <p className="text-lg sm:text-2xl font-bold ${colors.text} line-clamp-2">
         {value}
       </p>
 
       {/* Subtítulo */}
       {subtitle && (
-        <p className="mt-1 text-[11px] text-slate-600 dark:text-slate-400 leading-tight">
+        <p className="mt-1 text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 leading-tight">
           {subtitle}
         </p>
       )}

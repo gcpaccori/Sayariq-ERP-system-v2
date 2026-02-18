@@ -319,36 +319,34 @@ export default async function RentabilidadLotesPage({
     .sort((a, b) => b.id - a.id);
 
   return (
-    <main className="google-2027-theme mx-auto w-full max-w-7xl px-4 sm:px-6 py-6">
+    <main className="google-2027-theme mx-auto w-full max-w-7xl px-3 sm:px-6 py-4 sm:py-6">
       {/* Header */}
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-            Módulo 9: Rentabilidad
-          </h1>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            Análisis de ganancias por lote y producto
-          </p>
-        </div>
-        <nav className="flex items-center gap-2 text-sm">
+      <div className="mb-5 sm:mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+          Módulo 9: Rentabilidad
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3">
+          Análisis de ganancias por lote y producto
+        </p>
+        <nav className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-wrap">
           <Link
             href="/analitica"
-            className="px-3 py-2 rounded-md text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
+            className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
           >
-            Ir a Analítica
+            Analítica
           </Link>
           <Link
             href="/"
-            className="px-3 py-2 rounded-md text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
+            className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
           >
-            Volver al inicio
+            Inicio
           </Link>
         </nav>
       </div>
 
       {/* Descripción */}
-      <div className="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-800">
-        <p className="text-sm text-slate-700 dark:text-slate-300">
+      <div className="mb-5 sm:mb-6 p-3 sm:p-4 rounded-lg bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-800">
+        <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
           <strong>¿Qué ves aquí?</strong> Cuánto ganaste por lote y producto, considerando ventas reales por categoría/división,
           qué parte se vendió o sobró, y cuánto ya pagaste al productor vs lo que falta pagar.
         </p>
@@ -364,11 +362,11 @@ export default async function RentabilidadLotesPage({
       </div>
 
       {/* KPIs Principales */}
-      <section className="mb-8">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+      <section className="mb-6 sm:mb-8">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 mb-3 sm:mb-4">
           Resumen Ejecutivo
         </h2>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           <StatsCard
             title="Ventas totales"
             value={currency(totalScope.ventasTotales)}
@@ -403,11 +401,11 @@ export default async function RentabilidadLotesPage({
       </section>
 
       {/* KPIs Volumen */}
-      <section className="mb-8">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+      <section className="mb-6 sm:mb-8">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 mb-3 sm:mb-4">
           Volumen (kg)
         </h2>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-3">
           <StatsCard
             title="Kg clasificados"
             value={totalScope.kgClasif}
@@ -430,43 +428,43 @@ export default async function RentabilidadLotesPage({
       </section>
 
       {/* Resumen por Producto */}
-      <section className="mb-8">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+      <section className="mb-6 sm:mb-8">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 mb-2 sm:mb-4">
           Consolidado por Producto
         </h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3 sm:mb-4">
           Vista agregada de todos los lotes filtrados por producto
         </p>
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto text-xs sm:text-sm">
+            <table className="w-full">
               <thead className="bg-slate-100 dark:bg-slate-800">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-900 dark:text-slate-100">Producto</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100"># Lotes</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Ventas</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Costo</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Pagado</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Saldo</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Ganancia s/ pago</th>
-                  <th className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Ganancia s/ costo</th>
+                <tr className="text-xs sm:text-sm">
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-slate-900 dark:text-slate-100">Producto</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">#</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Ventas</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Costo</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Pagado</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Saldo</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Gan. pago</th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Gan. costo</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
                 {productosAgg.map((row) => (
-                  <tr key={row.producto} className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-slate-900 dark:text-slate-100">{row.producto}</td>
-                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{row.lotes}</td>
-                    <td className="px-4 py-3 text-right text-slate-900 dark:text-slate-100">{currency(row.ventasTotales)}</td>
-                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{currency(row.costoComprometido)}</td>
-                    <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{currency(row.pagadoReal)}</td>
-                    <td className="px-4 py-3 text-right font-semibold" style={{ color: row.saldoPorPagar <= 0 ? '#10b981' : '#ef4444' }}>
+                  <tr key={row.producto} className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-xs sm:text-sm">
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 font-semibold text-slate-900 dark:text-slate-100">{row.producto}</td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-slate-600 dark:text-slate-400">{row.lotes}</td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-slate-900 dark:text-slate-100">{currency(row.ventasTotales)}</td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-slate-600 dark:text-slate-400">{currency(row.costoComprometido)}</td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-slate-600 dark:text-slate-400">{currency(row.pagadoReal)}</td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold" style={{ color: row.saldoPorPagar <= 0 ? '#10b981' : '#ef4444' }}>
                       {currency(row.saldoPorPagar)}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold" style={{ color: row.gananciaSobrePagado >= 0 ? '#10b981' : '#ef4444' }}>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold" style={{ color: row.gananciaSobrePagado >= 0 ? '#10b981' : '#ef4444' }}>
                       {currency(row.gananciaSobrePagado)}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold" style={{ color: row.gananciaSobreComprometido >= 0 ? '#10b981' : '#ef4444' }}>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold" style={{ color: row.gananciaSobreComprometido >= 0 ? '#10b981' : '#ef4444' }}>
                       {currency(row.gananciaSobreComprometido)}
                     </td>
                   </tr>
@@ -479,21 +477,21 @@ export default async function RentabilidadLotesPage({
 
       {/* Detalles por Lote */}
       <section>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 mb-2 sm:mb-4">
           Rentabilidad Detallada por Lote
         </h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-4 sm:mb-6">
           Expande cada lote para ver el desglose económico y detalle por categoría
         </p>
 
         {loteResumenes.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-8 text-center">
-            <p className="text-slate-600 dark:text-slate-400 text-sm">
+          <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-6 sm:p-8 text-center">
+            <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">
               No hay lotes para mostrar con los filtros seleccionados.
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {loteResumenes.map((lote) => (
               <LoteProfitabilityCard
                 key={lote.loteId}
