@@ -100,7 +100,7 @@ export default function AuthUserPanel() {
     await supabase.auth.signOut();
     document.cookie = "sayariq-auth=; path=/; max-age=0";
     document.cookie = "sayariq-role=; path=/; max-age=0";
-    router.push("/login");
+    router.push("/");
   };
 
   return (
@@ -145,7 +145,7 @@ export default function AuthUserPanel() {
           <p className="text-xs text-slate-500">No hay sesión activa.</p>
           <button
             type="button"
-            onClick={() => router.push("/login")}
+            onClick={() => router.push("/")}
             className="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
           >
             Ir a login
