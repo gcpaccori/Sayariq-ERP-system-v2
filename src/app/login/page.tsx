@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Provider } from "@supabase/supabase-js";
 
@@ -165,99 +166,118 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
-      <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Sayariq ERP</p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">Acceso al sistema</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Puedes iniciar sesión o crear usuario. Por ahora, todos los usuarios nuevos se crean como <strong>adm</strong>.
-        </p>
+    <main className="relative min-h-screen overflow-hidden bg-[#04140f]">
+      <div className="absolute inset-0 bg-[url('/docs/persnal.jpg')] bg-cover bg-center opacity-30" />
+      <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-[#0b2b1d]/80 to-black/75" />
 
-        <div className="mt-5 grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
-          <button
-            type="button"
-            onClick={() => setMode("login")}
-            className={`rounded-md px-3 py-2 text-sm font-medium ${
-              mode === "login" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
-            }`}
-          >
-            Login
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("signup")}
-            className={`rounded-md px-3 py-2 text-sm font-medium ${
-              mode === "signup" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
-            }`}
-          >
-            Crear usuario
-          </button>
-        </div>
+      <section className="relative mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 py-8">
+        <div className="grid w-full overflow-hidden rounded-3xl border border-white/15 bg-black/40 shadow-2xl backdrop-blur md:grid-cols-2">
+          <aside className="hidden flex-col justify-between border-r border-white/10 p-8 text-white md:flex">
+            <div>
+              <img src="/docs/logo1-Photoroom.png" alt="Sayariq" className="h-14 w-auto" />
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-[#7ceea8]">Sayariq Export</p>
+              <h1 className="mt-3 text-4xl font-black leading-tight">Portal ERP de operación agrícola y exportación.</h1>
+              <p className="mt-4 text-sm text-white/75">
+                Accede con tu cuenta para gestionar lotes, liquidaciones y operación diaria. Si no tienes
+                sesión, puedes volver a la landing pública.
+              </p>
+            </div>
+            <Link href="/" className="inline-flex w-fit rounded-full border border-[#7ceea8]/60 px-4 py-2 text-sm font-semibold text-[#7ceea8] hover:bg-[#7ceea8] hover:text-black">
+              Volver al landing
+            </Link>
+          </aside>
 
-        <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
-          {mode === "signup" ? (
-            <label className="block space-y-1">
-              <span className="text-sm font-medium text-slate-700">Nombre completo</span>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                autoComplete="name"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-              />
-            </label>
-          ) : null}
+          <section className="w-full bg-white/95 p-6 md:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Sayariq ERP</p>
+            <h2 className="mt-1 text-2xl font-semibold text-slate-900">Acceso al sistema</h2>
 
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-slate-700">Correo</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              autoComplete="email"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-            />
-          </label>
+            <div className="mt-5 grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className={`rounded-md px-3 py-2 text-sm font-medium ${
+                  mode === "login" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+                }`}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("signup")}
+                className={`rounded-md px-3 py-2 text-sm font-medium ${
+                  mode === "signup" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
+                }`}
+              >
+                Crear usuario
+              </button>
+            </div>
 
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-slate-700">Contraseña</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
-            />
-          </label>
+            <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+              {mode === "signup" ? (
+                <label className="block space-y-1">
+                  <span className="text-sm font-medium text-slate-700">Nombre completo</span>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    autoComplete="name"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                  />
+                </label>
+              ) : null}
 
-          {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
-          {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-slate-700">Correo</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                  autoComplete="email"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                />
+              </label>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Procesando..." : mode === "login" ? "Entrar" : "Crear cuenta"}
-          </button>
-        </form>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium text-slate-700">Contraseña</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+                />
+              </label>
 
-        <div className="my-5 h-px bg-slate-200" />
+              {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
+              {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}
 
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">O usa login social</p>
-        <div className="grid grid-cols-1 gap-2">
-          {oauthProviders.map((item) => (
-            <button
-              key={item.provider}
-              type="button"
-              onClick={() => handleOAuthLogin(item.provider)}
-              className="inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-            >
-              Continuar con {item.label}
-            </button>
-          ))}
+              <button
+                type="submit"
+                disabled={loading}
+                className="inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Procesando..." : mode === "login" ? "Entrar" : "Crear cuenta"}
+              </button>
+            </form>
+
+            <div className="my-5 h-px bg-slate-200" />
+
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">O usa login social</p>
+            <div className="grid grid-cols-1 gap-2">
+              {oauthProviders.map((item) => (
+                <button
+                  key={item.provider}
+                  type="button"
+                  onClick={() => handleOAuthLogin(item.provider)}
+                  className="inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  Continuar con {item.label}
+                </button>
+              ))}
+            </div>
+          </section>
         </div>
       </section>
     </main>

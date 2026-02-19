@@ -19,7 +19,7 @@ export function middleware(request: NextRequest) {
   const hasSession = request.cookies.get("sayariq-auth")?.value === "1";
 
   if (!hasSession && !isPublicPath) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   if (hasSession && pathname === "/login") {
