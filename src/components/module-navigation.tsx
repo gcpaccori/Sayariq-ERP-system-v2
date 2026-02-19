@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   X,
 } from "lucide-react";
+import AuthUserPanel from "@/components/auth-user-panel";
 
 interface ModuleNavigationProps {
   currentModule?: string;
@@ -80,6 +81,7 @@ export default function ModuleNavigation({ currentModule }: ModuleNavigationProp
             </div>
 
             <div className="flex-1 overflow-y-auto p-3">
+              <AuthUserPanel />
               <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Navegación</p>
               <nav className="space-y-1.5">
                 {modules.map((module) => {
@@ -132,6 +134,7 @@ export default function ModuleNavigation({ currentModule }: ModuleNavigationProp
           <p className={`mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 ${desktopCollapsed ? "lg:hidden" : ""}`}>
             Navegación
           </p>
+          {!desktopCollapsed ? <AuthUserPanel /> : null}
           <nav className="flex gap-1 overflow-x-auto pb-1 lg:max-h-[calc(100vh-4rem)] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden">
             {modules.map((module) => {
               const Icon = module.icon;
