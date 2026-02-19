@@ -68,13 +68,9 @@ export default async function ComprobanteLiquidacionPage({ params }: Props) {
         <Link href="/liquidaciones" className="rounded border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
           ← Volver a Liquidaciones
         </Link>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          className="rounded bg-[#1A73E8] px-3 py-2 text-sm font-semibold text-white hover:bg-[#1765CC]"
-        >
-          Imprimir / Guardar PDF
-        </button>
+        <span className="rounded bg-[#1A73E8] px-3 py-2 text-sm font-semibold text-white">
+          Imprimir / Guardar PDF (Ctrl/Cmd + P)
+        </span>
       </div>
 
       <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm print:border-0 print:shadow-none">

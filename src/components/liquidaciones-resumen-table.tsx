@@ -126,9 +126,9 @@ export default function LiquidacionesResumenTable({
                         <Link
                           href={`/liquidaciones/comprobante/liquidacion/${row.id}`}
                           target="_blank"
-                          className="inline-flex rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                          className="inline-flex rounded border border-[#1A73E8] bg-[#E8F0FE] px-2 py-1 text-xs font-semibold text-[#174EA6] hover:bg-[#DCE6FB]"
                         >
-                          Imprimir
+                          Comprobante PDF
                         </Link>
                       </div>
                     </div>
@@ -211,9 +211,9 @@ export default function LiquidacionesResumenTable({
                         <Link
                           href={`/liquidaciones/comprobante/liquidacion/${row.id}`}
                           target="_blank"
-                          className="inline-flex rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                          className="inline-flex rounded border border-[#1A73E8] bg-[#E8F0FE] px-2 py-1 text-xs font-semibold text-[#174EA6] hover:bg-[#DCE6FB]"
                         >
-                          Imprimir
+                          Comprobante PDF
                         </Link>
                       </div>
                     </td>
