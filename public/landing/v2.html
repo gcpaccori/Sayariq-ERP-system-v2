@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sayariq - Agroexportación Orgánica Premium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.39/dist/lenis.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #050505;
+            --text-color: #f4f4f4;
+            --accent: #00C853; /* Verde serio, fresco y premium */
+            --accent-hover: #00E676;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            cursor: none; /* Cursor personalizado estilo Zajno */
+        }
+
+        h1, h2, h3, h4, h5, h6, .font-syne {
+            font-family: 'Syne', sans-serif;
+        }
+
+        /* Ruido de fondo para textura premium */
+        .bg-noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* Cursor Personalizado */
+        #custom-cursor {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 20px;
+            height: 20px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 100;
+            mix-blend-mode: normal;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s ease, height 0.3s ease, background-color 0.3s ease, mix-blend-mode 0.3s ease;
+        }
+
+        #custom-cursor.hovered {
+            width: 80px;
+            height: 80px;
+            background-color: white;
+            mix-blend-mode: difference;
+        }
+
+        /* Animaciones de revelación al hacer scroll */
+        .reveal {
+            opacity: 0;
+            transform: translateY(50px);
+            transition: all 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Tarjetas de producto */
+        .project-card {
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .project-card img {
+            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .project-card:hover img {
+            transform: scale(1.08);
+        }
+
+        /* Marquee Infinito */
+        .marquee-container {
+            overflow: hidden;
+            white-space: nowrap;
+            display: flex;
+        }
+        .marquee-content {
+            display: flex;
+            animation: marquee 25s linear infinite;
+        }
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* Utilidades Lenis (Smooth Scroll) */
+        html.lenis { height: auto; }
+        .lenis.lenis-smooth { scroll-behavior: auto; }
+        .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+        .lenis.lenis-stopped { overflow: hidden; }
+    </style>
+</head>
+<body class="antialiased selection:bg-[#00C853] selection:text-black">
+
+    <div class="bg-noise"></div>
+    <div id="custom-cursor" class="hidden md:block"></div>
+
+    <!-- Navegación -->
+    <nav class="fixed w-full top-0 z-40 px-6 py-6 md:px-12 md:py-8 flex justify-between items-center mix-blend-difference text-white">
+        <a href="#" class="font-syne font-bold text-2xl tracking-tighter hoverable" data-cursor="hover">
+            SAYARIQ<span class="text-xs align-top text-[#00C853]">©</span>
+        </a>
+        <div class="flex gap-8 items-center">
+            <div class="hidden md:flex gap-8 text-sm font-medium uppercase tracking-widest">
+                <a href="#work" class="hoverable transition-colors hover:text-[#00C853]" data-cursor="hover">Productos</a>
+                <a href="#about" class="hoverable transition-colors hover:text-[#00C853]" data-cursor="hover">Operación</a>
+                <a href="/landing/v1.html" class="hoverable transition-colors hover:text-[#00C853]" data-cursor="hover">Variante 1</a>
+                <a href="#login" class="hoverable text-[#00C853] font-bold" data-cursor="hover">Portal B2B</a>
+            </div>
+            <!-- Menú Hamburguesa -->
+            <button class="hoverable flex flex-col justify-center items-end gap-1.5 w-8 h-8 focus:outline-none md:hidden" data-cursor="hover">
+                <span class="w-full h-[2px] bg-white rounded-full"></span>
+                <span class="w-2/3 h-[2px] bg-white rounded-full"></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section (Dark & Innovative) -->
+    <header class="relative min-h-screen flex flex-col justify-center px-6 md:px-12 pt-32 pb-20 overflow-hidden">
+        <div class="z-10 relative mt-auto">
+            <p class="reveal text-sm md:text-base mb-6 font-medium uppercase tracking-widest text-[#00C853]">
+                Agroexportación de Precisión
+            </p>
+            <h1 class="reveal font-syne font-extrabold text-[12vw] md:text-[9vw] leading-[0.85] tracking-tighter uppercase whitespace-nowrap">
+                FRESCO <br>
+                <span class="text-transparent bg-clip-text" style="-webkit-text-stroke: 1px rgba(255,255,255,0.9); background-image: url('/docs/jengibre.jpg'); background-size: cover; background-position: center;">DE ORIGEN</span> <br>
+                PERUANO.
+            </h1>
+        </div>
+        
+        <div class="mt-auto pt-20 flex justify-between items-end z-10 reveal">
+            <p class="max-w-sm text-base text-gray-400 font-light leading-relaxed">
+                Compartimos el mismo terroir que los gigantes del sector, pero con una operación ultra-ágil. Exportamos <strong class="text-white">10 toneladas semanales</strong> de jengibre y cúrcuma fresca. Cero congelados.
+            </p>
+            <div class="animate-bounce w-12 h-12 rounded-full border border-[#00C853] flex items-center justify-center text-[#00C853]">
+                ↓
+            </div>
+        </div>
+    </header>
+
+    <!-- Marquee Banner (Verde Serio) -->
+    <div class="w-full py-8 bg-[#00C853] text-black font-syne font-bold text-4xl md:text-6xl uppercase tracking-tighter transform -rotate-1 scale-105 z-20 relative shadow-2xl">
+        <div class="marquee-container">
+            <div class="marquee-content items-center gap-8">
+                <span>10 TONELADAS SEMANALES</span> <span class="text-2xl">✦</span>
+                <span>JENGIBRE FRESCO</span> <span class="text-2xl">✦</span>
+                <span>CÚRCUMA ORGÁNICA</span> <span class="text-2xl">✦</span>
+                <span>CERO CONGELADOS</span> <span class="text-2xl">✦</span>
+                <span>10 TONELADAS SEMANALES</span> <span class="text-2xl">✦</span>
+                <span>JENGIBRE FRESCO</span> <span class="text-2xl">✦</span>
+                <span>CÚRCUMA ORGÁNICA</span> <span class="text-2xl">✦</span>
+                <span>CERO CONGELADOS</span> <span class="text-2xl">✦</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products / Expertise Section -->
+    <section id="work" class="px-6 md:px-12 py-32 bg-[#050505] relative z-10">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-20 reveal gap-6">
+            <h2 class="font-syne font-bold text-5xl md:text-7xl tracking-tighter leading-none">
+                NUESTRAS<br>RAÍCES
+            </h2>
+            <div class="text-left md:text-right max-w-xs">
+                <span class="text-[#00C853] font-bold text-2xl block mb-2">10 Toneladas</span>
+                <span class="text-gray-400 text-sm leading-tight">Volumen semanal constante, asegurando frescura inquebrantable para el mercado global.</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16">
+            <!-- Producto 1: Jengibre -->
+            <div class="project-card reveal group hoverable cursor-pointer rounded-2xl" data-cursor="hover">
+                <div class="w-full aspect-[4/5] bg-[#111] overflow-hidden">
+                    <img src="/docs/jengibre%20planta.jpg" alt="Jengibre Fresco Peruano" class="w-full h-full object-cover opacity-70 group-hover:opacity-100 mix-blend-luminosity group-hover:mix-blend-normal">
+                </div>
+                <div class="p-6 md:p-8 bg-[#0a0a0a]">
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="font-syne text-3xl font-bold uppercase text-white group-hover:text-[#00C853] transition-colors">Jengibre Fresco</h3>
+                        <span class="text-xs font-bold px-3 py-1 bg-[#00C853] text-black rounded-full uppercase tracking-wider">Premium</span>
+                    </div>
+                    <p class="text-gray-400 font-light">Raíz firme de alto calibre. Lavado y empacado bajo estrictos controles. No procesamos ni enviamos producto congelado bajo ninguna circunstancia.</p>
+                </div>
+            </div>
+
+            <!-- Producto 2: Cúrcuma -->
+            <div class="project-card reveal md:mt-24 group hoverable cursor-pointer rounded-2xl" data-cursor="hover">
+                <div class="w-full aspect-[4/5] bg-[#111] overflow-hidden">
+                    <img src="/docs/curcuma%20planta.jpg" alt="Cúrcuma Orgánica Fresca" class="w-full h-full object-cover opacity-70 group-hover:opacity-100 mix-blend-luminosity group-hover:mix-blend-normal">
+                </div>
+                <div class="p-6 md:p-8 bg-[#0a0a0a]">
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="font-syne text-3xl font-bold uppercase text-white group-hover:text-[#00C853] transition-colors">Cúrcuma Fresca</h3>
+                        <span class="text-xs font-bold px-3 py-1 border border-[#00C853] text-[#00C853] rounded-full uppercase tracking-wider">Orgánico</span>
+                    </div>
+                    <p class="text-gray-400 font-light">Cosecha vibrante con alta concentración de curcumina natural. Directo de nuestras tierras fértiles a los mercados más exigentes de Norteamérica y Europa.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About / Manifesto Section (El cambio "Blanco, Verde, Serio") -->
+    <section id="about" class="px-6 md:px-12 py-32 bg-white text-black rounded-t-[3rem] relative z-20 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="reveal font-syne font-extrabold text-4xl md:text-6xl tracking-tight leading-none mb-16 text-gray-900 max-w-5xl">
+                COMPARTIMOS EL MISMO TERROIR. <br>
+                <span class="text-[#00C853]">PERO SOMOS MÁS ÁGILES.</span>
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-12 border-t-2 border-gray-200 pt-16 reveal">
+                <!-- Punto 1 -->
+                <div>
+                    <div class="text-[#00C853] font-syne text-5xl font-bold mb-6">01</div>
+                    <h4 class="font-syne font-bold text-2xl mb-4 uppercase text-gray-900">Ubicación Estratégica</h4>
+                    <p class="text-gray-600 leading-relaxed font-medium">Estamos situados a menos de 1 kilómetro de las empresas exportadoras más grandes del país. Cosechamos de la misma tierra fértil, garantizando la legendaria calidad del origen peruano, con certificaciones que nos respaldan.</p>
+                </div>
+                <!-- Punto 2 -->
+                <div>
+                    <div class="text-[#00C853] font-syne text-5xl font-bold mb-6">02</div>
+                    <h4 class="font-syne font-bold text-2xl mb-4 uppercase text-gray-900">Operación "Lean"</h4>
+                    <p class="text-gray-600 leading-relaxed font-medium">Donde otros tienen burocracia, nosotros tenemos precisión. Nuestra empresa está operada por un personal clave altamente especializado que supervisa personalmente el movimiento de las 10 toneladas semanales. Sin intermediarios, sin lentitud.</p>
+                </div>
+                <!-- Punto 3 -->
+                <div>
+                    <div class="text-[#00C853] font-syne text-5xl font-bold mb-6">03</div>
+                    <h4 class="font-syne font-bold text-2xl mb-4 uppercase text-gray-900">Cero Congelados</h4>
+                    <p class="text-gray-600 leading-relaxed font-medium">Nuestra ventaja competitiva es la integridad. Nos negamos rotundamente a procesar jengibre congelado. Cada raíz que sale de nuestras instalaciones es 100% fresca, preservando su valor nutricional y características organolépticas.</p>
+                </div>
+            </div>
+
+            <!-- Imagen representativa ancha -->
+            <div class="w-full h-[50vh] mt-24 rounded-3xl overflow-hidden reveal hoverable" data-cursor="hover">
+                <img src="/docs/persnal.jpg" alt="Campos Agrícolas" class="w-full h-full object-cover filter brightness-90 hover:scale-105 transition-transform duration-1000">
+            </div>
+        </div>
+    </section>
+
+    <!-- Login B2B Section (Minimalista, Funcional y Zajno-esque) -->
+    <section id="login" class="px-6 md:px-12 py-32 bg-[#050505] relative z-20 border-t border-white/5">
+        <div class="max-w-4xl mx-auto flex flex-col md:flex-row gap-16 items-center reveal">
+            <div class="flex-1 text-left">
+                <h2 class="font-syne font-bold text-4xl md:text-5xl tracking-tighter mb-4 text-white">
+                    PORTAL DE CLIENTES
+                </h2>
+                <p class="text-gray-400 mb-8 font-light text-lg">
+                    Acceda a su panel B2B para rastrear contenedores, descargar certificaciones orgánicas y programar sus próximos envíos semanales.
+                </p>
+                <div class="inline-flex items-center gap-3 text-[#00C853] font-medium">
+                    <span class="w-2 h-2 rounded-full bg-[#00C853] animate-pulse"></span>
+                    Sistema Operativo 24/7
+                </div>
+            </div>
+            
+            <div class="flex-1 w-full bg-[#0a0a0a] p-8 md:p-12 rounded-2xl border border-white/10 shadow-2xl relative overflow-hidden group">
+                <!-- Brillo de fondo sutil -->
+                <div class="absolute top-0 right-0 w-64 h-64 bg-[#00C853] opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:opacity-10 transition-opacity"></div>
+                
+                <form class="relative z-10 flex flex-col gap-6">
+                    <div>
+                        <label class="block text-xs uppercase tracking-widest text-gray-500 mb-2 font-semibold">Correo Corporativo</label>
+                        <input type="email" placeholder="cliente@empresa.com" class="w-full bg-transparent border-b border-gray-700 pb-3 text-white focus:outline-none focus:border-[#00C853] transition-colors placeholder:text-gray-700 hoverable" data-cursor="hover">
+                    </div>
+                    <div>
+                        <label class="block text-xs uppercase tracking-widest text-gray-500 mb-2 font-semibold mt-4">Contraseña Segura</label>
+                        <input type="password" placeholder="••••••••" class="w-full bg-transparent border-b border-gray-700 pb-3 text-white focus:outline-none focus:border-[#00C853] transition-colors placeholder:text-gray-700 hoverable" data-cursor="hover">
+                    </div>
+                    <div class="flex justify-between items-center mt-2">
+                        <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer hoverable" data-cursor="hover">
+                            <input type="checkbox" class="accent-[#00C853] bg-transparent">
+                            Recordarme
+                        </label>
+                        <a href="#" class="text-sm text-[#00C853] hover:text-white transition-colors hoverable" data-cursor="hover">¿Olvidó su acceso?</a>
+                    </div>
+                    <button type="button" class="mt-6 w-full py-4 bg-[#00C853] text-black font-syne font-bold uppercase tracking-widest hover:bg-white transition-colors duration-300 hoverable rounded" data-cursor="hover">
+                        Ingresar al Sistema
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer Gigante (Zajno Style) -->
+    <footer class="bg-black text-white px-6 md:px-12 py-20 relative z-10 pb-10 overflow-hidden">
+        <div class="reveal flex flex-col items-center justify-center py-24 border-b border-white/10 relative">
+            <p class="text-gray-400 mb-4 uppercase tracking-widest text-sm text-center z-10">¿Listo para importar la mejor calidad?</p>
+            <h2 class="font-syne font-extrabold text-[14vw] leading-none tracking-tighter hoverable transition-colors duration-500 hover:text-[#00C853] cursor-pointer text-center z-10" data-cursor="hover">
+                EXPORTEMOS.
+            </h2>
+        </div>
+        
+        <div class="flex flex-col md:flex-row justify-between items-center mt-10 text-sm text-gray-500 gap-6 font-medium">
+            <div class="flex gap-8 uppercase tracking-wider text-xs">
+                <a href="#" class="hover:text-[#00C853] transition-colors hoverable" data-cursor="hover">Catálogo</a>
+                <a href="#" class="hover:text-[#00C853] transition-colors hoverable" data-cursor="hover">Certificaciones</a>
+                <a href="#" class="hover:text-[#00C853] transition-colors hoverable" data-cursor="hover">LinkedIn</a>
+            </div>
+            <p>© 2026 SAYARIQ. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <script>
+        // 1. Inicializar Smooth Scrolling (Lenis) - La clave del estilo "agencia premiada"
+        const lenis = new Lenis({
+            duration: 1.2,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            direction: 'vertical',
+            gestureDirection: 'vertical',
+            smooth: true,
+            mouseMultiplier: 1,
+            smoothTouch: false,
+            touchMultiplier: 2,
+            infinite: false,
+        });
+
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+
+        // 2. Lógica del Cursor Personalizado
+        const cursor = document.getElementById('custom-cursor');
+        const hoverables = document.querySelectorAll('.hoverable');
+
+        document.addEventListener('mousemove', (e) => {
+            cursor.style.left = e.clientX + 'px';
+            cursor.style.top = e.clientY + 'px';
+        });
+
+        hoverables.forEach(elem => {
+            elem.addEventListener('mouseenter', () => {
+                cursor.classList.add('hovered');
+            });
+            elem.addEventListener('mouseleave', () => {
+                cursor.classList.remove('hovered');
+            });
+        });
+
+        // Ocultar cursor si sale de la ventana del navegador
+        document.addEventListener('mouseleave', () => {
+            cursor.style.opacity = '0';
+        });
+        document.addEventListener('mouseenter', () => {
+            cursor.style.opacity = '1';
+        });
+
+        // 3. Animaciones de Revelación (Intersection Observer)
+        const revealElements = document.querySelectorAll('.reveal');
+
+        const revealOptions = {
+            threshold: 0.15,
+            rootMargin: "0px 0px -50px 0px"
+        };
+
+        const revealOnScroll = new IntersectionObserver(function(entries, observer) {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                entry.target.classList.add('active');
+                observer.unobserve(entry.target); // Dejar de observar una vez que aparece
+            });
+        }, revealOptions);
+
+        revealElements.forEach(el => {
+            revealOnScroll.observe(el);
+        });
+    </script>
+</body>
+</html>
