@@ -22,6 +22,12 @@ type Lote = {
   observaciones: string | null;
 };
 
+type ClasificacionDetalle = {
+  id: number;
+  categoria_id: number;
+  peso_neto: number;
+};
+
 type Props = {
   productores: { id: number; nombre_completo: string }[];
   categorias: { id: number; codigo: string; nombre: string; precio_kg: number; orden: number }[];
@@ -31,8 +37,8 @@ type Props = {
   resumen: { totalLotes: number; sinClasificar: number; clasificados: number; kgAlmacen: number };
   // detalle opcionals
   loteVerDetalleId?: number;
-  clasificaciones?: any[];
-  asignaciones?: any[];
+  clasificaciones?: ClasificacionDetalle[];
+  asignaciones?: unknown[];
   categoriaMap?: Record<string, string>;
 };
 
@@ -445,7 +451,7 @@ export default function AlmacenModuleUI({
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                   <p className="text-sm font-semibold text-gray-900">Clasificaciones</p>
                   <div className="mt-3 grid gap-2">
-                    {clasificaciones.map((c: any) => (
+                    {clasificaciones.map((c) => (
                       <div key={c.id} className="flex items-center justify-between rounded bg-white px-3 py-2">
                         <span className="text-sm text-gray-700">{categoriaMap[String(c.categoria_id)] ?? c.categoria_id}</span>
                         <span className="text-sm font-medium text-gray-900">{c.peso_neto} kg</span>

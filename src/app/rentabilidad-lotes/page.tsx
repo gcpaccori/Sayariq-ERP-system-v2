@@ -320,31 +320,34 @@ export default async function RentabilidadLotesPage({
     .sort((a, b) => b.id - a.id);
 
   return (
-    <>
+    <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="rentabilidad-lotes" />
-      <main className="google-2027-theme mx-auto w-full max-w-7xl px-3 sm:px-6 py-4 sm:py-6">
+      <main className="google-2027-theme w-full flex-1 px-3 py-4 sm:px-6 sm:py-6">
+        <div className="mx-auto w-full max-w-7xl">
         {/* Header */}
         <div className="mb-5 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
-            Módulo 9: Rentabilidad
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3">
-          Análisis de ganancias por lote y producto
-        </p>
-        <nav className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-wrap">
-          <Link
-            href="/analitica"
-            className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
-          >
-            Analítica
-          </Link>
-          <Link
-            href="/"
-            className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-md text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors"
-          >
-            Inicio
-          </Link>
-        </nav>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100">
+              Módulo 9: Rentabilidad
+            </h1>
+            <nav className="flex items-center gap-2 text-xs sm:text-sm flex-wrap">
+              <Link
+                href="/analitica"
+                className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+              >
+                Ir a Analítica
+              </Link>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+              >
+                ← Inicio
+              </Link>
+            </nav>
+          </div>
+          <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+            Análisis de ganancias por lote y producto
+          </p>
       </div>
 
       {/* Descripción */}
@@ -517,7 +520,8 @@ export default async function RentabilidadLotesPage({
           </div>
         )}
       </section>
+        </div>
       </main>
-    </>
+    </div>
   );
 }

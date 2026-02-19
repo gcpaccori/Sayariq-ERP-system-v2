@@ -230,10 +230,10 @@ export default function PersonasModuleUI({
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md active:shadow-none"
+                className="inline-flex items-center gap-2.5 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:text-white hover:shadow-md active:shadow-none"
               >
                 <Plus size={18} className="flex-shrink-0" />
-                <span>Registrar Persona</span>
+                <span className="text-inherit">Registrar Persona</span>
               </button>
               <Link
                 href="/"
@@ -643,7 +643,7 @@ export default function PersonasModuleUI({
               <div className="flex gap-3 border-t border-gray-200 pt-5">
                 <button
                   type="submit"
-                  className="flex-1 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md active:bg-[#1450B0]"
+                  className="flex-1 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:text-white hover:shadow-md active:bg-[#1450B0]"
                 >
                   {selectedPersona ? "Guardar Cambios" : "Crear Persona"}
                 </button>
