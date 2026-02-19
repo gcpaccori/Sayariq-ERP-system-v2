@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { FormEvent, ReactNode, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronDown, TrendingUp, TrendingDown, DollarSign, Wallet, Calendar } from 'lucide-react';
@@ -219,7 +219,7 @@ interface HeaderProps {
   title?: string;
   subtitle?: string;
   actions?: ReactNode;
-  productoresValidos?: { id: number; nombre_completo: string }[];
+  productoresValidos?: { id: number; nombre_completo: string; tipo_documento?: string | null; documento?: string | null }[];
   productorSeleccionadoId?: number;
 }
 
@@ -252,34 +252,57 @@ export function Header({ title = 'Estado de Cuenta', subtitle, actions, producto
 }
 
 interface ProductorSelectorProps {
-  productoresValidos: Array<{ id: number; nombre_completo: string }>;
+  productoresValidos: Array<{ id: number; nombre_completo: string; tipo_documento?: string | null; documento?: string | null }>;
   productorSeleccionadoId: number;
 }
 
 function ProductorSelector({ productoresValidos, productorSeleccionadoId }: ProductorSelectorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const selected = productoresValidos.find((p) => p.id === productorSeleccionadoId);
+  const [query, setQuery] = useState(
+    selected ? `${selected.nombre_completo}${selected.documento ? ` · ${selected.documento}` : ''}` : ''
+  );
 
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const applySearch = (event: FormEvent) => {
+    event.preventDefault();
+    const normalized = query.trim().toLowerCase();
+    const found = productoresValidos.find((row) => {
+      const label = `${row.nombre_completo}${row.documento ? ` · ${row.documento}` : ''}`.toLowerCase();
+      return label === normalized || `${row.nombre_completo} ${row.documento ?? ''}`.toLowerCase().includes(normalized);
+    });
+    if (!found) return;
     const params = new URLSearchParams(searchParams);
-    params.set('productor', e.target.value);
+    params.set('productor', String(found.id));
     router.push(`?${params.toString()}`);
   };
 
   return (
     <div className="pt-3.5 md:pt-4 border-t border-[#E5E7EB]">
       <label className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5F6368] block mb-2">Productor actual</label>
-      <select
-        onChange={handleChange}
-        defaultValue={String(productorSeleccionadoId)}
-        className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-[#CCD3DF] bg-white text-[#202124] focus:outline-none focus:border-[#1A73E8] focus:ring-1 focus:ring-[#E8F0FE] transition-all font-medium"
-      >
-        {productoresValidos.map((row) => (
-          <option key={row.id} value={String(row.id)}>
-            {row.nombre_completo}
-          </option>
-        ))}
-      </select>
+      <form onSubmit={applySearch} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+        <input
+          list="productores-list"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="w-full rounded-xl border border-[#CCD3DF] bg-white px-3.5 py-2.5 text-sm font-medium text-[#202124] transition-all focus:border-[#1A73E8] focus:outline-none focus:ring-1 focus:ring-[#E8F0FE]"
+          placeholder="Buscar por nombre o DNI"
+        />
+        <datalist id="productores-list">
+          {productoresValidos.map((row) => (
+            <option key={row.id} value={`${row.nombre_completo}${row.documento ? ` · ${row.documento}` : ''}`} />
+          ))}
+        </datalist>
+        <button type="submit" className="rounded-xl bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1765CC]">
+          Buscar
+        </button>
+      </form>
+      {selected ? (
+        <p className="mt-2 rounded-lg border border-[#D2E3FC] bg-[#E8F0FE] px-3 py-2 text-xs text-[#174EA6]">
+          Seleccionado: <strong>{selected.nombre_completo}</strong>
+          {selected.tipo_documento || selected.documento ? ` · ${selected.tipo_documento ?? 'Doc'}: ${selected.documento ?? '-'}` : ''}
+        </p>
+      ) : null}
     </div>
   );
 }

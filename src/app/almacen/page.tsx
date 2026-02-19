@@ -5,6 +5,7 @@ import { clasificarLoteAction, createLoteAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import FormToggleSection from "@/components/form-toggle-section";
+import PersonSearchField from "@/components/person-search-field";
 
 type SearchParams = {
   q?: string;
@@ -21,6 +22,8 @@ type SearchParams = {
 type Productor = {
   id: number;
   nombre_completo: string;
+  tipo_documento?: string | null;
+  documento?: string | null;
 };
 
 type Categoria = {
@@ -102,7 +105,7 @@ async function getProductoresActivos() {
 
   const { data: personasData } = await supabase
     .from("personas")
-    .select("id,nombre_completo,estado")
+    .select("id,nombre_completo,tipo_documento,documento,estado")
     .in("id", ids)
     .eq("estado", "activo")
     .order("nombre_completo", { ascending: true });
@@ -110,6 +113,8 @@ async function getProductoresActivos() {
   return (personasData ?? []).map((row) => ({
     id: Number(row.id),
     nombre_completo: String(row.nombre_completo),
+    tipo_documento: row.tipo_documento ? String(row.tipo_documento) : null,
+    documento: row.documento ? String(row.documento) : null,
   }));
 }
 
@@ -445,19 +450,13 @@ export default async function AlmacenPage({
               <input name="numero_lote" className="rounded border px-2 py-1" />
             </label>
 
-            <label className="grid gap-1">
-              <span className="text-sm">Productor *</span>
-              <select name="productor_id" defaultValue="" className="rounded border px-2 py-1" required>
-                <option value="" disabled>
-                  Seleccionar productor
-                </option>
-                {productores.map((productor) => (
-                  <option key={productor.id} value={String(productor.id)}>
-                    {productor.nombre_completo}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <PersonSearchField
+              name="productor_id"
+              label="Productor"
+              people={productores}
+              required
+              placeholder="Buscar productor por nombre o DNI"
+            />
 
             <label className="grid gap-1">
               <span className="text-sm">Producto *</span>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import FormToggleSection from "@/components/form-toggle-section";
+import PersonSearchField from "@/components/person-search-field";
 
 type Tab = "stock" | "lotes" | "dinero";
 
@@ -20,7 +21,7 @@ type SearchParams = {
 };
 
 type Categoria = { id: number; nombre: string; orden: number };
-type Persona = { id: number; nombre_completo: string };
+type Persona = { id: number; nombre_completo: string; tipo_documento?: string | null; documento?: string | null };
 type Lote = { id: number; numero_lote: string; productor_id: number };
 
 type KardexRow = {
@@ -82,7 +83,7 @@ async function getCatalogs() {
   const supabase = getSupabaseServerClient();
   const [categoriasRes, personasRes, lotesRes] = await Promise.all([
     supabase.from("categorias").select("id,nombre,orden").order("orden", { ascending: true }),
-    supabase.from("personas").select("id,nombre_completo").order("nombre_completo", { ascending: true }),
+    supabase.from("personas").select("id,nombre_completo,tipo_documento,documento").order("nombre_completo", { ascending: true }),
     supabase.from("lotes").select("id,numero_lote,productor_id").order("id", { ascending: false }),
   ]);
 
@@ -572,14 +573,13 @@ export default async function KardexPage({
             <input name="hasta" type="date" defaultValue={search.hasta ?? ""} className="rounded border px-2 py-1" />
           </label>
 
-          <select name="persona" defaultValue={search.persona ?? ""} className="rounded border px-2 py-1">
-            <option value="">Persona: todas</option>
-            {catalogs.personas.map((persona) => (
-              <option key={persona.id} value={String(persona.id)}>
-                {persona.nombre_completo}
-              </option>
-            ))}
-          </select>
+          <PersonSearchField
+            name="persona"
+            label="Persona"
+            people={catalogs.personas}
+            defaultId={Number(search.persona ?? "0")}
+            placeholder="Buscar persona por nombre o DNI"
+          />
 
           <select name="lote" defaultValue={search.lote ?? ""} className="rounded border px-2 py-1">
             <option value="">Lote: todos</option>

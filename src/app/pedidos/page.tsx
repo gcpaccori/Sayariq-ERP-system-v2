@@ -12,6 +12,7 @@ import { asignarLotePedidoAction, createPedidoAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import FormToggleSection from "@/components/form-toggle-section";
+import PersonSearchField from "@/components/person-search-field";
 
 type SearchParams = {
   q?: string;
@@ -25,6 +26,8 @@ type SearchParams = {
 type Cliente = {
   id: number;
   nombre_completo: string;
+  tipo_documento: string | null;
+  documento: string | null;
 };
 
 type Categoria = {
@@ -89,7 +92,7 @@ async function getClientesActivos() {
 
   const { data } = await supabase
     .from("personas")
-    .select("id,nombre_completo")
+    .select("id,nombre_completo,tipo_documento,documento")
     .in("id", ids)
     .eq("estado", "activo")
     .order("nombre_completo", { ascending: true });
@@ -484,15 +487,13 @@ export default async function PedidosPage({
                   <input name="numero_pedido" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
                 </label>
 
-                <label className="grid gap-1">
-                  <span className="text-sm font-semibold text-gray-700">Cliente *</span>
-                  <select name="cliente_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required>
-                    <option value="" disabled>Seleccionar cliente</option>
-                    {clientes.map((cliente) => (
-                      <option key={cliente.id} value={String(cliente.id)}>{cliente.nombre_completo}</option>
-                    ))}
-                  </select>
-                </label>
+                <PersonSearchField
+                  name="cliente_id"
+                  label="Cliente"
+                  people={clientes}
+                  required
+                  placeholder="Buscar cliente por nombre o DNI"
+                />
 
                 <label className="grid gap-1">
                   <span className="text-sm font-semibold text-gray-700">Producto *</span>

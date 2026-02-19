@@ -16,6 +16,7 @@ import OperationsSwitcher from "@/components/operations-switcher";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import FormToggleSection from "@/components/form-toggle-section";
+import PersonSearchField from "@/components/person-search-field";
 
 type SearchParams = {
   lote?: string;
@@ -24,7 +25,7 @@ type SearchParams = {
   error?: string;
 };
 
-type Persona = { id: number; nombre_completo: string };
+type Persona = { id: number; nombre_completo: string; tipo_documento?: string | null; documento?: string | null };
 type Categoria = { id: number; nombre: string; orden: number };
 
 type LoteRow = {
@@ -148,7 +149,7 @@ async function getPersonasConRol(rol: "productor" | "cliente") {
 
   const { data: personasData } = await supabase
     .from("personas")
-    .select("id,nombre_completo")
+    .select("id,nombre_completo,tipo_documento,documento")
     .in("id", ids)
     .eq("estado", "activo")
     .order("nombre_completo", { ascending: true });
@@ -701,19 +702,13 @@ export default async function LiquidacionesPage({
                   <section className="rounded-xl border border-gray-100 p-3 md:p-4">
                     <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 1: Selección</h4>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="grid gap-1">
-                        <span className="text-sm">Productor *</span>
-                        <select name="productor_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" required>
-                          <option value="" disabled>
-                            Seleccionar productor
-                          </option>
-                          {productores.map((row) => (
-                            <option key={row.id} value={String(row.id)}>
-                              {row.nombre_completo}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <PersonSearchField
+                        name="productor_id"
+                        label="Productor"
+                        people={productores}
+                        required
+                        placeholder="Buscar productor por nombre o DNI"
+                      />
 
                       <label className="grid gap-1">
                         <span className="text-sm">Lote (opcional)</span>

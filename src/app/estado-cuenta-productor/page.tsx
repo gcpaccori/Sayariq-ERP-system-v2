@@ -20,6 +20,8 @@ type SearchParams = {
 type Persona = {
   id: number;
   nombre_completo: string;
+  tipo_documento: string | null;
+  documento: string | null;
 };
 
 type Lote = {
@@ -181,7 +183,7 @@ export default async function EstadoCuentaProductorPage({
   const [productoresRes, categoriasRes] = await Promise.all([
     supabase
       .from("persona_roles")
-      .select("persona_id,personas!inner(id,nombre_completo)")
+      .select("persona_id,personas!inner(id,nombre_completo,tipo_documento,documento)")
       .eq("rol", "productor"),
     supabase.from("categorias").select("id,nombre").order("orden", { ascending: true }),
   ]);
@@ -191,6 +193,8 @@ export default async function EstadoCuentaProductorPage({
     return {
       id: Number(persona?.id),
       nombre_completo: String(persona?.nombre_completo ?? ""),
+      tipo_documento: persona?.tipo_documento ? String(persona.tipo_documento) : null,
+      documento: persona?.documento ? String(persona.documento) : null,
     };
   }) as Persona[];
 
