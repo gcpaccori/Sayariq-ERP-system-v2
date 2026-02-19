@@ -4,6 +4,7 @@ import { FormEvent, ReactNode, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronDown, TrendingUp, TrendingDown, DollarSign, Wallet, Calendar } from 'lucide-react';
+import ActionFormModal from '@/components/action-form-modal';
 
 interface KPICardProps {
   label: string;
@@ -263,6 +264,7 @@ function ProductorSelector({ productoresValidos, productorSeleccionadoId }: Prod
   const [query, setQuery] = useState(
     selected ? `${selected.nombre_completo}${selected.documento ? ` · ${selected.documento}` : ''}` : ''
   );
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
 
   const applySearch = (event: FormEvent) => {
     event.preventDefault();
@@ -274,29 +276,43 @@ function ProductorSelector({ productoresValidos, productorSeleccionadoId }: Prod
     if (!found) return;
     const params = new URLSearchParams(searchParams);
     params.set('productor', String(found.id));
+    setIsSelectorOpen(false);
     router.push(`?${params.toString()}`);
   };
 
   return (
     <div className="pt-3.5 md:pt-4 border-t border-[#E5E7EB]">
       <label className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5F6368] block mb-2">Productor actual</label>
-      <form onSubmit={applySearch} className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <input
-          list="productores-list"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full rounded-xl border border-[#CCD3DF] bg-white px-3.5 py-2.5 text-sm font-medium text-[#202124] transition-all focus:border-[#1A73E8] focus:outline-none focus:ring-1 focus:ring-[#E8F0FE]"
-          placeholder="Buscar por nombre o DNI"
-        />
-        <datalist id="productores-list">
-          {productoresValidos.map((row) => (
-            <option key={row.id} value={`${row.nombre_completo}${row.documento ? ` · ${row.documento}` : ''}`} />
-          ))}
-        </datalist>
-        <button type="submit" className="rounded-xl bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1765CC]">
-          Buscar
-        </button>
-      </form>
+      <ActionFormModal
+        title="Buscar productor"
+        description="Selecciona un productor por nombre o documento."
+        open={isSelectorOpen}
+        onOpenChange={setIsSelectorOpen}
+        size="md"
+        trigger={
+          <button type="button" className="rounded-xl bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1765CC]">
+            Buscar productor
+          </button>
+        }
+      >
+        <form onSubmit={applySearch} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+          <input
+            list="productores-list"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full rounded-xl border border-[#CCD3DF] bg-white px-3.5 py-2.5 text-sm font-medium text-[#202124] transition-all focus:border-[#1A73E8] focus:outline-none focus:ring-1 focus:ring-[#E8F0FE]"
+            placeholder="Buscar por nombre o DNI"
+          />
+          <datalist id="productores-list">
+            {productoresValidos.map((row) => (
+              <option key={row.id} value={`${row.nombre_completo}${row.documento ? ` · ${row.documento}` : ''}`} />
+            ))}
+          </datalist>
+          <button type="submit" className="rounded-xl bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1765CC]">
+            Buscar
+          </button>
+        </form>
+      </ActionFormModal>
       {selected ? (
         <p className="mt-2 rounded-lg border border-[#D2E3FC] bg-[#E8F0FE] px-3 py-2 text-xs text-[#174EA6]">
           Seleccionado: <strong>{selected.nombre_completo}</strong>

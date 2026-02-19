@@ -1,6 +1,7 @@
 'use client';
 import { createPagoLiquidacionAction } from '@/app/liquidaciones/actions';
-import { useRef } from 'react';
+import ActionFormModal from '@/components/action-form-modal';
+import { useRef, useState } from 'react';
 
 interface Liquidacion {
   id: number;
@@ -92,6 +93,7 @@ export function PagoLiquidacionForm({
   pedidoMap,
 }: PagoLiquidacionFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleLiquidacionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const liqId = e.target.value;
@@ -195,16 +197,29 @@ export function PagoLiquidacionForm({
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="mb-4">
+      <div className="flex items-center justify-between gap-3">
         <h3 className="text-lg font-semibold">Registrar pago de liquidación</h3>
-        <div className="mt-2 flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Flujo: 5 pasos</span>
-          <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Comprobante interno opcional</span>
-          <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Evidencia opcional</span>
-        </div>
-      </div>
+        <ActionFormModal
+          title="Registrar pago de liquidación"
+          description="Completa el flujo de pago, comprobante interno y evidencia opcional."
+          open={isOpen}
+          onOpenChange={setIsOpen}
+          size="xl"
+          trigger={
+            <button type="button" className="inline-flex items-center gap-2 rounded-lg bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1765CC]">
+              Abrir formulario
+            </button>
+          }
+        >
+          <div className="mb-4">
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Flujo: 5 pasos</span>
+              <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Comprobante interno opcional</span>
+              <span className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1">Evidencia opcional</span>
+            </div>
+          </div>
 
-      <form ref={formRef} action={createPagoLiquidacionAction} className="grid gap-4">
+          <form ref={formRef} action={createPagoLiquidacionAction} className="grid gap-4">
         <section className="rounded-xl border border-gray-100 p-3 md:p-4">
           <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 1: Selección</h4>
           <div className="grid gap-3 md:grid-cols-2">
@@ -283,8 +298,8 @@ export function PagoLiquidacionForm({
           </label>
         </section>
 
-        <details className="rounded-xl border border-gray-100 p-3 md:p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-gray-700">Paso 4 (opcional): Comprobante interno</summary>
+        <section className="rounded-xl border border-gray-100 p-3 md:p-4">
+          <h4 className="text-sm font-semibold text-gray-700">Paso 4 (opcional): Comprobante interno</h4>
           <fieldset className="mt-3 rounded-md border border-gray-100 p-3">
             <legend className="px-1 text-sm font-semibold">Datos del comprobante interno (opcional)</legend>
             <div className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
@@ -327,21 +342,23 @@ export function PagoLiquidacionForm({
               </label>
             </div>
           </fieldset>
-        </details>
+        </section>
 
-        <details className="rounded-xl border border-gray-100 p-3 md:p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-gray-700">Paso 5 (opcional): Evidencia</summary>
+        <section className="rounded-xl border border-gray-100 p-3 md:p-4">
+          <h4 className="text-sm font-semibold text-gray-700">Paso 5 (opcional): Evidencia</h4>
           <label className="mt-3 grid gap-1">
             <span className="text-sm">Foto evidencia (opcional)</span>
             <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <span className="text-xs text-gray-500">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
           </label>
-        </details>
+        </section>
 
         <div className="mt-2 flex justify-end rounded-xl border-t border-gray-200 pt-3">
           <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1765CC]">Registrar pago</button>
         </div>
       </form>
+    </ActionFormModal>
+      </div>
     </div>
   );
 }
