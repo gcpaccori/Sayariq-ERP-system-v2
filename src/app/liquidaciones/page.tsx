@@ -752,21 +752,21 @@ export default async function LiquidacionesPage({
                     </label>
                   </section>
 
-                  <details className="rounded-xl border border-gray-100 p-3 md:p-4">
-                    <summary className="cursor-pointer text-sm font-semibold text-gray-700">Paso 4 (opcional): Comprobante interno</summary>
+                  <section className="rounded-xl border border-gray-100 p-3 md:p-4">
+                    <h4 className="text-sm font-semibold text-gray-700">Paso 4 (opcional): Comprobante interno</h4>
                     <div className="mt-3">
                       <ComprobanteInternoFields />
                     </div>
-                  </details>
+                  </section>
 
-                  <details className="rounded-xl border border-gray-100 p-3 md:p-4">
-                    <summary className="cursor-pointer text-sm font-semibold text-gray-700">Paso 5 (opcional): Evidencia</summary>
+                  <section className="rounded-xl border border-gray-100 p-3 md:p-4">
+                    <h4 className="text-sm font-semibold text-gray-700">Paso 5 (opcional): Evidencia</h4>
                     <label className="mt-3 grid gap-1">
                       <span className="text-sm">Foto evidencia (opcional)</span>
                       <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                       <span className="text-xs text-gray-500">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
                     </label>
-                  </details>
+                  </section>
 
                   <div className="mt-2 flex justify-end rounded-xl border-t border-gray-200 pt-3">
                     <button type="submit" className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC]">

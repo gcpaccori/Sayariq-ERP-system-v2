@@ -542,7 +542,7 @@ export default async function AlmacenPage({
       </section>
 
       <section className="mb-4 rounded border p-4">
-        <h2 className="mb-3 text-lg font-semibold">Filtros</h2>
+        <FormToggleSection title="Filtros" description="Refina lotes por texto, estado, productor y rango de fechas.">
         <form className="grid gap-3 sm:grid-cols-5">
           <input
             name="q"
@@ -588,6 +588,7 @@ export default async function AlmacenPage({
             <button className="rounded border px-3 py-1">Aplicar filtros</button>
           </div>
         </form>
+        </FormToggleSection>
       </section>
 
       {loteAClasificar ? (
