@@ -8,6 +8,7 @@ import {
 import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
+import FormToggleSection from "@/components/form-toggle-section";
 
 type SearchParams = {
   pedido?: string;
@@ -386,6 +387,7 @@ export default async function CobranzasPage({
         </div>
 
         {selectedPedidoData ? (
+          <FormToggleSection title="Formulario de liquidación cliente" description="Completa precios, comprobante y evidencia antes de crear la liquidación." defaultOpen>
           <form action={createLiquidacionClienteModulo6Action} className="grid gap-3 rounded border p-3">
             <input type="hidden" name="pedido_id" value={String(selectedPedidoData.pedido.id)} />
 
@@ -493,12 +495,12 @@ export default async function CobranzasPage({
               </Link>
             </div>
           </form>
+          </FormToggleSection>
         ) : null}
       </section>
 
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-3 text-lg font-semibold">Registrar cobro parcial</h2>
-
+      <section className="mb-6">
+        <FormToggleSection title="Registrar cobro parcial" description="Registra abonos sin salir del módulo de cobranzas." defaultOpen>
         <form action={registrarCobroClienteAction} className="grid gap-3 sm:grid-cols-4">
           <label className="grid gap-1">
             <span className="text-sm">Liquidación cliente *</span>
@@ -566,6 +568,7 @@ export default async function CobranzasPage({
             </button>
           </div>
         </form>
+        </FormToggleSection>
       </section>
 
       <section className="rounded border p-4">

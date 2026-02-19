@@ -11,6 +11,8 @@ import {
 import { asignarLotePedidoAction, createPedidoAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
+import FormToggleSection from "@/components/form-toggle-section";
+import PersonSearchField from "@/components/person-search-field";
 
 type SearchParams = {
   q?: string;
@@ -24,6 +26,8 @@ type SearchParams = {
 type Cliente = {
   id: number;
   nombre_completo: string;
+  tipo_documento: string | null;
+  documento: string | null;
 };
 
 type Categoria = {
@@ -88,7 +92,7 @@ async function getClientesActivos() {
 
   const { data } = await supabase
     .from("personas")
-    .select("id,nombre_completo")
+    .select("id,nombre_completo,tipo_documento,documento")
     .in("id", ids)
     .eq("estado", "activo")
     .order("nombre_completo", { ascending: true });
@@ -380,9 +384,9 @@ export default async function PedidosPage({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="pedidos" />
-      <main className="google-2027-theme relative flex-1 bg-white text-gray-900">
+      <main className="google-2027-theme relative min-w-0 flex-1 bg-white p-6 text-gray-900">
       {/* Grid Background Pattern */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -393,11 +397,11 @@ export default async function PedidosPage({
         }}
       />
 
-      <div className="relative z-10">
-        <section className="mx-auto max-w-7xl px-3 md:px-6">
+      <div className="relative z-10 mx-auto w-full max-w-7xl">
+        <section>
           {/* Header */}
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center md:gap-6 pt-6">
-            <div>
+          <div className="mb-8 flex flex-col items-start justify-between gap-4 pt-1 md:flex-row md:flex-wrap md:items-center md:gap-6">
+            <div className="min-w-0">
               <h1 className="text-3xl font-bold tracking-tight text-gray-900">Módulo 3: Pedidos</h1>
               <p className="mt-1.5 text-sm font-medium text-gray-600">
                 Orquestación comercial de demanda con asignación de lotes
@@ -412,7 +416,7 @@ export default async function PedidosPage({
           </div>
 
           {/* Resumen Cards */}
-          <div className="mb-8 grid gap-4 sm:grid-cols-5">
+          <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {[
               {
                 label: "Total Pedidos",
@@ -474,8 +478,8 @@ export default async function PedidosPage({
           ) : null}
 
           {/* Crear Pedido Form */}
-          <div className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Registrar Pedido</h2>
+          <div className="mb-8">
+            <FormToggleSection title="Registrar Pedido" description="Completa los datos y crea el pedido sin salir de este módulo." defaultOpen>
             <form action={createPedidoAction} className="grid gap-3">
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="grid gap-1">
@@ -483,15 +487,13 @@ export default async function PedidosPage({
                   <input name="numero_pedido" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
                 </label>
 
-                <label className="grid gap-1">
-                  <span className="text-sm font-semibold text-gray-700">Cliente *</span>
-                  <select name="cliente_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required>
-                    <option value="" disabled>Seleccionar cliente</option>
-                    {clientes.map((cliente) => (
-                      <option key={cliente.id} value={String(cliente.id)}>{cliente.nombre_completo}</option>
-                    ))}
-                  </select>
-                </label>
+                <PersonSearchField
+                  name="cliente_id"
+                  label="Cliente"
+                  people={clientes}
+                  required
+                  placeholder="Buscar cliente por nombre o DNI"
+                />
 
                 <label className="grid gap-1">
                   <span className="text-sm font-semibold text-gray-700">Producto *</span>
@@ -543,6 +545,7 @@ export default async function PedidosPage({
                 </button>
               </div>
             </form>
+            </FormToggleSection>
           </div>
 
           {/* Filtros */}
