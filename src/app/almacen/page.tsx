@@ -4,6 +4,8 @@ import Link from "next/link";
 import { clasificarLoteAction, createLoteAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
+import FormToggleSection from "@/components/form-toggle-section";
+import PersonSearchField from "@/components/person-search-field";
 
 type SearchParams = {
   q?: string;
@@ -20,6 +22,8 @@ type SearchParams = {
 type Productor = {
   id: number;
   nombre_completo: string;
+  tipo_documento?: string | null;
+  documento?: string | null;
 };
 
 type Categoria = {
@@ -101,7 +105,7 @@ async function getProductoresActivos() {
 
   const { data: personasData } = await supabase
     .from("personas")
-    .select("id,nombre_completo,estado")
+    .select("id,nombre_completo,tipo_documento,documento,estado")
     .in("id", ids)
     .eq("estado", "activo")
     .order("nombre_completo", { ascending: true });
@@ -109,6 +113,8 @@ async function getProductoresActivos() {
   return (personasData ?? []).map((row) => ({
     id: Number(row.id),
     nombre_completo: String(row.nombre_completo),
+    tipo_documento: row.tipo_documento ? String(row.tipo_documento) : null,
+    documento: row.documento ? String(row.documento) : null,
   }));
 }
 
@@ -435,9 +441,8 @@ export default async function AlmacenPage({
         </p>
       ) : null}
 
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-3 text-lg font-semibold">Registrar lote</h2>
-
+      <section className="mb-6">
+        <FormToggleSection title="Registrar lote" description="Registra el ingreso inicial del lote con evidencia y datos logísticos." defaultOpen>
         <form action={createLoteAction} className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="grid gap-1">
@@ -445,19 +450,13 @@ export default async function AlmacenPage({
               <input name="numero_lote" className="rounded border px-2 py-1" />
             </label>
 
-            <label className="grid gap-1">
-              <span className="text-sm">Productor *</span>
-              <select name="productor_id" defaultValue="" className="rounded border px-2 py-1" required>
-                <option value="" disabled>
-                  Seleccionar productor
-                </option>
-                {productores.map((productor) => (
-                  <option key={productor.id} value={String(productor.id)}>
-                    {productor.nombre_completo}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <PersonSearchField
+              name="productor_id"
+              label="Productor"
+              people={productores}
+              required
+              placeholder="Buscar productor por nombre o DNI"
+            />
 
             <label className="grid gap-1">
               <span className="text-sm">Producto *</span>
@@ -539,6 +538,7 @@ export default async function AlmacenPage({
             </button>
           </div>
         </form>
+        </FormToggleSection>
       </section>
 
       <section className="mb-4 rounded border p-4">
@@ -591,8 +591,8 @@ export default async function AlmacenPage({
       </section>
 
       {loteAClasificar ? (
-        <section className="mb-6 rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-lg font-semibold">Clasificar lote {loteAClasificar.numero_lote}</h2>
+        <section className="mb-6">
+          <FormToggleSection title={`Clasificar lote ${loteAClasificar.numero_lote}`} description="Captura de clasificación por categorías sin perder trazabilidad." defaultOpen>
           <p className="mb-3 text-sm text-gray-700">
             Peso ingreso: {loteAClasificar.peso_bruto_ingreso} kg. Solo se guardan filas con peso bruto mayor a 0.
           </p>
@@ -692,6 +692,7 @@ export default async function AlmacenPage({
               <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se guarda miniatura.</span>
             </label>
           </form>
+          </FormToggleSection>
         </section>
       ) : null}
 

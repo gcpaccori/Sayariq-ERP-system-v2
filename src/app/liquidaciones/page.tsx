@@ -15,6 +15,8 @@ import { PagoLiquidacionForm } from "@/components/pago-liquidacion-form";
 import OperationsSwitcher from "@/components/operations-switcher";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
+import FormToggleSection from "@/components/form-toggle-section";
+import PersonSearchField from "@/components/person-search-field";
 
 type SearchParams = {
   lote?: string;
@@ -23,7 +25,7 @@ type SearchParams = {
   error?: string;
 };
 
-type Persona = { id: number; nombre_completo: string };
+type Persona = { id: number; nombre_completo: string; tipo_documento?: string | null; documento?: string | null };
 type Categoria = { id: number; nombre: string; orden: number };
 
 type LoteRow = {
@@ -147,7 +149,7 @@ async function getPersonasConRol(rol: "productor" | "cliente") {
 
   const { data: personasData } = await supabase
     .from("personas")
-    .select("id,nombre_completo")
+    .select("id,nombre_completo,tipo_documento,documento")
     .in("id", ids)
     .eq("estado", "activo")
     .order("nombre_completo", { ascending: true });
@@ -637,9 +639,9 @@ export default async function LiquidacionesPage({
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="liquidaciones" />
-      <main className="google-2027-theme w-full flex-1 p-6">
+      <main className="google-2027-theme min-w-0 flex-1 p-6">
         <div className="mx-auto w-full max-w-7xl">
       <LiquidacionesShell
         initialTab="resumen"
@@ -690,29 +692,23 @@ export default async function LiquidacionesPage({
 
           <OperationsSwitcher
             adelantoContent={(
-              <div className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold">Registrar adelanto</h3>
-                  <p className="mt-1 text-sm text-gray-600">Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor.</p>
-                </div>
+              <FormToggleSection
+                title="Registrar adelanto"
+                description="Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor."
+                defaultOpen
+              >
 
                 <form action={createAdelantoAction} className="grid gap-4">
                   <section className="rounded-xl border border-gray-100 p-3 md:p-4">
                     <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 1: Selección</h4>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="grid gap-1">
-                        <span className="text-sm">Productor *</span>
-                        <select name="productor_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" required>
-                          <option value="" disabled>
-                            Seleccionar productor
-                          </option>
-                          {productores.map((row) => (
-                            <option key={row.id} value={String(row.id)}>
-                              {row.nombre_completo}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <PersonSearchField
+                        name="productor_id"
+                        label="Productor"
+                        people={productores}
+                        required
+                        placeholder="Buscar productor por nombre o DNI"
+                      />
 
                       <label className="grid gap-1">
                         <span className="text-sm">Lote (opcional)</span>
@@ -778,7 +774,7 @@ export default async function LiquidacionesPage({
                     </button>
                   </div>
                 </form>
-              </div>
+              </FormToggleSection>
             )}
             pagoContent={(
               <div className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
@@ -841,6 +837,7 @@ export default async function LiquidacionesPage({
         </div>
 
         {selectedLoteData ? (
+          <FormToggleSection title="Formulario de liquidación de productor" description="Completa datos, descuentos y evidencias antes de confirmar." defaultOpen>
           <form action={createLiquidacionProductorAction} className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <input type="hidden" name="lote_id" value={String(selectedLoteData.lote.id)} />
 
@@ -1013,6 +1010,7 @@ export default async function LiquidacionesPage({
               </Link>
             </div>
           </form>
+          </FormToggleSection>
         ) : null}
       </section>
 
@@ -1180,6 +1178,7 @@ export default async function LiquidacionesPage({
         </div>
 
         {selectedPedidoData ? (
+          <FormToggleSection title="Formulario de liquidación de cliente" description="Registra el cierre comercial del pedido con evidencia y comprobante." defaultOpen>
           <form action={createLiquidacionClienteAction} className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <input type="hidden" name="pedido_id" value={String(selectedPedidoData.pedido.id)} />
 
@@ -1315,6 +1314,7 @@ export default async function LiquidacionesPage({
               </Link>
             </div>
           </form>
+          </FormToggleSection>
         ) : null}
       </section>
 
