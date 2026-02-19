@@ -18,6 +18,10 @@ type SearchParams = {
   lote?: string;
   categoria?: string;
   q?: string;
+  mes?: string;
+  rango?: "todos" | "ultimo_mes";
+  page?: string;
+  page_size?: string;
 };
 
 type Categoria = { id: number; nombre: string; orden: number };
@@ -77,6 +81,55 @@ function buildFilterQuery(base: URLSearchParams, tab: Tab) {
   const params = new URLSearchParams(base);
   params.set("tab", tab);
   return `/kardex?${params.toString()}`;
+}
+
+function toIsoDate(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function sanitizeDate(search: SearchParams, minDate: string | null) {
+  const today = toIsoDate(new Date());
+  const min = minDate ?? today;
+
+  let desde = search.desde ?? "";
+  let hasta = search.hasta ?? "";
+
+  if (search.rango === "ultimo_mes") {
+    const end = new Date();
+    const start = new Date();
+    start.setMonth(start.getMonth() - 1);
+    desde = toIsoDate(start);
+    hasta = toIsoDate(end);
+  }
+
+  if (search.mes && /^\d{4}-\d{2}$/.test(search.mes)) {
+    desde = `${search.mes}-01`;
+    const lastDay = new Date(Number(search.mes.slice(0, 4)), Number(search.mes.slice(5, 7)), 0);
+    hasta = toIsoDate(lastDay);
+  }
+
+  if (desde && desde < min) desde = min;
+  if (hasta && hasta < min) hasta = min;
+  if (desde && desde > today) desde = today;
+  if (hasta && hasta > today) hasta = today;
+  if (desde && hasta && desde > hasta) {
+    desde = hasta;
+  }
+
+  return { desde, hasta, minDate: min, maxDate: today };
+}
+
+async function getKardexDateBounds() {
+  const supabase = getSupabaseServerClient();
+  const [{ data: minData }, { data: maxData }] = await Promise.all([
+    supabase.from("kardex").select("fecha").order("fecha", { ascending: true }).limit(1),
+    supabase.from("kardex").select("fecha").order("fecha", { ascending: false }).limit(1),
+  ]);
+
+  return {
+    minDate: minData?.[0]?.fecha ? String(minData[0].fecha).slice(0, 10) : null,
+    maxDate: maxData?.[0]?.fecha ? String(maxData[0].fecha).slice(0, 10) : null,
+  };
 }
 
 async function getCatalogs() {
@@ -345,7 +398,15 @@ export default async function KardexPage({
   const search = await searchParams;
   const tab: Tab = search.tab === "lotes" || search.tab === "dinero" ? search.tab : "stock";
 
-  const [catalogs, kardexData] = await Promise.all([getCatalogs(), getKardexRows(search)]);
+  const bounds = await getKardexDateBounds();
+  const dateScope = sanitizeDate(search, bounds.minDate);
+  const normalizedSearch: SearchParams = {
+    ...search,
+    desde: dateScope.desde,
+    hasta: dateScope.hasta,
+  };
+
+  const [catalogs, kardexData] = await Promise.all([getCatalogs(), getKardexRows(normalizedSearch)]);
 
   const categoriaMap = new Map(catalogs.categorias.map((categoria) => [categoria.id, categoria.nombre]));
   const personaMap = new Map(catalogs.personas.map((persona) => [persona.id, persona.nombre_completo]));
@@ -387,16 +448,39 @@ export default async function KardexPage({
     ...monthlySeries.map((row) => Math.max(row.carga_entrada, row.carga_salida))
   );
 
+  const pageSize = Math.min(200, Math.max(10, Number(search.page_size ?? "25") || 25));
+  const page = Math.max(1, Number(search.page ?? "1") || 1);
+
   const queryParams = new URLSearchParams();
   if (search.tipo_kardex) queryParams.set("tipo_kardex", search.tipo_kardex);
   if (search.tipo_movimiento) queryParams.set("tipo_movimiento", search.tipo_movimiento);
   if (search.origen) queryParams.set("origen", search.origen);
-  if (search.desde) queryParams.set("desde", search.desde);
-  if (search.hasta) queryParams.set("hasta", search.hasta);
+  if (normalizedSearch.desde) queryParams.set("desde", normalizedSearch.desde);
+  if (normalizedSearch.hasta) queryParams.set("hasta", normalizedSearch.hasta);
+  if (search.mes) queryParams.set("mes", search.mes);
+  if (search.rango) queryParams.set("rango", search.rango);
   if (search.persona) queryParams.set("persona", search.persona);
   if (search.lote) queryParams.set("lote", search.lote);
   if (search.categoria) queryParams.set("categoria", search.categoria);
   if (search.q) queryParams.set("q", search.q);
+  queryParams.set("page_size", String(pageSize));
+
+  const stockPageRows = stockRows.slice((page - 1) * pageSize, page * pageSize);
+  const lotesPageRows = detalleLotesRows.slice((page - 1) * pageSize, page * pageSize);
+  const dineroPageRows = dineroRows.slice((page - 1) * pageSize, page * pageSize);
+
+  const pageRows = tab === "stock" ? stockRows.length : tab === "lotes" ? detalleLotesRows.length : dineroRows.length;
+  const totalPages = Math.max(1, Math.ceil(pageRows / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const exportCsvHref = `/kardex/export?${new URLSearchParams({ ...Object.fromEntries(queryParams), tab, format: "csv" }).toString()}`;
+  const printHref = `/kardex/print?${new URLSearchParams({ ...Object.fromEntries(queryParams), tab }).toString()}`;
+
+  const personaSeleccionadaId = Number(search.persona ?? "0");
+  const personaSeleccionada =
+    personaSeleccionadaId > 0
+      ? catalogs.personas.find((persona) => persona.id === personaSeleccionadaId) ?? null
+      : null;
 
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
@@ -565,13 +649,23 @@ export default async function KardexPage({
 
           <label className="grid gap-1">
             <span className="text-xs">Desde</span>
-            <input name="desde" type="date" defaultValue={search.desde ?? ""} className="rounded border px-2 py-1" />
+            <input name="desde" type="date" min={dateScope.minDate} max={dateScope.maxDate} defaultValue={normalizedSearch.desde ?? ""} className="rounded border px-2 py-1" />
           </label>
 
           <label className="grid gap-1">
             <span className="text-xs">Hasta</span>
-            <input name="hasta" type="date" defaultValue={search.hasta ?? ""} className="rounded border px-2 py-1" />
+            <input name="hasta" type="date" min={dateScope.minDate} max={dateScope.maxDate} defaultValue={normalizedSearch.hasta ?? ""} className="rounded border px-2 py-1" />
           </label>
+
+          <label className="grid gap-1">
+            <span className="text-xs">Mes</span>
+            <input name="mes" type="month" defaultValue={search.mes ?? ""} className="rounded border px-2 py-1" />
+          </label>
+
+          <select name="rango" defaultValue={search.rango ?? "todos"} className="rounded border px-2 py-1">
+            <option value="todos">Rango rápido: todos</option>
+            <option value="ultimo_mes">Último mes hacia atrás</option>
+          </select>
 
           <PersonSearchField
             name="persona"
@@ -600,6 +694,13 @@ export default async function KardexPage({
           </select>
 
           <input type="hidden" name="tab" value={tab} />
+          <input type="hidden" name="page" value="1" />
+
+          <select name="page_size" defaultValue={String(pageSize)} className="rounded border px-2 py-1">
+            <option value="25">25 por página</option>
+            <option value="50">50 por página</option>
+            <option value="100">100 por página</option>
+          </select>
 
           <div className="sm:col-span-5">
             <button className="rounded border px-3 py-1">Aplicar filtros</button>
@@ -618,6 +719,11 @@ export default async function KardexPage({
         <Link href={buildFilterQuery(queryParams, "dinero")} className="rounded border px-3 py-1 text-sm">
           Movimientos de dinero
         </Link>
+      </section>
+
+      <section className="mb-4 flex flex-wrap gap-2">
+        <Link href={exportCsvHref} className="rounded border px-3 py-1 text-sm">Exportar Excel (CSV)</Link>
+        <Link href={printHref} className="rounded border px-3 py-1 text-sm" target="_blank">Imprimir / Guardar PDF</Link>
       </section>
 
       {tab === "stock" ? (
@@ -643,7 +749,7 @@ export default async function KardexPage({
                 </tr>
               ) : null}
 
-              {stockRows.map((row) => (
+              {stockPageRows.map((row) => (
                 <tr key={row.categoria_id} className="border-b">
                   <td className="p-2">{row.categoria}</td>
                   <td className="p-2">{row.kg_entrados}</td>
@@ -695,7 +801,7 @@ export default async function KardexPage({
                 </tr>
               ) : null}
 
-              {detalleLotesRows.map((row) => {
+                {lotesPageRows.map((row) => {
                 const kgValue = Number(row.peso_kg ?? 0);
                 const signedKg = row.tipo_movimiento === "salida" ? -Math.abs(kgValue) : kgValue;
                 const asignacionCtx = row.origen_id
@@ -750,7 +856,7 @@ export default async function KardexPage({
                   </tr>
                 ) : null}
 
-                {dineroRows.map((row) => (
+                {dineroPageRows.map((row) => (
                   <tr key={row.id} className="border-b align-top">
                     <td className="p-2">{new Date(row.fecha).toLocaleString()}</td>
                     <td className="p-2">{row.persona_id ? personaMap.get(row.persona_id) ?? row.persona_id : "-"}</td>
@@ -767,8 +873,16 @@ export default async function KardexPage({
           </section>
 
           <section className="overflow-x-auto rounded border">
-            <h3 className="border-b p-3 text-base font-semibold">Resumen de deudas por persona</h3>
-            <p className="px-3 pt-2 text-xs">Qué muestra esta tabla: saldo neto por persona entre cuentas por cobrar y por pagar.</p>
+            <h3 className="border-b p-3 text-base font-semibold">
+              {personaSeleccionada
+                ? `Resumen de deuda de ${personaSeleccionada.nombre_completo}`
+                : "Resumen global de deudas (agrupado por persona)"}
+            </h3>
+            <p className="px-3 pt-2 text-xs">
+              {personaSeleccionada
+                ? "Qué muestra esta tabla: saldo neto de la persona filtrada, calculado como ingresos menos egresos."
+                : "Qué muestra esta tabla: sin filtro de persona, se agrupan todos los movimientos de dinero por persona y se calcula su saldo neto (ingresos - egresos)."}
+            </p>
             <table className="min-w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b text-left">
@@ -800,6 +914,16 @@ export default async function KardexPage({
           </section>
         </>
       ) : null}
+
+      <section className="mt-4 flex items-center gap-3 text-sm">
+        <span>Página {safePage} de {totalPages}</span>
+        {safePage > 1 ? (
+          <Link href={`/kardex?${new URLSearchParams({ ...Object.fromEntries(queryParams), tab, page: String(safePage - 1) }).toString()}`} className="rounded border px-2 py-1">Anterior</Link>
+        ) : null}
+        {safePage < totalPages ? (
+          <Link href={`/kardex?${new URLSearchParams({ ...Object.fromEntries(queryParams), tab, page: String(safePage + 1) }).toString()}`} className="rounded border px-2 py-1">Siguiente</Link>
+        ) : null}
+      </section>
         </div>
       </main>
     </div>
