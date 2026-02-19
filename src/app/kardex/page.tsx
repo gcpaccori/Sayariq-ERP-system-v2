@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
+import FormToggleSection from "@/components/form-toggle-section";
 
 type Tab = "stock" | "lotes" | "dinero";
 
@@ -517,7 +518,7 @@ export default async function KardexPage({
       </section>
 
       <section className="mb-4 rounded border p-4">
-        <h2 className="mb-3 text-lg font-semibold">Filtros</h2>
+        <FormToggleSection title="Filtros" description="Refina movimientos y trazabilidad del kardex.">
         <form className="grid gap-3 sm:grid-cols-5">
           <input
             name="q"
@@ -604,6 +605,7 @@ export default async function KardexPage({
             <button className="rounded border px-3 py-1">Aplicar filtros</button>
           </div>
         </form>
+        </FormToggleSection>
       </section>
 
       <section className="mb-4 flex flex-wrap gap-2">
