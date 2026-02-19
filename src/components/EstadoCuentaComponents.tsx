@@ -230,7 +230,7 @@ export function Header({ title = 'Estado de Cuenta', subtitle, actions, producto
         <div className="mb-4 min-w-0 lg:mb-5">
           <div className="mb-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-center gap-2.5">
-              <h1 className="min-w-0 text-3xl font-bold tracking-tight text-gray-900">
+              <h1 className="min-w-0 !text-3xl font-bold tracking-tight text-gray-900">
                 <span className="block truncate">{title}</span>
               </h1>
             </div>
