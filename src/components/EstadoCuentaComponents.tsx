@@ -225,7 +225,7 @@ interface HeaderProps {
 
 export function Header({ title = 'Estado de Cuenta', subtitle, actions, productoresValidos = [], productorSeleccionadoId = 0 }: HeaderProps) {
   return (
-    <header className="rounded-2xl border border-[#E5E7EB] bg-gradient-to-br from-white to-[#F8FBFF] overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+    <header className="rounded-2xl border border-[#E5E7EB] bg-gradient-to-br from-white to-[#F8FBFF] overflow-visible shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
       <div className="px-4 md:px-6 lg:px-8 py-4 md:py-5 lg:py-6">
         <div className="mb-4 min-w-0 lg:mb-5">
           <div className="mb-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -258,9 +258,9 @@ interface ProductorSelectorProps {
 function ProductorSelector({ productoresValidos, productorSeleccionadoId }: ProductorSelectorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selected = productoresValidos.find((p) => p.id === productorSeleccionadoId);
-  const [query, setQuery] = useState(selected ? `${selected.nombre_completo}${selected.documento ? ` · ${selected.documento}` : ''}` : '');
-  const [candidateId, setCandidateId] = useState<number>(selected?.id ?? 0);
+  const currentProductor = productoresValidos.find((p) => p.id === productorSeleccionadoId);
+  const [query, setQuery] = useState("");
+  const [candidateId, setCandidateId] = useState<number>(0);
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
@@ -296,6 +296,12 @@ function ProductorSelector({ productoresValidos, productorSeleccionadoId }: Prod
   return (
     <div className="pt-3.5 md:pt-4 border-t border-[#E5E7EB]">
       <label className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5F6368] block mb-2">Productor actual</label>
+      {currentProductor ? (
+        <p className="mb-2 rounded-lg border border-[#D2E3FC] bg-[#E8F0FE] px-3 py-2 text-xs text-[#174EA6]">
+          En vista: <strong>{currentProductor.nombre_completo}</strong>
+          {currentProductor.tipo_documento || currentProductor.documento ? ` · ${currentProductor.tipo_documento ?? 'Doc'}: ${currentProductor.documento ?? '-'}` : ''}
+        </p>
+      ) : null}
       <div ref={wrapperRef} className="relative grid gap-2 sm:grid-cols-[1fr_auto]">
         <div className="relative">
           <input
@@ -307,10 +313,10 @@ function ProductorSelector({ productoresValidos, productorSeleccionadoId }: Prod
               setIsOpen(true);
             }}
             className="w-full rounded-xl border border-[#CCD3DF] bg-white px-3.5 py-2.5 text-sm font-medium text-[#202124] transition-all focus:border-[#1A73E8] focus:outline-none focus:ring-1 focus:ring-[#E8F0FE]"
-            placeholder="Buscar por nombre o DNI"
+            placeholder="Buscar productor por nombre o DNI"
           />
           {isOpen ? (
-            <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-56 overflow-y-auto rounded-xl border border-[#CCD3DF] bg-white shadow-lg">
+            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-xl border border-[#CCD3DF] bg-white shadow-lg">
               {filteredProductores.length > 0 ? (
                 filteredProductores.map((row) => (
                   <button
@@ -339,17 +345,12 @@ function ProductorSelector({ productoresValidos, productorSeleccionadoId }: Prod
         <button
           type="button"
           onClick={applySelected}
-          className="rounded-xl bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1765CC]"
+          disabled={!candidateId}
+          className="rounded-xl bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1765CC] disabled:cursor-not-allowed disabled:opacity-50"
         >
           Aplicar
         </button>
       </div>
-      {selected ? (
-        <p className="mt-2 rounded-lg border border-[#D2E3FC] bg-[#E8F0FE] px-3 py-2 text-xs text-[#174EA6]">
-          Seleccionado: <strong>{selected.nombre_completo}</strong>
-          {selected.tipo_documento || selected.documento ? ` · ${selected.tipo_documento ?? 'Doc'}: ${selected.documento ?? '-'}` : ''}
-        </p>
-      ) : null}
     </div>
   );
 }
