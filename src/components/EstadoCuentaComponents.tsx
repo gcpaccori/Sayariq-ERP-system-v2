@@ -95,18 +95,18 @@ export function Tabs({ tabs }: TabsProps) {
 
   return (
     <div>
-      <div className="flex gap-0.5 border-b border-[#E5E7EB] overflow-x-auto">
+      <div className="grid grid-cols-1 gap-0.5 border-b border-[#E5E7EB] sm:grid-cols-2">
         {tabs.map((tab, idx) => (
           <button
             key={idx}
             onClick={() => setActiveTab(idx)}
-            className={`px-4 md:px-5 lg:px-6 py-3 md:py-3.5 lg:py-4 text-sm md:text-base lg:text-lg font-semibold whitespace-nowrap transition-all border-b-2 ${
+            className={`min-w-0 px-4 md:px-5 lg:px-6 py-3 md:py-3.5 lg:py-4 text-sm md:text-base lg:text-lg font-semibold transition-all border-b-2 ${
               activeTab === idx
                 ? 'border-[#1A73E8] text-[#1A73E8] bg-[#F8FBFF]'
                 : 'border-transparent text-[#5F6368] hover:text-[#202124] hover:bg-[#F8FBFF]'
             }`}
           >
-            {tab.label}
+            <span className="block truncate">{tab.label}</span>
           </button>
         ))}
       </div>
@@ -218,20 +218,26 @@ export function Section({ title, subtitle, children, icon }: SectionProps) {
 interface HeaderProps {
   title?: string;
   subtitle?: string;
+  actions?: ReactNode;
   productoresValidos?: { id: number; nombre_completo: string }[];
   productorSeleccionadoId?: number;
 }
 
-export function Header({ title = 'Estado de Cuenta', subtitle, productoresValidos = [], productorSeleccionadoId = 0 }: HeaderProps) {
+export function Header({ title = 'Estado de Cuenta', subtitle, actions, productoresValidos = [], productorSeleccionadoId = 0 }: HeaderProps) {
   return (
     <header className="rounded-2xl border border-[#E5E7EB] bg-gradient-to-br from-white to-[#F8FBFF] overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
       <div className="px-4 md:px-6 lg:px-8 py-4 md:py-5 lg:py-6">
-        <div className="mb-4 lg:mb-5">
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="h-1 w-1 rounded-full bg-[#1A73E8]" />
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#202124]">{title}</h1>
+        <div className="mb-4 min-w-0 lg:mb-5">
+          <div className="mb-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="h-1 w-1 rounded-full bg-[#1A73E8]" />
+              <h1 className="min-w-0 text-2xl font-bold text-[#202124] md:text-3xl lg:text-4xl">
+                <span className="block truncate">{title}</span>
+              </h1>
+            </div>
+            {actions ? <div className="grid gap-2 sm:flex sm:items-center">{actions}</div> : null}
           </div>
-          {subtitle && <p className="text-sm md:text-base lg:text-lg text-[#5F6368] ml-3.5">{subtitle}</p>}
+          {subtitle && <p className="ml-3.5 break-words text-sm md:text-base lg:text-lg text-[#5F6368]">{subtitle}</p>}
         </div>
 
         {productoresValidos.length > 1 && (
