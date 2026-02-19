@@ -47,14 +47,14 @@ export default function ModuleNavigation({ currentModule }: ModuleNavigationProp
               <Link
                 key={module.href}
                 href={module.href}
-                className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`inline-flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors lg:justify-start ${
                   isActive
                     ? "bg-blue-600 text-white"
                     : "text-slate-700 hover:bg-slate-100"
                 }`}
               >
                 <Icon size={16} />
-                {module.label}
+                <span className="truncate">{module.label}</span>
               </Link>
             );
           })}
