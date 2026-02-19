@@ -380,9 +380,9 @@ export default async function PedidosPage({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="pedidos" />
-      <main className="google-2027-theme relative w-full flex-1 bg-white p-6 text-gray-900">
+      <main className="google-2027-theme relative min-w-0 flex-1 bg-white p-6 text-gray-900">
       {/* Grid Background Pattern */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -396,8 +396,8 @@ export default async function PedidosPage({
       <div className="relative z-10 mx-auto w-full max-w-7xl">
         <section>
           {/* Header */}
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 pt-1 md:flex-row md:items-center md:gap-6">
-            <div>
+          <div className="mb-8 flex flex-col items-start justify-between gap-4 pt-1 md:flex-row md:flex-wrap md:items-center md:gap-6">
+            <div className="min-w-0">
               <h1 className="text-3xl font-bold tracking-tight text-gray-900">Módulo 3: Pedidos</h1>
               <p className="mt-1.5 text-sm font-medium text-gray-600">
                 Orquestación comercial de demanda con asignación de lotes
@@ -412,7 +412,7 @@ export default async function PedidosPage({
           </div>
 
           {/* Resumen Cards */}
-          <div className="mb-8 grid gap-4 sm:grid-cols-5">
+          <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {[
               {
                 label: "Total Pedidos",

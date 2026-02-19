@@ -26,7 +26,7 @@ export default function LiquidacionesShell({
     <div className="mb-6">
       <header className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex flex-col gap-4">
-          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <h1 className="min-w-0 text-2xl font-bold tracking-tight text-gray-900 sm:pr-4">
               <span className="block truncate">Módulo 5: Liquidaciones y Adelantos</span>
             </h1>
