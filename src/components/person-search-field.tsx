@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Search } from "lucide-react";
 
 type PersonOption = {
@@ -19,6 +19,9 @@ type Props = {
   placeholder?: string;
 };
 
+const getPersonLabel = (person: PersonOption) =>
+  `${person.nombre_completo}${person.documento ? ` · ${person.documento}` : ""}`;
+
 export default function PersonSearchField({
   name,
   label,
@@ -29,62 +32,99 @@ export default function PersonSearchField({
 }: Props) {
   const initial = people.find((p) => p.id === defaultId) ?? null;
   const [selectedId, setSelectedId] = useState(initial?.id ?? 0);
-  const [query, setQuery] = useState(
-    initial ? `${initial.nombre_completo}${initial.documento ? ` · ${initial.documento}` : ""}` : ""
-  );
-
-  const listId = `${name}-person-search-${useId()}`;
+  const [query, setQuery] = useState(initial ? getPersonLabel(initial) : "");
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const inputId = `${name}-person-search-${useId()}`;
 
   const selectedPerson = people.find((p) => p.id === selectedId) ?? null;
 
-  const tryResolve = (value: string) => {
-    const normalized = value.trim().toLowerCase();
+  const filteredPeople = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
     if (!normalized) {
-      setSelectedId(0);
-      return;
+      return people;
     }
 
-    const exact = people.find((p) => {
-      const labelText = `${p.nombre_completo}${p.documento ? ` · ${p.documento}` : ""}`.toLowerCase();
-      return labelText === normalized;
-    });
-
-    if (exact) {
-      setSelectedId(exact.id);
-      return;
-    }
-
-    const contains = people.find((p) => {
-      const haystack = `${p.nombre_completo} ${p.documento ?? ""}`.toLowerCase();
+    return people.filter((person) => {
+      const haystack = `${person.nombre_completo} ${person.documento ?? ""}`.toLowerCase();
       return haystack.includes(normalized);
     });
+  }, [people, query]);
 
-    setSelectedId(contains?.id ?? 0);
+  useEffect(() => {
+    const onMouseDown = (event: MouseEvent) => {
+      if (!wrapperRef.current) return;
+      if (wrapperRef.current.contains(event.target as Node)) return;
+      setIsOpen(false);
+    };
+
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
+  const handleInputChange = (value: string) => {
+    setQuery(value);
+    setSelectedId(0);
+    setIsOpen(true);
+  };
+
+  const handleSelectPerson = (person: PersonOption) => {
+    setSelectedId(person.id);
+    setQuery(getPersonLabel(person));
+    setIsOpen(false);
   };
 
   return (
-    <div className="grid gap-1">
-      <span className="text-sm">{label}{required ? " *" : ""}</span>
+    <div ref={wrapperRef} className="relative grid gap-1">
+      <label htmlFor={inputId} className="text-sm">
+        {label}
+        {required ? " *" : ""}
+      </label>
+
       <div className="relative">
         <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
         <input
-          list={listId}
+          id={inputId}
           value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            tryResolve(event.target.value);
-          }}
-          onBlur={(event) => tryResolve(event.target.value)}
+          onFocus={() => setIsOpen(true)}
+          onChange={(event) => handleInputChange(event.target.value)}
           placeholder={placeholder}
+          autoComplete="off"
           className="w-full rounded border px-2 py-1 pl-8"
         />
       </div>
-      <datalist id={listId}>
-        {people.map((p) => (
-          <option key={p.id} value={`${p.nombre_completo}${p.documento ? ` · ${p.documento}` : ""}`} />
-        ))}
-      </datalist>
-      <input type="hidden" name={name} value={selectedId > 0 ? String(selectedId) : ""} required={required} />
+
+      {isOpen ? (
+        <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-56 overflow-y-auto rounded border border-gray-200 bg-white shadow-lg">
+          {filteredPeople.length > 0 ? (
+            filteredPeople.map((person) => (
+              <button
+                key={person.id}
+                type="button"
+                onClick={() => handleSelectPerson(person)}
+                className="block w-full border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-blue-50"
+              >
+                <div className="font-medium text-gray-900">{person.nombre_completo}</div>
+                {person.tipo_documento || person.documento ? (
+                  <div className="text-xs text-gray-500">
+                    {person.tipo_documento ?? "Doc"}: {person.documento ?? "-"}
+                  </div>
+                ) : null}
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-sm text-gray-500">Sin resultados</div>
+          )}
+        </div>
+      ) : null}
+
+      <input
+        type="hidden"
+        name={name}
+        value={selectedId > 0 ? String(selectedId) : ""}
+        required={required}
+      />
+
       {selectedPerson ? (
         <div className="rounded border border-blue-100 bg-blue-50 px-2 py-1 text-xs text-blue-900">
           <strong>{selectedPerson.nombre_completo}</strong>

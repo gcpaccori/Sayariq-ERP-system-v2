@@ -1038,12 +1038,13 @@ export default async function LiquidacionesPage({
                   <th className="p-2">Forma</th>
                   <th className="p-2">Nro. comp.</th>
                   <th className="p-2">Obs.</th>
+                  <th className="p-2">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {pagos.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="p-3 text-center">
+                    <td colSpan={11} className="p-3 text-center">
                       Sin pagos registrados.
                     </td>
                   </tr>
@@ -1060,6 +1061,28 @@ export default async function LiquidacionesPage({
                     <td className="p-2">{row.forma_pago ?? "-"}</td>
                     <td className="p-2">{row.numero_comprobante ?? "-"}</td>
                     <td className="p-2">{row.observaciones ?? "-"}</td>
+                    <td className="p-2">
+                      <Link
+                        href={`/liquidaciones/comprobante?tipo=pago&data=${encodeURIComponent(
+                          JSON.stringify({
+                            codigo: row.numero_comprobante ?? `PAGO-${row.id}` ,
+                            liquidacion: liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id,
+                            comp_interno: compLiquidacionMap.get(row.liquidacion_id) ?? "-",
+                            persona: personaMap.get(liquidacionPersonaMap.get(row.liquidacion_id) ?? 0) ?? "-",
+                            lote: row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-",
+                            fecha: row.fecha,
+                            monto: row.monto,
+                            forma_pago: row.forma_pago ?? "-",
+                            numero_comprobante: row.numero_comprobante ?? "-",
+                            observaciones: row.observaciones ?? "-",
+                          }),
+                        )}`}
+                        target="_blank"
+                        className="inline-flex rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        Imprimir
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1088,12 +1111,13 @@ export default async function LiquidacionesPage({
                   <th className="p-2">Motivo</th>
                   <th className="p-2">Estado</th>
                   <th className="p-2">Liquidación</th>
+                  <th className="p-2">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {adelantos.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="p-3 text-center">
+                    <td colSpan={11} className="p-3 text-center">
                       Sin adelantos.
                     </td>
                   </tr>
@@ -1127,6 +1151,28 @@ export default async function LiquidacionesPage({
                     <td className="p-2">{row.motivo ?? "-"}</td>
                     <td className="p-2">{row.estado}</td>
                     <td className="p-2">{row.liquidacion_id ? liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id : "-"}</td>
+                    <td className="p-2">
+                      <Link
+                        href={`/liquidaciones/comprobante?tipo=adelanto&data=${encodeURIComponent(
+                          JSON.stringify({
+                            codigo: compAdelantoMap.get(Number(row.id)) ?? row.numero_comprobante ?? `ADEL-${row.id}` ,
+                            productor: personaMap.get(row.productor_id) ?? row.productor_id,
+                            lote: row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-",
+                            fecha: row.fecha,
+                            monto: row.monto,
+                            numero_comprobante: row.numero_comprobante ?? "-",
+                            comp_interno: compAdelantoMap.get(Number(row.id)) ?? "-",
+                            motivo: row.motivo ?? "-",
+                            estado: row.estado,
+                            liquidacion: row.liquidacion_id ? liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id : "-",
+                          }),
+                        )}`}
+                        target="_blank"
+                        className="inline-flex rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        Imprimir
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
