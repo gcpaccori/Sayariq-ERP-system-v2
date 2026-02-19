@@ -90,8 +90,10 @@ export default function LiquidacionesResumenTable({
       ) : (
         <>
           <div className="block md:hidden space-y-3">
-            {pageRows.map((row) => (
-              <div key={row.id} className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
+            {pageRows.map((row) => {
+              const { imageSrc } = getFotoSources(fotoMap[row.id]);
+
+              return <div key={row.id} className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
                 <div className="flex items-start gap-3">
                   <div className="shrink-0">
                       {fotoMap[row.id] ? (
@@ -122,7 +124,11 @@ export default function LiquidacionesResumenTable({
                       <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">S/ {row.total_a_pagar}</span>
                       <span className="text-xs text-gray-500">Estado: {row.estado}</span>
                       <div className="ml-auto flex items-center gap-2">
-                        <button onClick={() => setOpenUrl(getFotoSources(fotoMap[row.id]).imageSrc)} className="inline-flex items-center gap-2 text-sm font-semibold text-[#1A73E8]">Ver imagen</button>
+                        {imageSrc ? (
+                          <a href={imageSrc} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-[#1A73E8]">Ver imagen</a>
+                        ) : (
+                          <span className="inline-flex items-center gap-2 text-sm font-semibold text-gray-400">Sin imagen</span>
+                        )}
                         <Link
                           href={`/liquidaciones/comprobante/liquidacion/${row.id}`}
                           target="_blank"
@@ -134,8 +140,8 @@ export default function LiquidacionesResumenTable({
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              </div>;
+            })}
           </div>
 
           <div className="hidden md:block overflow-x-auto">
@@ -157,8 +163,10 @@ export default function LiquidacionesResumenTable({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {pageRows.map((row) => (
-                  <tr key={row.id} className="transition duration-200 hover:bg-gray-50">
+                {pageRows.map((row) => {
+                  const { imageSrc } = getFotoSources(fotoMap[row.id]);
+
+                  return <tr key={row.id} className="transition duration-200 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       {fotoMap[row.id] ? (
                         (() => {
@@ -199,15 +207,20 @@ export default function LiquidacionesResumenTable({
                     <td className="px-4 py-3">{row.estado_pago}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            const { imageSrc } = getFotoSources(fotoMap[row.id]);
-                            setOpenUrl(imageSrc);
-                          }}
-                          className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC]"
-                        >
-                          Ver
-                        </button>
+                        {imageSrc ? (
+                          <a
+                            href={imageSrc}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC]"
+                          >
+                            Ver
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-2.5 rounded-lg border border-gray-200 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-400">
+                            Sin foto
+                          </span>
+                        )}
                         <Link
                           href={`/liquidaciones/comprobante/liquidacion/${row.id}`}
                           target="_blank"
@@ -217,8 +230,8 @@ export default function LiquidacionesResumenTable({
                         </Link>
                       </div>
                     </td>
-                  </tr>
-                ))}
+                  </tr>;
+                })}
               </tbody>
             </table>
           </div>
