@@ -641,12 +641,6 @@ export default async function LiquidacionesPage({
       <ModuleNavigation currentModule="liquidaciones" />
       <main className="google-2027-theme w-full flex-1 p-6">
         <div className="mx-auto w-full max-w-7xl">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Módulo 5: Liquidaciones</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
-      </div>
       <LiquidacionesShell
         initialTab="resumen"
         kpis={{

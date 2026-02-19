@@ -33,7 +33,23 @@ type LiquidacionRow = {
   estado_pago: string;
 };
 
-type FotoValue = string | { thumb?: string | null; image?: string | null; ruta_thumb?: string | null; ruta_imagen?: string | null };
+
+
+type FotoObject = { thumb?: string | null; image?: string | null; ruta_thumb?: string | null; ruta_imagen?: string | null };
+type FotoValue = string | FotoObject;
+
+function getFotoSources(value: FotoValue | undefined) {
+  if (!value) return { thumbSrc: null as string | null, imageSrc: null as string | null };
+
+  if (typeof value === "string") {
+    const src = normalizeSrc(value);
+    return { thumbSrc: src, imageSrc: src };
+  }
+
+  const thumb = normalizeSrc(value.thumb ?? value.ruta_thumb ?? null);
+  const image = normalizeSrc(value.image ?? value.ruta_imagen ?? value.thumb ?? value.ruta_thumb ?? null);
+  return { thumbSrc: thumb, imageSrc: image };
+}
 
 interface LiquidacionesResumenTableProps {
   liquidaciones: LiquidacionRow[];
@@ -79,11 +95,7 @@ export default function LiquidacionesResumenTable({
                   <div className="shrink-0">
                       {fotoMap[row.id] ? (
                         (() => {
-                          const foto = fotoMap[row.id] ?? null;
-                          const thumb = String(foto?.thumb ?? foto?.ruta_thumb ?? foto ?? "");
-                          const image = String(foto?.image ?? foto?.ruta_imagen ?? foto ?? "");
-                          const thumbSrc = normalizeSrc(thumb);
-                          const imageSrc = normalizeSrc(image);
+                          const { thumbSrc, imageSrc } = getFotoSources(fotoMap[row.id]);
                           return thumbSrc ? (
                             <button onClick={() => setOpenUrl(imageSrc)} className="block">
                               <Image src={thumbSrc} alt={`Foto ${row.numero_liquidacion}`} width={64} height={64} className="h-16 w-16 rounded object-cover" />
@@ -108,7 +120,7 @@ export default function LiquidacionesResumenTable({
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                       <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">S/ {row.total_a_pagar}</span>
                       <span className="text-xs text-gray-500">Estado: {row.estado}</span>
-                      <button onClick={() => setOpenUrl(normalizeSrc(fotoMap[row.id] ?? null))} className="ml-auto inline-flex items-center gap-2 text-sm font-semibold text-[#1A73E8]">Ver imagen</button>
+                      <button onClick={() => setOpenUrl(getFotoSources(fotoMap[row.id]).imageSrc)} className="ml-auto inline-flex items-center gap-2 text-sm font-semibold text-[#1A73E8]">Ver imagen</button>
                     </div>
                   </div>
                 </div>
@@ -140,11 +152,7 @@ export default function LiquidacionesResumenTable({
                     <td className="px-4 py-3">
                       {fotoMap[row.id] ? (
                         (() => {
-                          const foto = fotoMap[row.id] ?? null;
-                          const thumb = String(foto?.thumb ?? foto?.ruta_thumb ?? foto ?? "");
-                          const image = String(foto?.image ?? foto?.ruta_imagen ?? foto ?? "");
-                          const thumbSrc = normalizeSrc(thumb);
-                          const imageSrc = normalizeSrc(image);
+                          const { thumbSrc, imageSrc } = getFotoSources(fotoMap[row.id]);
                           return thumbSrc ? (
                             <button onClick={() => setOpenUrl(imageSrc)} className="block">
                               <Image
@@ -182,9 +190,8 @@ export default function LiquidacionesResumenTable({
                     <td className="px-4 py-3">
                       <button
                         onClick={() => {
-                          const foto = fotoMap[row.id] ?? null;
-                          const image = normalizeSrc(foto?.image ?? foto?.ruta_imagen ?? foto ?? null);
-                          setOpenUrl(image || null);
+                          const { imageSrc } = getFotoSources(fotoMap[row.id]);
+                          setOpenUrl(imageSrc);
                         }}
                         className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC]"
                       >

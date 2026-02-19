@@ -301,10 +301,13 @@ export default async function CobranzasPage({
       <ModuleNavigation currentModule="cobranzas" />
       <main className="google-2027-theme w-full flex-1 p-6">
         <div className="mx-auto w-full max-w-7xl">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <h1 className="text-2xl font-semibold">Módulo 6: Cobranzas de Clientes</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+        >
+          ← Inicio
         </Link>
       </div>
 
