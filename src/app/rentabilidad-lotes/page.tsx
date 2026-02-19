@@ -320,9 +320,10 @@ export default async function RentabilidadLotesPage({
     .sort((a, b) => b.id - a.id);
 
   return (
-    <>
+    <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="rentabilidad-lotes" />
-      <main className="google-2027-theme mx-auto w-full max-w-7xl px-3 sm:px-6 py-4 sm:py-6">
+      <main className="google-2027-theme w-full flex-1 px-3 py-4 sm:px-6 sm:py-6">
+        <div className="mx-auto w-full max-w-7xl">
         {/* Header */}
         <div className="mb-5 sm:mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
@@ -517,7 +518,8 @@ export default async function RentabilidadLotesPage({
           </div>
         )}
       </section>
+        </div>
       </main>
-    </>
+    </div>
   );
 }

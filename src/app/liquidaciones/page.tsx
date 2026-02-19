@@ -559,23 +559,25 @@ export default async function LiquidacionesPage({
   const pagos = (pagosRes.data ?? []) as PagoRow[];
   const totalPagosRegistrados = round2(pagos.reduce((acc, row) => acc + Number(row.monto ?? 0), 0));
 
-  const fotoAdelantoMap = new Map<number, string>();
+  type FotoEvidencia = { thumb: string | null; image: string | null };
+
+  const fotoAdelantoMap = new Map<number, FotoEvidencia>();
   for (const row of fotosAdelantosRes.data ?? []) {
     const entityId = Number(row.entidad_id);
     if (!fotoAdelantoMap.has(entityId) && row.ruta_thumb) {
-      fotoAdelantoMap.set(entityId, { thumb: String(row.ruta_thumb), image: row.ruta_imagen ? String(row.ruta_imagen) : null } as any);
+      fotoAdelantoMap.set(entityId, { thumb: String(row.ruta_thumb), image: row.ruta_imagen ? String(row.ruta_imagen) : null });
     }
   }
 
-  const fotoLiquidacionMap = new Map<number, string>();
+  const fotoLiquidacionMap = new Map<number, FotoEvidencia>();
   for (const row of fotosLiquidacionesRes.data ?? []) {
     const entityId = Number(row.entidad_id);
     if (!fotoLiquidacionMap.has(entityId) && row.ruta_thumb) {
-      fotoLiquidacionMap.set(entityId, { thumb: String(row.ruta_thumb), image: row.ruta_imagen ? String(row.ruta_imagen) : null } as any);
+      fotoLiquidacionMap.set(entityId, { thumb: String(row.ruta_thumb), image: row.ruta_imagen ? String(row.ruta_imagen) : null });
     }
   }
 
-  function getFotoThumb(map: Map<number, any>, id: number) {
+  function getFotoThumb(map: Map<number, FotoEvidencia>, id: number) {
     const v = map.get(id);
     if (!v) return null;
     if (typeof v === "string") {
@@ -589,7 +591,7 @@ export default async function LiquidacionesPage({
     return null;
   }
 
-  function getFotoObject(map: Map<number, any>, id: number) {
+  function getFotoObject(map: Map<number, FotoEvidencia>, id: number) {
     const v = map.get(id);
     if (!v) return null;
     if (typeof v === "string") {
@@ -635,9 +637,10 @@ export default async function LiquidacionesPage({
   );
 
   return (
-    <>
+    <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="liquidaciones" />
-      <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
+      <main className="google-2027-theme w-full flex-1 p-6">
+        <div className="mx-auto w-full max-w-7xl">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold">Módulo 5: Liquidaciones</h1>
         <Link href="/" className="text-sm underline">
@@ -1325,7 +1328,8 @@ export default async function LiquidacionesPage({
 
       
       
-    </main>
-    </>
+        </div>
+      </main>
+    </div>
   );
 }

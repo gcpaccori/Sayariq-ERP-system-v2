@@ -8,9 +8,11 @@ interface LoteOption {
   numero_lote: string;
 }
 
+type ProductoFilter = "todos" | "Jengibre" | "Curcuma";
+
 interface RentabilidadFiltersProps {
   lotesOptions: LoteOption[];
-  currentProducto: 'todos' | 'Jengibre' | 'Curcuma';
+  currentProducto: ProductoFilter;
   currentLote: number;
 }
 
@@ -62,7 +64,7 @@ export function RentabilidadFilters({
             </span>
             <select
               value={productoFilter}
-              onChange={(e) => setProductoFilter(e.target.value as any)}
+              onChange={(e) => setProductoFilter(e.target.value as ProductoFilter)}
               className="w-full rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm transition-colors focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
             >
               <option value="todos">Todos</option>
