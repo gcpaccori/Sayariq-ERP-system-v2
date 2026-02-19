@@ -2,6 +2,7 @@
 // M5-PR-SYNC: cambio de traza para consolidar PR del módulo 5
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 
 function normalizeSrc(s: unknown) {
@@ -120,7 +121,16 @@ export default function LiquidacionesResumenTable({
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                       <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">S/ {row.total_a_pagar}</span>
                       <span className="text-xs text-gray-500">Estado: {row.estado}</span>
-                      <button onClick={() => setOpenUrl(getFotoSources(fotoMap[row.id]).imageSrc)} className="ml-auto inline-flex items-center gap-2 text-sm font-semibold text-[#1A73E8]">Ver imagen</button>
+                      <div className="ml-auto flex items-center gap-2">
+                        <button onClick={() => setOpenUrl(getFotoSources(fotoMap[row.id]).imageSrc)} className="inline-flex items-center gap-2 text-sm font-semibold text-[#1A73E8]">Ver imagen</button>
+                        <Link
+                          href={`/liquidaciones/comprobante/liquidacion/${row.id}`}
+                          target="_blank"
+                          className="inline-flex rounded border border-[#1A73E8] bg-[#E8F0FE] px-2 py-1 text-xs font-semibold text-[#174EA6] hover:bg-[#DCE6FB]"
+                        >
+                          Comprobante PDF
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -188,15 +198,24 @@ export default function LiquidacionesResumenTable({
                     <td className="px-4 py-3">{row.estado}</td>
                     <td className="px-4 py-3">{row.estado_pago}</td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => {
-                          const { imageSrc } = getFotoSources(fotoMap[row.id]);
-                          setOpenUrl(imageSrc);
-                        }}
-                        className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC]"
-                      >
-                        Ver
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const { imageSrc } = getFotoSources(fotoMap[row.id]);
+                            setOpenUrl(imageSrc);
+                          }}
+                          className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC]"
+                        >
+                          Ver
+                        </button>
+                        <Link
+                          href={`/liquidaciones/comprobante/liquidacion/${row.id}`}
+                          target="_blank"
+                          className="inline-flex rounded border border-[#1A73E8] bg-[#E8F0FE] px-2 py-1 text-xs font-semibold text-[#174EA6] hover:bg-[#DCE6FB]"
+                        >
+                          Comprobante PDF
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
