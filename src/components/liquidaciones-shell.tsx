@@ -28,8 +28,8 @@ export default function LiquidacionesShell({
         <div className="flex flex-col gap-4">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div className="min-w-0 sm:pr-4">
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-                <span className="block truncate">Módulo 5: Liquidaciones y Adelantos</span>
+              <h1 className="!text-3xl font-bold tracking-tight text-gray-900">
+                <span className="block truncate">Módulo 5: Liquidaciones</span>
               </h1>
               <p className="mt-1.5 text-sm font-medium text-gray-600">
                 Control central de liquidaciones, adelantos y pagos relacionados.

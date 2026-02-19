@@ -219,7 +219,12 @@ export default async function EstadoCuentaProductorPage({
         <ModuleNavigation currentModule="estado-cuenta-productor" />
         <main className="google-2027-theme w-full flex-1 bg-white">
           <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6">
-            <Header title="Estado de Cuenta" subtitle="Sin productores disponibles" productoresValidos={[]} productorSeleccionadoId={0} />
+            <Header
+              title="Módulo 8: Estado de Cuenta de Productor"
+              subtitle="Sin productores disponibles"
+              productoresValidos={[]}
+              productorSeleccionadoId={0}
+            />
           <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-6 text-center">
             <p className="font-semibold text-[#202124]">No hay productores</p>
             <p className="text-sm text-[#5F6368] mt-2">Crea personas con rol productor en el módulo de Gestión.</p>
@@ -481,7 +486,7 @@ export default async function EstadoCuentaProductorPage({
       <main className="google-2027-theme w-full flex-1 bg-white">
         <div className="max-w-7xl mx-auto space-y-4 px-3 py-4 md:px-6 md:py-6 lg:space-y-6 lg:px-8 lg:py-8">
           <Header
-            title="Estado de Cuenta"
+            title="Módulo 8: Estado de Cuenta de Productor"
             subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
             actions={
               <>
