@@ -26,11 +26,13 @@ export default function LiquidacionesShell({
     <div className="mb-6">
       <header className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-5">
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Módulo 5: Liquidaciones y Adelantos</h1>
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="min-w-0 text-2xl font-bold tracking-tight text-gray-900 sm:pr-4">
+              <span className="block truncate">Módulo 5: Liquidaciones y Adelantos</span>
+            </h1>
             <Link
               href="/"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50 sm:w-auto"
             >
               ← Inicio
             </Link>
