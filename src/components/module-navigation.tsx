@@ -35,7 +35,7 @@ const modules = [
 
 export default function ModuleNavigation({ currentModule }: ModuleNavigationProps) {
   return (
-    <aside className="w-full border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:w-72 lg:flex-shrink-0 lg:border-b-0 lg:border-r">
+    <aside className="hidden w-full border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-72 lg:flex-shrink-0 lg:border-b-0 lg:border-r">
       <div className="p-3 lg:p-5">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Navegación</p>
         <nav className="flex gap-1 overflow-x-auto pb-1 lg:max-h-[calc(100vh-4rem)] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden">
