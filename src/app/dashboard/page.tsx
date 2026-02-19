@@ -1,4 +1,5 @@
 import DashboardPersonasUi from "@/components/dashboard-personas-ui";
+import ModuleNavigation from "@/components/module-navigation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type DashboardPerson = {
@@ -85,5 +86,13 @@ async function getPeopleData(): Promise<DashboardPerson[]> {
 
 export default async function DashboardPage() {
   const people = await getPeopleData();
-  return <DashboardPersonasUi people={people} />;
+
+  return (
+    <div className="min-h-screen bg-slate-50 lg:flex">
+      <ModuleNavigation currentModule="dashboard" />
+      <div className="flex-1">
+        <DashboardPersonasUi people={people} />
+      </div>
+    </div>
+  );
 }

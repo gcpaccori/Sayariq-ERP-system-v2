@@ -379,8 +379,9 @@ export default async function AlmacenPage({
       : 0;
 
   return (
-    <main className="google-2027-theme relative min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="almacen" />
+      <main className="google-2027-theme relative flex-1 bg-white text-gray-900">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -885,6 +886,7 @@ export default async function AlmacenPage({
         </div>
       </section>
       </div>
-    </main>
+      </main>
+    </div>
   );
 }

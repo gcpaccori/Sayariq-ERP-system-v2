@@ -397,14 +397,18 @@ export default async function KardexPage({
   if (search.q) queryParams.set("q", search.q);
 
   return (
-    <>
+    <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="kardex" />
-      <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-        <div className="mb-4 flex items-center justify-between">
+      <main className="google-2027-theme w-full flex-1 p-6">
+        <div className="mx-auto w-full max-w-7xl">
+        <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <h1 className="text-2xl font-semibold">Módulo 4: Kardex General</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+          >
+            ← Inicio
+          </Link>
       </div>
 
       <section className="mb-4 rounded border p-4">
@@ -794,7 +798,8 @@ export default async function KardexPage({
           </section>
         </>
       ) : null}
+        </div>
       </main>
-    </>
+    </div>
   );
 }

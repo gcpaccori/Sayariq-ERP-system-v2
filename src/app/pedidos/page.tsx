@@ -380,8 +380,9 @@ export default async function PedidosPage({
   }
 
   return (
-    <main className="google-2027-theme relative min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="pedidos" />
+      <main className="google-2027-theme relative flex-1 bg-white text-gray-900">
       {/* Grid Background Pattern */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -821,5 +822,6 @@ export default async function PedidosPage({
         </section>
       </div>
     </main>
+    </div>
   );
 }

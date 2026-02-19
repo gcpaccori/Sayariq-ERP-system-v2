@@ -211,9 +211,9 @@ export default async function EstadoCuentaProductorPage({
 
   if (!productorSeleccionadoId) {
     return (
-      <>
+      <div className="min-h-screen bg-slate-50 lg:flex">
         <ModuleNavigation currentModule="estado-cuenta-productor" />
-        <main className="google-2027-theme w-full min-h-screen bg-white">
+        <main className="google-2027-theme w-full flex-1 bg-white">
           <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6">
             <Header title="Estado de Cuenta" subtitle="Sin productores disponibles" productoresValidos={[]} productorSeleccionadoId={0} />
           <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-6 text-center">
@@ -222,7 +222,7 @@ export default async function EstadoCuentaProductorPage({
           </div>
         </div>
         </main>
-      </>
+      </div>
     );
   }
 
@@ -472,10 +472,24 @@ export default async function EstadoCuentaProductorPage({
     `Productor ${productorSeleccionadoId}`;
 
   return (
-    <>
+    <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="estado-cuenta-productor" />
-      <main className="google-2027-theme w-full min-h-screen bg-white">
+      <main className="google-2027-theme w-full flex-1 bg-white">
         <div className="max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 space-y-4 lg:space-y-6">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link
+              href="/liquidaciones"
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+            >
+              Ir a Liquidaciones
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+            >
+              ← Inicio
+            </Link>
+          </div>
           <Header
             title="Estado de Cuenta"
             subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
@@ -739,6 +753,6 @@ export default async function EstadoCuentaProductorPage({
         </div>
       </div>
       </main>
-    </>
+    </div>
   );
 }
