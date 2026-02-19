@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronDown, TrendingUp, TrendingDown, DollarSign, Wallet, Calendar } from 'lucide-react';
@@ -225,19 +225,18 @@ interface HeaderProps {
 
 export function Header({ title = 'Estado de Cuenta', subtitle, actions, productoresValidos = [], productorSeleccionadoId = 0 }: HeaderProps) {
   return (
-    <header className="rounded-2xl border border-[#E5E7EB] bg-gradient-to-br from-white to-[#F8FBFF] overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
+    <header className="rounded-2xl border border-[#E5E7EB] bg-gradient-to-br from-white to-[#F8FBFF] overflow-visible shadow-[0_1px_2px_rgba(16,24,40,0.05)]">
       <div className="px-4 md:px-6 lg:px-8 py-4 md:py-5 lg:py-6">
         <div className="mb-4 min-w-0 lg:mb-5">
           <div className="mb-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-center gap-2.5">
-              <div className="h-1 w-1 rounded-full bg-[#1A73E8]" />
-              <h1 className="min-w-0 text-2xl font-bold text-[#202124] md:text-3xl lg:text-4xl">
+              <h1 className="min-w-0 text-3xl font-bold tracking-tight text-gray-900">
                 <span className="block truncate">{title}</span>
               </h1>
             </div>
             {actions ? <div className="grid gap-2 sm:flex sm:items-center">{actions}</div> : null}
           </div>
-          {subtitle && <p className="ml-3.5 break-words text-sm md:text-base lg:text-lg text-[#5F6368]">{subtitle}</p>}
+          {subtitle && <p className="break-words text-sm font-medium text-gray-600">{subtitle}</p>}
         </div>
 
         {productoresValidos.length > 1 && (
@@ -259,50 +258,99 @@ interface ProductorSelectorProps {
 function ProductorSelector({ productoresValidos, productorSeleccionadoId }: ProductorSelectorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const selected = productoresValidos.find((p) => p.id === productorSeleccionadoId);
-  const [query, setQuery] = useState(
-    selected ? `${selected.nombre_completo}${selected.documento ? ` · ${selected.documento}` : ''}` : ''
-  );
+  const currentProductor = productoresValidos.find((p) => p.id === productorSeleccionadoId);
+  const [query, setQuery] = useState("");
+  const [candidateId, setCandidateId] = useState<number>(0);
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
 
-  const applySearch = (event: FormEvent) => {
-    event.preventDefault();
+
+
+  useEffect(() => {
+    const onMouseDown = (event: MouseEvent) => {
+      if (!wrapperRef.current) return;
+      if (wrapperRef.current.contains(event.target as Node)) return;
+      setIsOpen(false);
+    };
+
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, []);
+  const filteredProductores = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    const found = productoresValidos.find((row) => {
-      const label = `${row.nombre_completo}${row.documento ? ` · ${row.documento}` : ''}`.toLowerCase();
-      return label === normalized || `${row.nombre_completo} ${row.documento ?? ''}`.toLowerCase().includes(normalized);
+    if (!normalized) return productoresValidos;
+
+    return productoresValidos.filter((row) => {
+      const haystack = `${row.nombre_completo} ${row.documento ?? ''}`.toLowerCase();
+      return haystack.includes(normalized);
     });
-    if (!found) return;
+  }, [productoresValidos, query]);
+
+  const applySelected = () => {
+    if (!candidateId) return;
     const params = new URLSearchParams(searchParams);
-    params.set('productor', String(found.id));
+    params.set('productor', String(candidateId));
     router.push(`?${params.toString()}`);
   };
 
   return (
     <div className="pt-3.5 md:pt-4 border-t border-[#E5E7EB]">
       <label className="text-xs font-semibold uppercase tracking-[0.14em] text-[#5F6368] block mb-2">Productor actual</label>
-      <form onSubmit={applySearch} className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <input
-          list="productores-list"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full rounded-xl border border-[#CCD3DF] bg-white px-3.5 py-2.5 text-sm font-medium text-[#202124] transition-all focus:border-[#1A73E8] focus:outline-none focus:ring-1 focus:ring-[#E8F0FE]"
-          placeholder="Buscar por nombre o DNI"
-        />
-        <datalist id="productores-list">
-          {productoresValidos.map((row) => (
-            <option key={row.id} value={`${row.nombre_completo}${row.documento ? ` · ${row.documento}` : ''}`} />
-          ))}
-        </datalist>
-        <button type="submit" className="rounded-xl bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1765CC]">
-          Buscar
-        </button>
-      </form>
-      {selected ? (
-        <p className="mt-2 rounded-lg border border-[#D2E3FC] bg-[#E8F0FE] px-3 py-2 text-xs text-[#174EA6]">
-          Seleccionado: <strong>{selected.nombre_completo}</strong>
-          {selected.tipo_documento || selected.documento ? ` · ${selected.tipo_documento ?? 'Doc'}: ${selected.documento ?? '-'}` : ''}
+      {currentProductor ? (
+        <p className="mb-2 rounded-lg border border-[#D2E3FC] bg-[#E8F0FE] px-3 py-2 text-xs text-[#174EA6]">
+          En vista: <strong>{currentProductor.nombre_completo}</strong>
+          {currentProductor.tipo_documento || currentProductor.documento ? ` · ${currentProductor.tipo_documento ?? 'Doc'}: ${currentProductor.documento ?? '-'}` : ''}
         </p>
       ) : null}
+      <div ref={wrapperRef} className="relative grid gap-2 sm:grid-cols-[1fr_auto]">
+        <div className="relative">
+          <input
+            value={query}
+            onFocus={() => setIsOpen(true)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setCandidateId(0);
+              setIsOpen(true);
+            }}
+            className="w-full rounded-xl border border-[#CCD3DF] bg-white px-3.5 py-2.5 text-sm font-medium text-[#202124] transition-all focus:border-[#1A73E8] focus:outline-none focus:ring-1 focus:ring-[#E8F0FE]"
+            placeholder="Buscar productor por nombre o DNI"
+          />
+          {isOpen ? (
+            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-xl border border-[#CCD3DF] bg-white shadow-lg">
+              {filteredProductores.length > 0 ? (
+                filteredProductores.map((row) => (
+                  <button
+                    key={row.id}
+                    type="button"
+                    onClick={() => {
+                      setCandidateId(row.id);
+                      setQuery(`${row.nombre_completo}${row.documento ? ` · ${row.documento}` : ''}`);
+                      setIsOpen(false);
+                    }}
+                    className="block w-full border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-blue-50"
+                  >
+                    <div className="font-medium text-gray-900">{row.nombre_completo}</div>
+                    {(row.tipo_documento || row.documento) ? (
+                      <div className="text-xs text-gray-500">{row.tipo_documento ?? 'Doc'}: {row.documento ?? '-'}</div>
+                    ) : null}
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-sm text-gray-500">Sin resultados</div>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        <button
+          type="button"
+          onClick={applySelected}
+          disabled={!candidateId}
+          className="rounded-xl bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1765CC] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Aplicar
+        </button>
+      </div>
     </div>
   );
 }
