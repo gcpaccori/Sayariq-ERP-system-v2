@@ -382,7 +382,7 @@ export default async function PedidosPage({
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="pedidos" />
-      <main className="google-2027-theme relative flex-1 bg-white text-gray-900">
+      <main className="google-2027-theme relative w-full flex-1 bg-white p-6 text-gray-900">
       {/* Grid Background Pattern */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -393,10 +393,10 @@ export default async function PedidosPage({
         }}
       />
 
-      <div className="relative z-10">
-        <section className="mx-auto max-w-7xl px-3 md:px-6">
+      <div className="relative z-10 mx-auto w-full max-w-7xl">
+        <section>
           {/* Header */}
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center md:gap-6 pt-6">
+          <div className="mb-8 flex flex-col items-start justify-between gap-4 pt-1 md:flex-row md:items-center md:gap-6">
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-gray-900">Módulo 3: Pedidos</h1>
               <p className="mt-1.5 text-sm font-medium text-gray-600">
