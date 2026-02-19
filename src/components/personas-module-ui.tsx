@@ -441,7 +441,7 @@ export default function PersonasModuleUI({
       {/* Modal Formulario - Google 2027 Style */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm transition duration-300">
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-2xl md:rounded-2xl bg-white shadow-2xl md:m-4 animation-in fade-in slide-in-from-bottom-16 md:zoom-in-95 duration-300">
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-t-2xl md:rounded-2xl bg-white shadow-2xl md:m-4 animation-in fade-in slide-in-from-bottom-16 md:zoom-in-95 duration-300">
             {/* Header Modal */}
             <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50 px-6 py-5 md:rounded-t-2xl">
               <div className="flex-1">
@@ -465,9 +465,9 @@ export default function PersonasModuleUI({
             <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
               {selectedPersona && <input type="hidden" name="id" value={String(selectedPersona.id)} />}
 
-              {/* Fila 1: Nombre y Tipo Documento */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-1.5">
+              {/* Datos principales */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <label className="grid gap-1.5 md:col-span-2">
                   <span className="text-sm font-semibold text-gray-900">
                     Nombre Completo <span className="text-red-500">*</span>
                   </span>
@@ -496,10 +496,7 @@ export default function PersonasModuleUI({
                     <option value="CE">CE (Carné Extranjería)</option>
                   </select>
                 </label>
-              </div>
 
-              {/* Fila 2: Documento y Estado */}
-              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-1.5">
                   <span className="text-sm font-semibold text-gray-900">
                     Documento <span className="text-red-500">*</span>
@@ -528,10 +525,7 @@ export default function PersonasModuleUI({
                     <option value="inactivo">✕ Inactivo</option>
                   </select>
                 </label>
-              </div>
 
-              {/* Fila 3: Email y Teléfono */}
-              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-1.5">
                   <span className="text-sm font-semibold text-gray-900">Email</span>
                   <input
@@ -555,7 +549,7 @@ export default function PersonasModuleUI({
                 </label>
               </div>
 
-              {/* Fila 4: Dirección */}
+              {/* Fila 3: Dirección */}
               <label className="grid gap-1.5">
                 <span className="text-sm font-semibold text-gray-900">Dirección</span>
                 <textarea
@@ -570,7 +564,7 @@ export default function PersonasModuleUI({
               {/* Fila 5: Datos Bancarios */}
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <p className="mb-3.5 text-sm font-bold text-gray-900">Información Bancaria (Opcional)</p>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-3">
                   <label className="grid gap-1.5">
                     <span className="text-xs font-semibold text-gray-700">Banco</span>
                     <input
@@ -640,7 +634,7 @@ export default function PersonasModuleUI({
               </label>
 
               {/* Botones de Acción */}
-              <div className="flex gap-3 border-t border-gray-200 pt-5">
+              <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row">
                 <button
                   type="submit"
                   className="flex-1 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:text-white hover:shadow-md active:bg-[#1450B0]"
