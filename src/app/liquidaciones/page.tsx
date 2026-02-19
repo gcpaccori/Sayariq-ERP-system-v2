@@ -637,9 +637,9 @@ export default async function LiquidacionesPage({
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="liquidaciones" />
-      <main className="google-2027-theme w-full flex-1 p-6">
+      <main className="google-2027-theme min-w-0 flex-1 p-6">
         <div className="mx-auto w-full max-w-7xl">
       <LiquidacionesShell
         initialTab="resumen"
