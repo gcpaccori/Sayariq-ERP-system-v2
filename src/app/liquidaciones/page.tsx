@@ -15,6 +15,7 @@ import { PagoLiquidacionForm } from "@/components/pago-liquidacion-form";
 import OperationsSwitcher from "@/components/operations-switcher";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
+import FormToggleSection from "@/components/form-toggle-section";
 
 type SearchParams = {
   lote?: string;
@@ -690,11 +691,11 @@ export default async function LiquidacionesPage({
 
           <OperationsSwitcher
             adelantoContent={(
-              <div className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold">Registrar adelanto</h3>
-                  <p className="mt-1 text-sm text-gray-600">Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor.</p>
-                </div>
+              <FormToggleSection
+                title="Registrar adelanto"
+                description="Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor."
+                defaultOpen
+              >
 
                 <form action={createAdelantoAction} className="grid gap-4">
                   <section className="rounded-xl border border-gray-100 p-3 md:p-4">
@@ -778,7 +779,7 @@ export default async function LiquidacionesPage({
                     </button>
                   </div>
                 </form>
-              </div>
+              </FormToggleSection>
             )}
             pagoContent={(
               <div className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
@@ -841,6 +842,7 @@ export default async function LiquidacionesPage({
         </div>
 
         {selectedLoteData ? (
+          <FormToggleSection title="Formulario de liquidación de productor" description="Completa datos, descuentos y evidencias antes de confirmar." defaultOpen>
           <form action={createLiquidacionProductorAction} className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <input type="hidden" name="lote_id" value={String(selectedLoteData.lote.id)} />
 
@@ -1013,6 +1015,7 @@ export default async function LiquidacionesPage({
               </Link>
             </div>
           </form>
+          </FormToggleSection>
         ) : null}
       </section>
 
@@ -1180,6 +1183,7 @@ export default async function LiquidacionesPage({
         </div>
 
         {selectedPedidoData ? (
+          <FormToggleSection title="Formulario de liquidación de cliente" description="Registra el cierre comercial del pedido con evidencia y comprobante." defaultOpen>
           <form action={createLiquidacionClienteAction} className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <input type="hidden" name="pedido_id" value={String(selectedPedidoData.pedido.id)} />
 
@@ -1315,6 +1319,7 @@ export default async function LiquidacionesPage({
               </Link>
             </div>
           </form>
+          </FormToggleSection>
         ) : null}
       </section>
 

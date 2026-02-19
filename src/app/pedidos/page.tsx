@@ -11,6 +11,7 @@ import {
 import { asignarLotePedidoAction, createPedidoAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
+import FormToggleSection from "@/components/form-toggle-section";
 
 type SearchParams = {
   q?: string;
@@ -474,8 +475,8 @@ export default async function PedidosPage({
           ) : null}
 
           {/* Crear Pedido Form */}
-          <div className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Registrar Pedido</h2>
+          <div className="mb-8">
+            <FormToggleSection title="Registrar Pedido" description="Completa los datos y crea el pedido sin salir de este módulo." defaultOpen>
             <form action={createPedidoAction} className="grid gap-3">
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="grid gap-1">
@@ -543,6 +544,7 @@ export default async function PedidosPage({
                 </button>
               </div>
             </form>
+            </FormToggleSection>
           </div>
 
           {/* Filtros */}

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
+import FormToggleSection from "@/components/form-toggle-section";
 
 type SearchParams = {
   mode?: "mensual" | "anual";
@@ -422,6 +423,7 @@ export default async function AnaliticaPage({
           Las cards iniciales muestran indicadores clave del periodo y el saldo histórico pendiente; los bloques
           siguientes explican tendencia temporal, categorías y trazabilidad por lote.
         </p>
+        <FormToggleSection title="Filtros de analítica" description="Configura el periodo a analizar y actualiza las métricas.">
         <form className="flex flex-wrap items-end gap-3">
           <label className="grid gap-1">
             <span className="text-sm">Modo</span>
@@ -440,6 +442,7 @@ export default async function AnaliticaPage({
           </label>
           <button className="rounded border px-3 py-1">Aplicar</button>
         </form>
+        </FormToggleSection>
         <p className="mt-2 text-xs">Periodo activo: <strong>{periodLabel}</strong></p>
       </section>
 
