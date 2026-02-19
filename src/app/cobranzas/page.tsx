@@ -7,7 +7,7 @@ import {
 } from "./actions";
 import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import ModuleNavigation from "@/components/module-navigation";
+
 
 type SearchParams = {
   pedido?: string;
@@ -297,15 +297,11 @@ export default async function CobranzasPage({
   );
 
   return (
-    <>
-      <ModuleNavigation currentModule="cobranzas" />
-      <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-        <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Módulo 6: Cobranzas de Clientes</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
-      </div>
+      <main className="p-4 md:p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">Cobranzas</h1>
+          <p className="mt-1 text-sm text-text-secondary">Cuentas por cobrar de clientes y seguimiento de pagos</p>
+        </div>
 
       <section className="mb-4 rounded border p-4">
         <p className="text-sm">
@@ -620,6 +616,5 @@ export default async function CobranzasPage({
         </div>
       </section>
     </main>
-    </>
   );
 }

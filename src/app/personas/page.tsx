@@ -1,6 +1,6 @@
 import PersonasModuleUI from "@/components/personas-module-ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import ModuleNavigation from "@/components/module-navigation";
+
 
 type Rol =
   | "productor"
@@ -272,16 +272,13 @@ export default async function PersonasPage({
   const alertMessage = search.error ?? errorMessage;
 
   return (
-    <>
-      <ModuleNavigation currentModule="personas" />
-      <PersonasModuleUI
-        personas={personas}
-        rolesMap={rolesMap}
-        fotoMap={fotoMap}
-        resumen={resumen}
-        successMessage={successMessage}
-        alertMessage={alertMessage}
-      />
-    </>
+    <PersonasModuleUI
+      personas={personas}
+      rolesMap={rolesMap}
+      fotoMap={fotoMap}
+      resumen={resumen}
+      successMessage={successMessage}
+      alertMessage={alertMessage}
+    />
   );
 }

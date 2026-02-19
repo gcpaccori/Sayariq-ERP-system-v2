@@ -14,7 +14,7 @@ import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
 import { PagoLiquidacionForm } from "@/components/pago-liquidacion-form";
 import OperationsSwitcher from "@/components/operations-switcher";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import ModuleNavigation from "@/components/module-navigation";
+
 
 type SearchParams = {
   lote?: string;
@@ -635,15 +635,11 @@ export default async function LiquidacionesPage({
   );
 
   return (
-    <>
-      <ModuleNavigation currentModule="liquidaciones" />
-      <main className="google-2027-theme mx-auto w-full max-w-7xl p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Módulo 5: Liquidaciones</h1>
-        <Link href="/" className="text-sm underline">
-          Volver al inicio
-        </Link>
-      </div>
+      <main className="p-4 md:p-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">Liquidaciones</h1>
+          <p className="mt-1 text-sm text-text-secondary">Adelantos, liquidaciones de productores y pagos parciales</p>
+        </div>
       <LiquidacionesShell
         initialTab="resumen"
         kpis={{
@@ -1326,6 +1322,5 @@ export default async function LiquidacionesPage({
       
       
     </main>
-    </>
   );
 }

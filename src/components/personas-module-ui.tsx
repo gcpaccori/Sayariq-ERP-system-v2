@@ -11,6 +11,9 @@ import {
   Eye,
   Trash2,
   AlertCircle,
+  Users,
+  Sprout,
+  ShoppingBag,
 } from "lucide-react";
 import {
   createPersonaAction,
@@ -191,264 +194,199 @@ export default function PersonasModuleUI({
   };
 
   return (
-    <main className="google-2027-theme relative min-h-screen bg-white text-gray-900">
-      {/* Grid Background Pattern */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          opacity: 0.02,
-          backgroundImage: "radial-gradient(#111827 0.8px, transparent 0.8px)",
-          backgroundSize: "16px 16px",
-        }}
-      />
+    <main className="p-4 md:p-6 space-y-6">
+      {/* Alertas */}
+      {successMessage && (
+        <div className="erp-alert-success">{successMessage}</div>
+      )}
+      {alertMessage && (
+        <div className="erp-alert-error">{alertMessage}</div>
+      )}
 
-      <div className="relative z-10">
-        {/* Alertas */}
-        <section className="mx-auto max-w-7xl px-3 py-3 md:px-6 md:py-4">
-          {successMessage && (
-            <div className="mb-3 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 shadow-sm animation-in fade-in slide-in-from-top-1 duration-300">
-              ✓ {successMessage}
-            </div>
-          )}
-          {alertMessage && (
-            <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 shadow-sm animation-in fade-in slide-in-from-top-1 duration-300">
-              ✕ {alertMessage}
-            </div>
-          )}
-        </section>
+      {/* Header */}
+      <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+        <div>
+          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">Personas</h1>
+          <p className="mt-1 text-sm text-text-secondary">Padron maestro: productores, clientes y operacion interna</p>
+        </div>
+        <button
+          type="button"
+          onClick={openCreateModal}
+          className="erp-btn-primary"
+        >
+          <Plus size={16} />
+          Registrar Persona
+        </button>
+      </div>
 
-        <section className="mx-auto max-w-7xl px-3 md:px-6">
-          {/* Header */}
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center md:gap-6">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">Módulo 1: Personas</h1>
-              <p className="mt-1.5 text-sm font-medium text-gray-600">
-                Padrón maestro: productores, clientes y operación interna
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={openCreateModal}
-                className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md active:shadow-none"
-              >
-                <Plus size={18} className="flex-shrink-0" />
-                <span>Registrar Persona</span>
-              </button>
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
-              >
-                ← Inicio
-              </Link>
-            </div>
-          </div>
-
-          {/* Resumen Cards - Mejorado */}
-          <div className="mb-8 grid gap-4 sm:grid-cols-3">
-            {[
-              {
-                label: "Total Personas Activas",
-                value: resumen.totalActivas,
-                color: "from-blue-50 to-blue-50",
-                textColor: "text-[#1A73E8]",
-                icon: "👥",
-              },
-              {
-                label: "Productores Activos",
-                value: resumen.productores,
-                color: "from-green-50 to-green-50",
-                textColor: "text-green-700",
-                icon: "🌾",
-              },
-              {
-                label: "Clientes Activos",
-                value: resumen.clientes,
-                color: "from-purple-50 to-purple-50",
-                textColor: "text-purple-700",
-                icon: "🏪",
-              },
-            ].map((card) => (
-              <div
-                key={card.label}
-                className={`rounded-xl border border-gray-200 bg-gradient-to-br ${card.color} p-4 shadow-sm transition duration-300 hover:shadow-md hover:border-gray-300`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">{card.label}</p>
-                    <p className={`mt-2 text-3xl font-bold ${card.textColor}`}>{card.value}</p>
-                  </div>
-                  <div className="text-4xl opacity-30">{card.icon}</div>
+      {/* KPI Cards */}
+      <div className="erp-kpi-grid">
+        {[
+          { label: "Personas Activas", value: resumen.totalActivas, icon: Users, iconBg: "bg-blue-50", iconColor: "text-accent" },
+          { label: "Productores", value: resumen.productores, icon: Sprout, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+          { label: "Clientes", value: resumen.clientes, icon: ShoppingBag, iconBg: "bg-violet-50", iconColor: "text-violet-600" },
+        ].map((card) => {
+          const Icon = card.icon;
+          return (
+            <div key={card.label} className="erp-stat-card">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.iconBg}`}>
+                  <Icon size={18} className={card.iconColor} />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-text-secondary">{card.label}</p>
+                  <p className="text-xl font-semibold text-text-primary">{card.value}</p>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Buscador y Filtros - Mejorado */}
-          <div className="mb-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="grid gap-3 sm:grid-cols-4">
-              <div className="relative sm:col-span-2">
-                <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar por nombre, documento, email..."
-                  className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm font-medium outline-none transition duration-200 placeholder:text-gray-500 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                />
-              </div>
-
-              <select
-                value={rolFilter}
-                onChange={(e) => setRolFilter(e.target.value)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-              >
-                <option value="todos">Todos los roles</option>
-                <option value="productor">Solo productores</option>
-                <option value="cliente">Solo clientes</option>
-                <option value="ambos">Productor y cliente</option>
-              </select>
-
-              <select
-                value={estadoFilter}
-                onChange={(e) => setEstadoFilter(e.target.value)}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-              >
-                <option value="todos">Todos los estados</option>
-                <option value="activo">Activo</option>
-                <option value="inactivo">Inactivo</option>
-              </select>
             </div>
-          </div>
+          );
+        })}
+      </div>
 
-          {/* Tabla de Personas - Mejorada */}
-          <div className="mb-8 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            {filteredPersonas.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-                <div className="text-4xl">📋</div>
-                <p className="text-sm font-medium text-gray-600">Sin resultados con los filtros seleccionados</p>
-                <p className="text-xs text-gray-500">Intenta cambiar los filtros o crear una nueva persona</p>
+      {/* Filters */}
+      <div className="erp-card p-4">
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div className="relative sm:col-span-2">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por nombre, documento, email..."
+              className="erp-input pl-9"
+            />
+          </div>
+          <select
+            value={rolFilter}
+            onChange={(e) => setRolFilter(e.target.value)}
+            className="erp-input"
+          >
+            <option value="todos">Todos los roles</option>
+            <option value="productor">Solo productores</option>
+            <option value="cliente">Solo clientes</option>
+            <option value="ambos">Productor y cliente</option>
+          </select>
+          <select
+            value={estadoFilter}
+            onChange={(e) => setEstadoFilter(e.target.value)}
+            className="erp-input"
+          >
+            <option value="todos">Todos los estados</option>
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="erp-card overflow-hidden">
+        {filteredPersonas.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
+            <AlertCircle size={24} className="text-text-muted" />
+            <p className="text-sm font-medium text-text-secondary">Sin resultados con los filtros seleccionados</p>
+            <p className="text-xs text-text-muted">Intenta cambiar los filtros o crear una nueva persona</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Foto</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Nombre</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Documento</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Contacto</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Roles</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700">Estado</th>
-                      <th className="px-4 py-3 text-right font-semibold text-gray-700">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
+          <div className="overflow-x-auto">
+            <table className="erp-table">
+              <thead>
+                <tr>
+                  <th>Foto</th>
+                  <th>Nombre</th>
+                  <th>Documento</th>
+                  <th>Contacto</th>
+                  <th>Roles</th>
+                  <th>Estado</th>
+                  <th className="text-right">Accion</th>
+                </tr>
+              </thead>
+              <tbody>
                     {filteredPersonas.map((persona) => {
                       const roles = rolesMap.get(persona.id) ?? [];
                       const foto = fotoMap.get(persona.id);
 
                       return (
-                        <tr
-                          key={persona.id}
-                          className="transition duration-200 hover:bg-gray-50 hover:shadow-xs"
-                        >
-                          <td className="px-4 py-3">
-                            {foto ? (
-                              <a href={foto.image} target="_blank" rel="noopener noreferrer" title="Ver imagen">
-                                <Image
-                                  src={foto.thumb}
-                                  alt={persona.nombre_completo}
-                                  width={40}
-                                  height={40}
-                                  className="h-10 w-10 rounded-full object-cover ring-1 ring-gray-200"
-                                />
-                              </a>
-                            ) : (
-                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center text-xs font-semibold text-gray-600">
-                                {persona.nombre_completo
-                                  .split(" ")
-                                  .slice(0, 2)
-                                  .map((n) => n[0])
-                                  .join("")}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="font-semibold text-gray-900">{persona.nombre_completo}</p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="inline-block rounded-lg bg-gray-100 px-2.5 py-1 font-mono text-xs font-semibold text-gray-700">
-                              {persona.tipo_documento} {persona.documento}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="text-xs text-gray-600 space-y-0.5">
-                              {persona.email && <p className="truncate">{persona.email}</p>}
-                              {persona.telefono && <p>{persona.telefono}</p>}
-                              {!persona.email && !persona.telefono && <p className="text-gray-400">-</p>}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            {roles.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5">
-                                {roles.map((rol) => (
-                                  <span
-                                    key={rol}
-                                    className="inline-block rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-[#1A73E8]"
-                                  >
-                                    {rol}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-gray-400 text-xs">-</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                persona.estado === "activo"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}
-                            >
-                              {persona.estado === "activo" ? "✓ Activo" : "✕ Inactivo"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => openEditModal(persona)}
-                                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition duration-200 hover:border-[#1A73E8] hover:text-[#1A73E8] hover:bg-blue-50"
-                              >
-                                Editar
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    <tr key={persona.id}>
+                      <td>
+                        {foto ? (
+                          <a href={foto.image} target="_blank" rel="noopener noreferrer" title="Ver imagen">
+                            <Image
+                              src={foto.thumb}
+                              alt={persona.nombre_completo}
+                              width={36}
+                              height={36}
+                              className="h-9 w-9 rounded-full object-cover ring-1 ring-border"
+                            />
+                          </a>
+                        ) : (
+                          <div className="h-9 w-9 rounded-full bg-accent-light flex items-center justify-center text-xs font-semibold text-accent">
+                            {persona.nombre_completo.split(" ").slice(0, 2).map((n) => n[0]).join("")}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <p className="font-medium text-text-primary">{persona.nombre_completo}</p>
+                      </td>
+                      <td>
+                        <span className="inline-block rounded-lg bg-background px-2 py-0.5 font-mono text-xs text-text-secondary">
+                          {persona.tipo_documento} {persona.documento}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="text-xs text-text-secondary space-y-0.5">
+                          {persona.email && <p className="truncate">{persona.email}</p>}
+                          {persona.telefono && <p>{persona.telefono}</p>}
+                          {!persona.email && !persona.telefono && <p className="text-text-muted">-</p>}
+                        </div>
+                      </td>
+                      <td>
+                        {roles.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {roles.map((rol) => (
+                              <span key={rol} className="erp-badge bg-accent-light text-accent">
+                                {rol}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-text-muted text-xs">-</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`erp-badge ${persona.estado === "activo" ? "bg-success-light text-success" : "bg-danger-light text-danger"}`}>
+                          {persona.estado === "activo" ? "Activo" : "Inactivo"}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(persona)}
+                            className="erp-btn-secondary text-xs py-1.5 px-3"
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        </section>
+        )}
       </div>
 
-      {/* Modal Formulario - Google 2027 Style */}
+      {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm transition duration-300">
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-2xl md:rounded-2xl bg-white shadow-2xl md:m-4 animation-in fade-in slide-in-from-bottom-16 md:zoom-in-95 duration-300">
-            {/* Header Modal */}
-            <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50 px-6 py-5 md:rounded-t-2xl">
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-2xl md:rounded-2xl bg-surface shadow-2xl md:m-4">
+            <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-border bg-surface px-6 py-5 md:rounded-t-2xl z-10">
               <div className="flex-1">
-                <h2 className="text-xl font-bold tracking-tight text-gray-900">
+                <h2 className="text-lg font-semibold text-text-primary">
                   {selectedPersona ? `Editar: ${selectedPersona.nombre_completo}` : "Crear Nueva Persona"}
                 </h2>
-                <p className="mt-1 text-xs font-medium text-gray-600">
+                <p className="mt-1 text-xs text-text-secondary">
                   {selectedPersona ? "Actualiza los datos de la persona" : "Completa todos los campos requeridos (*)"}
                 </p>
               </div>
@@ -468,7 +406,7 @@ export default function PersonasModuleUI({
               {/* Fila 1: Nombre y Tipo Documento */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-1.5">
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-medium text-text-primary">
                     Nombre Completo <span className="text-red-500">*</span>
                   </span>
                   <input
@@ -476,19 +414,19 @@ export default function PersonasModuleUI({
                     name="nombre_completo"
                     defaultValue={selectedPersona?.nombre_completo ?? ""}
                     placeholder="e.g., Juan Pérez García"
-                    className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                    className="erp-input"
                     required
                   />
                 </label>
 
                 <label className="grid gap-1.5">
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-medium text-text-primary">
                     Tipo Documento <span className="text-red-500">*</span>
                   </span>
                   <select
                     name="tipo_documento"
                     defaultValue={selectedPersona?.tipo_documento ?? "DNI"}
-                    className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                    className="erp-input"
                     required
                   >
                     <option value="DNI">DNI</option>
@@ -501,7 +439,7 @@ export default function PersonasModuleUI({
               {/* Fila 2: Documento y Estado */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-1.5">
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-medium text-text-primary">
                     Documento <span className="text-red-500">*</span>
                   </span>
                   <input
@@ -509,19 +447,19 @@ export default function PersonasModuleUI({
                     name="documento"
                     defaultValue={selectedPersona?.documento ?? ""}
                     placeholder="e.g., 12345678"
-                    className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                    className="erp-input"
                     required
                   />
                 </label>
 
                 <label className="grid gap-1.5">
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-medium text-text-primary">
                     Estado <span className="text-red-500">*</span>
                   </span>
                   <select
                     name="estado"
                     defaultValue={selectedPersona?.estado ?? "activo"}
-                    className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                    className="erp-input"
                     required
                   >
                     <option value="activo">✓ Activo</option>
@@ -533,82 +471,82 @@ export default function PersonasModuleUI({
               {/* Fila 3: Email y Teléfono */}
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-1.5">
-                  <span className="text-sm font-semibold text-gray-900">Email</span>
+                  <span className="text-sm font-medium text-text-primary">Email</span>
                   <input
                     type="email"
                     name="email"
                     defaultValue={selectedPersona?.email ?? ""}
                     placeholder="correo@ejemplo.com"
-                    className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                    className="erp-input"
                   />
                 </label>
 
                 <label className="grid gap-1.5">
-                  <span className="text-sm font-semibold text-gray-900">Teléfono</span>
+                  <span className="text-sm font-medium text-text-primary">Teléfono</span>
                   <input
                     type="tel"
                     name="telefono"
                     defaultValue={selectedPersona?.telefono ?? ""}
                     placeholder="+51 999 999 999"
-                    className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                    className="erp-input"
                   />
                 </label>
               </div>
 
               {/* Fila 4: Dirección */}
               <label className="grid gap-1.5">
-                <span className="text-sm font-semibold text-gray-900">Dirección</span>
+                <span className="text-sm font-medium text-text-primary">Dirección</span>
                 <textarea
                   name="direccion"
                   defaultValue={selectedPersona?.direccion ?? ""}
                   placeholder="Calle, número, distrito, provincia..."
                   rows={3}
-                  className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                  className="erp-input"
                 />
               </label>
 
               {/* Fila 5: Datos Bancarios */}
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <p className="mb-3.5 text-sm font-bold text-gray-900">Información Bancaria (Opcional)</p>
+              <div className="rounded-xl border border-border-light bg-background p-4">
+                <p className="mb-3 text-sm font-medium text-text-primary">Informacion Bancaria (Opcional)</p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <label className="grid gap-1.5">
-                    <span className="text-xs font-semibold text-gray-700">Banco</span>
+                    <span className="text-xs font-medium text-text-secondary">Banco</span>
                     <input
                       type="text"
                       name="banco"
                       defaultValue={selectedPersona?.banco ?? ""}
                       placeholder="e.g., BCP"
-                      className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                      className="erp-input"
                     />
                   </label>
 
                   <label className="grid gap-1.5">
-                    <span className="text-xs font-semibold text-gray-700">Cuenta Bancaria</span>
+                    <span className="text-xs font-medium text-text-secondary">Cuenta Bancaria</span>
                     <input
                       type="text"
                       name="cuenta_bancaria"
                       defaultValue={selectedPersona?.cuenta_bancaria ?? ""}
                       placeholder="Número de cuenta"
-                      className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                      className="erp-input"
                     />
                   </label>
 
                   <label className="grid gap-1.5">
-                    <span className="text-xs font-semibold text-gray-700">CCI</span>
+                    <span className="text-xs font-medium text-text-secondary">CCI</span>
                     <input
                       type="text"
                       name="cci"
                       defaultValue={selectedPersona?.cci ?? ""}
                       placeholder="Código interbancario"
-                      className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                      className="erp-input"
                     />
                   </label>
                 </div>
               </div>
 
               {/* Fila 6: Roles */}
-              <fieldset className="rounded-lg border border-gray-300 p-4">
-                <legend className="text-sm font-bold text-gray-900">
+              <fieldset className="rounded-xl border border-border p-4">
+                <legend className="text-sm font-medium text-text-primary">
                   Roles Asignados <span className="text-red-500">*</span>
                 </legend>
                 <p className="mb-3 text-xs text-gray-600">Selecciona mínimo 1 rol</p>
@@ -629,7 +567,7 @@ export default function PersonasModuleUI({
 
               {/* Fila 7: Foto */}
               <label className="grid gap-1.5">
-                <span className="text-sm font-semibold text-gray-900">Foto de Perfil (Opcional)</span>
+                <span className="text-sm font-medium text-text-primary">Foto de Perfil (Opcional)</span>
                 <input
                   type="file"
                   name="foto_persona"
@@ -640,18 +578,11 @@ export default function PersonasModuleUI({
               </label>
 
               {/* Botones de Acción */}
-              <div className="flex gap-3 border-t border-gray-200 pt-5">
-                <button
-                  type="submit"
-                  className="flex-1 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md active:bg-[#1450B0]"
-                >
+              <div className="flex gap-3 border-t border-border pt-5">
+                <button type="submit" className="erp-btn-primary flex-1 justify-center">
                   {selectedPersona ? "Guardar Cambios" : "Crear Persona"}
                 </button>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100"
-                >
+                <button type="button" onClick={closeModal} className="erp-btn-secondary">
                   Cancelar
                 </button>
               </div>

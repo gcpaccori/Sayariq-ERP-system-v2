@@ -11,7 +11,7 @@ import {
   DataCard,
   Tabs,
 } from "@/components/EstadoCuentaComponents";
-import ModuleNavigation from "@/components/module-navigation";
+
 
 type SearchParams = {
   productor?: string;
@@ -211,9 +211,7 @@ export default async function EstadoCuentaProductorPage({
 
   if (!productorSeleccionadoId) {
     return (
-      <>
-        <ModuleNavigation currentModule="estado-cuenta-productor" />
-        <main className="google-2027-theme w-full min-h-screen bg-white">
+        <main className="p-4 md:p-6 space-y-6">
           <div className="max-w-3xl mx-auto px-3 py-4 md:px-6 md:py-6">
             <Header title="Estado de Cuenta" subtitle="Sin productores disponibles" productoresValidos={[]} productorSeleccionadoId={0} />
           <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-6 text-center">
@@ -222,7 +220,6 @@ export default async function EstadoCuentaProductorPage({
           </div>
         </div>
         </main>
-      </>
     );
   }
 
@@ -472,10 +469,8 @@ export default async function EstadoCuentaProductorPage({
     `Productor ${productorSeleccionadoId}`;
 
   return (
-    <>
-      <ModuleNavigation currentModule="estado-cuenta-productor" />
-      <main className="google-2027-theme w-full min-h-screen bg-white">
-        <div className="max-w-7xl mx-auto px-3 py-4 md:px-6 md:py-6 lg:px-8 lg:py-8 space-y-4 lg:space-y-6">
+      <main className="p-4 md:p-6 space-y-6">
+        <div className="space-y-4 lg:space-y-6">
           <Header
             title="Estado de Cuenta"
             subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
@@ -739,6 +734,5 @@ export default async function EstadoCuentaProductorPage({
         </div>
       </div>
       </main>
-    </>
   );
 }

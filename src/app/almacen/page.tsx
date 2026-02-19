@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { clasificarLoteAction, createLoteAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import ModuleNavigation from "@/components/module-navigation";
+
 
 type SearchParams = {
   q?: string;
@@ -379,34 +379,13 @@ export default async function AlmacenPage({
       : 0;
 
   return (
-    <main className="google-2027-theme relative min-h-screen bg-white text-gray-900">
-      <ModuleNavigation currentModule="almacen" />
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          opacity: 0.02,
-          backgroundImage: "radial-gradient(#111827 0.8px, transparent 0.8px)",
-          backgroundSize: "16px 16px",
-        }}
-      />
+    <main className="p-4 md:p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold text-text-primary tracking-tight">Almacen</h1>
+        <p className="mt-1 text-sm text-text-secondary">Control del ciclo fisico del lote: ingreso, clasificacion y avance de estado.</p>
+      </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl p-6">
-        <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center md:gap-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Módulo 2: Almacén</h1>
-            <p className="mt-1.5 text-sm font-medium text-gray-600">Aquí controlas el ciclo físico del lote: ingreso, clasificación y avance de estado.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
-            >
-              ← Inicio
-            </Link>
-          </div>
-        </div>
-
-        <section className="mb-8 grid gap-4 sm:grid-cols-4">
+        <div className="erp-kpi-grid">
           {[
             { label: "Total Lotes", value: resumen.totalLotes, color: "from-blue-50 to-blue-50", textColor: "text-[#1A73E8]", icon: "📦" },
             { label: "Sin clasificar", value: resumen.sinClasificar, color: "from-yellow-50 to-yellow-50", textColor: "text-yellow-700", icon: "🟡" },
