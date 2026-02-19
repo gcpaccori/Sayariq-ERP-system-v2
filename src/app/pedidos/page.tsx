@@ -550,7 +550,7 @@ export default async function PedidosPage({
 
           {/* Filtros */}
           <div className="mb-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <FormToggleSection title="Filtros y búsqueda" description="Refina el listado de pedidos por texto, estado y cliente.">
+            <h2 className="mb-4 text-base font-semibold text-gray-900">Filtros y Búsqueda</h2>
             <form className="grid gap-3 sm:grid-cols-4">
               <div className="relative sm:col-span-2">
                 <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -591,7 +591,6 @@ export default async function PedidosPage({
                 </button>
               </div>
             </form>
-            </FormToggleSection>
           </div>
         </section>
 
@@ -648,8 +647,7 @@ export default async function PedidosPage({
                       <td className="px-4 py-3">{row.categoria_nombre}</td>
                       <td className="px-4 py-3 text-right font-medium">{row.kg_disponibles}</td>
                       <td className="px-4 py-3">
-                        <FormToggleSection title={`Asignar lote ${row.numero_lote}`} description="Ingresa kg, precio y fecha para asignar el lote al pedido.">
-                        <form action={asignarLotePedidoAction} className="grid gap-2 sm:grid-cols-2">
+                        <form action={asignarLotePedidoAction} className="grid gap-2 sm:grid-cols-5">
                           <input type="hidden" name="pedido_id" value={String(pedidoSeleccionado.id)} />
                           <input type="hidden" name="lote_id" value={String(row.lote_id)} />
                           <input type="hidden" name="categoria_id" value={String(row.categoria_id)} />
@@ -684,13 +682,10 @@ export default async function PedidosPage({
                             placeholder="Obs"
                             className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
                           />
-                          <div className="sm:col-span-2">
-                            <button type="submit" className="rounded bg-[#1A73E8] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#1765CC]">
-                              Asignar
-                            </button>
-                          </div>
+                          <button type="submit" className="rounded bg-[#1A73E8] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#1765CC]">
+                            Asignar
+                          </button>
                         </form>
-                        </FormToggleSection>
                       </td>
                     </tr>
                   ))}

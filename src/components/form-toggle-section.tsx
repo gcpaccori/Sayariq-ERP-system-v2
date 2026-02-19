@@ -1,7 +1,5 @@
-"use client";
-
-import { ReactNode, useState } from "react";
-import ActionFormModal from "@/components/action-form-modal";
+import { ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 
 type Props = {
   title: string;
@@ -11,25 +9,16 @@ type Props = {
 };
 
 export default function FormToggleSection({ title, description, defaultOpen = false, children }: Props) {
-  const [open, setOpen] = useState(defaultOpen);
-
   return (
-    <ActionFormModal
-      title={title}
-      description={description}
-      open={open}
-      onOpenChange={setOpen}
-      size="lg"
-      trigger={
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1765CC]"
-        >
-          Abrir formulario
-        </button>
-      }
-    >
-      <div className="min-w-0">{children}</div>
-    </ActionFormModal>
+    <details open={defaultOpen} className="group rounded-xl border border-gray-200 bg-white shadow-sm">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 marker:content-none md:px-5">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+          {description ? <p className="text-xs text-gray-500">{description}</p> : null}
+        </div>
+        <ChevronDown className="h-4 w-4 text-gray-500 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-gray-100 p-4 md:p-5">{children}</div>
+    </details>
   );
 }
