@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAYARIQ | Lean Efficiency Export</title>
-    
+
     <!-- Fonts: Inter for UI, Outfit for Heavy Display -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&family=Outfit:wght@100;400;900&display=swap" rel="stylesheet">
-    
+
     <!-- Frameworks -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -74,6 +74,13 @@
             transition: transform 1.5s cubic-bezier(0, 0, 0.2, 1);
         }
 
+        .full-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #0d2d22;
+        }
+
         .reveal-frame.active .parallax-img {
             transform: scale(1);
         }
@@ -120,13 +127,13 @@
     </style>
 
     <!-- Chosen Palette: [Zajno Serious] Forest Green (#0d2d22), Neon Power (#52f19d), Alabaster (#f9faf9). -->
-    <!-- Application Structure Plan: 
+    <!-- Application Structure Plan:
          - Hero: Parallax masivo de texto horizontal que se cruza con una imagen central.
          - Stats: Tablero dinámico de 10 toneladas semanales vs estructura Lean.
          - Comparison: Sección "Fresh vs Frozen" con scroll asimétrico.
          - Research Portal: UI de login experimental integrada como el final del "Case Study".
     -->
-    <!-- Visualization & Content Choices: 
+    <!-- Visualization & Content Choices:
          - Bar Chart: Para mostrar consistencia de volumen (10T).
          - Radar Chart: Para comparar eficiencia Sayariq vs Competencia Tradicional.
          - Imagery: Jengibre y Cúrcuma de alta resolución con efectos de máscara.
@@ -136,7 +143,7 @@
 <body class="antialiased">
 
     <!-- Navigation -->
-    <nav class="fixed top-0 w-full z-[100] px-8 py-6 flex justify-between items-end border-b border-forest/5 nav-glass">
+    <nav class="fixed top-0 w-full z-[100] px-4 md:px-8 py-4 md:py-6 flex justify-between items-end border-b border-forest/5 nav-glass">
         <div class="flex flex-col">
             <span class="font-black text-2xl tracking-tighter">SAYARIQ®</span>
             <span class="text-[8px] uppercase tracking-widest font-bold opacity-40">Lean Export Unit</span>
@@ -154,22 +161,22 @@
         <div class="absolute top-1/2 left-0 w-full -translate-y-1/2 pointer-events-none z-0">
             <div class="massive-text text-forest opacity-[0.03] parallax-layer" data-speed="0.5">FRESH_ROOTS</div>
         </div>
-        
-        <div class="relative z-10 w-full px-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+
+        <div class="relative z-10 w-full px-4 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div class="lg:col-span-5 parallax-layer" data-speed="0.2">
-                <h1 class="text-7xl lg:text-9xl font-display font-black leading-[0.8] tracking-tighter uppercase mb-8">
+                <h1 class="text-5xl md:text-7xl lg:text-9xl font-display font-black leading-[0.8] tracking-tighter uppercase mb-8">
                     Moving <br> <span class="text-neon">10 Tons</span> <br> Weekly.
                 </h1>
             </div>
             <div class="lg:col-span-7 flex justify-end">
-                <div class="reveal-frame active w-full lg:w-[80%] aspect-[4/5] rounded-[3rem] shadow-2xl">
-                    <img src="https://images.unsplash.com/photo-1615485290382-441e4d04fcad?auto=format&fit=crop&w=1200&q=80" 
-                         class="w-full h-full object-cover parallax-img" alt="Sayariq Organic Ginger">
+                <div class="reveal-frame active w-full lg:w-[80%] aspect-[4/5] rounded-[2rem] md:rounded-[3rem] shadow-2xl">
+                    <img src="https://images.unsplash.com/photo-1615485290382-441e4d04fcad?auto=format&fit=crop&w=1600&q=75"
+                         class="full-image parallax-img" alt="Sayariq Organic Ginger">
                 </div>
             </div>
         </div>
 
-        <div class="absolute bottom-10 right-10 flex gap-4 items-center parallax-layer" data-speed="-0.3">
+        <div class="absolute bottom-6 md:bottom-10 right-4 md:right-10 flex gap-4 items-center parallax-layer" data-speed="-0.3">
             <span class="floating-label">Pichanaki Origins</span>
             <div class="w-1 h-32 bg-forest/10"></div>
         </div>
@@ -178,8 +185,8 @@
     <!-- Marquee Tech Section -->
     <div class="bg-forest py-6 overflow-hidden border-y border-neon/20">
         <div class="animate-marquee">
-            <span class="text-white font-black text-4xl uppercase mx-12">No Frozen Only Fresh • 10T/WK Movement • Lean Team High Impact • Organic Certified • Sayariq Intelligence • </span>
-            <span class="text-white font-black text-4xl uppercase mx-12">No Frozen Only Fresh • 10T/WK Movement • Lean Team High Impact • Organic Certified • Sayariq Intelligence • </span>
+            <span class="text-white font-black text-2xl md:text-4xl uppercase mx-8 md:mx-12">No Frozen Only Fresh • 10T/WK Movement • Lean Team High Impact • Organic Certified • Sayariq Intelligence • </span>
+            <span class="text-white font-black text-2xl md:text-4xl uppercase mx-8 md:mx-12">No Frozen Only Fresh • 10T/WK Movement • Lean Team High Impact • Organic Certified • Sayariq Intelligence • </span>
         </div>
     </div>
 
@@ -187,9 +194,9 @@
     <section id="about" class="py-32 px-8 bg-white overflow-hidden">
         <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20">
             <div class="relative">
-                <div class="reveal-frame w-full h-[600px] rounded-[4rem] parallax-layer" data-speed="0.1">
-                    <img src="https://images.unsplash.com/photo-1615485500704-8e99099928b3?auto=format&fit=crop&w=1000&q=80" 
-                         class="w-full h-full object-cover" alt="Sayariq Turmeric">
+                <div class="reveal-frame w-full h-[340px] md:h-[600px] rounded-[2rem] md:rounded-[4rem] parallax-layer" data-speed="0.1">
+                    <img src="https://images.unsplash.com/photo-1615485500704-8e99099928b3?auto=format&fit=crop&w=1400&q=75"
+                         class="full-image" alt="Sayariq Turmeric">
                 </div>
                 <div class="absolute -bottom-10 -right-10 bg-neon p-12 rounded-[3rem] shadow-xl parallax-layer" data-speed="0.4">
                     <p class="text-forest font-black text-2xl uppercase leading-none italic">Freshness <br> over <br> Storage.</p>
@@ -255,12 +262,12 @@
         <div class="max-w-7xl mx-auto text-center mb-24">
             <h2 class="text-[10vw] font-display font-black uppercase leading-none opacity-10">The Products</h2>
         </div>
-        
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- Ginger Card -->
-            <div class="group relative overflow-hidden rounded-[4rem] h-[700px] reveal-frame">
-                <img src="https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=800&q=80" 
-                     class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="Ginger Sayariq">
+            <div class="group relative overflow-hidden rounded-[2rem] md:rounded-[4rem] h-[360px] md:h-[700px] reveal-frame">
+                <img src="https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=1200&q=75"
+                     class="full-image transition-transform duration-1000 group-hover:scale-105" alt="Ginger Sayariq">
                 <div class="absolute inset-0 bg-gradient-to-t from-forest/80 to-transparent"></div>
                 <div class="absolute bottom-12 left-12 text-white">
                     <span class="text-neon text-xs font-bold uppercase tracking-[0.4em]">Zingiber officinale</span>
@@ -269,9 +276,9 @@
                 </div>
             </div>
             <!-- Turmeric Card -->
-            <div class="group relative overflow-hidden rounded-[4rem] h-[700px] reveal-frame mt-20">
-                <img src="https://images.unsplash.com/photo-1615484477778-ca3b77940c25?auto=format&fit=crop&w=800&q=80" 
-                     class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="Turmeric Sayariq">
+            <div class="group relative overflow-hidden rounded-[2rem] md:rounded-[4rem] h-[360px] md:h-[700px] reveal-frame mt-8 md:mt-20">
+                <img src="https://images.unsplash.com/photo-1615484477778-ca3b77940c25?auto=format&fit=crop&w=1200&q=75"
+                     class="full-image transition-transform duration-1000 group-hover:scale-105" alt="Turmeric Sayariq">
                 <div class="absolute inset-0 bg-gradient-to-t from-forest/80 to-transparent"></div>
                 <div class="absolute bottom-12 left-12 text-white">
                     <span class="text-neon text-xs font-bold uppercase tracking-[0.4em]">Curcuma longa</span>
@@ -294,7 +301,7 @@
                     <a href="#" class="hover:text-neon transition-colors">Direct_WhatsApp</a>
                 </div>
             </div>
-            
+
             <div class="lg:text-right w-full lg:w-1/2">
                 <h3 class="text-4xl font-display font-black uppercase mb-10">Start the <br> <span class="text-neon italic">Research.</span></h3>
                 <div class="bg-white/5 p-12 rounded-[3rem] border border-white/10 backdrop-blur-sm">
@@ -305,7 +312,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="mt-32 pt-10 border-t border-white/5 text-[10px] uppercase tracking-[0.5em] opacity-30 flex justify-between">
             <span>© 2024 Sayariq S.A.C</span>
             <span>Industrial Agility Unit / Pichanaki</span>
@@ -340,12 +347,12 @@
     <!-- Parallax and Scroll Engine -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            
+
             // --- 1. Parallax Engine ---
             window.addEventListener('scroll', () => {
                 const scrolled = window.pageYOffset;
                 const layers = document.querySelectorAll('.parallax-layer');
-                
+
                 layers.forEach(layer => {
                     const speed = layer.getAttribute('data-speed');
                     const yPos = -(scrolled * speed);
@@ -400,7 +407,7 @@
 
             // --- 4. Chart.js (Operational Data) ---
             const ctxVolume = document.getElementById('volumeChart').getContext('2d');
-            
+
             // Custom font for Chart
             Chart.defaults.font.family = 'Inter';
             Chart.defaults.font.weight = 'bold';
