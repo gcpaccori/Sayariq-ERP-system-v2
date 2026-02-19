@@ -272,16 +272,18 @@ export default async function PersonasPage({
   const alertMessage = search.error ?? errorMessage;
 
   return (
-    <>
+    <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="personas" />
-      <PersonasModuleUI
-        personas={personas}
-        rolesMap={rolesMap}
-        fotoMap={fotoMap}
-        resumen={resumen}
-        successMessage={successMessage}
-        alertMessage={alertMessage}
-      />
-    </>
+      <div className="flex-1">
+        <PersonasModuleUI
+          personas={personas}
+          rolesMap={rolesMap}
+          fotoMap={fotoMap}
+          resumen={resumen}
+          successMessage={successMessage}
+          alertMessage={alertMessage}
+        />
+      </div>
+    </div>
   );
 }
