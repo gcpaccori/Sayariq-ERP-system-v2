@@ -166,28 +166,28 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#04140f]">
-      <div className="absolute inset-0 bg-[url('/docs/persnal.jpg')] bg-cover bg-center opacity-30" />
-      <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-[#0b2b1d]/80 to-black/75" />
+    <main className="relative min-h-screen overflow-hidden bg-[#e8f5ed]">
+      <div className="absolute inset-0 bg-[url('/docs/persnal.jpg')] bg-cover bg-center opacity-45" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/65 via-[#dff7e8]/55 to-white/65" />
 
       <section className="relative mx-auto flex min-h-screen max-w-6xl items-center justify-center px-4 py-8">
-        <div className="grid w-full overflow-hidden rounded-3xl border border-white/15 bg-black/40 shadow-2xl backdrop-blur md:grid-cols-2">
-          <aside className="hidden flex-col justify-between border-r border-white/10 p-8 text-white md:flex">
+        <div className="grid w-full overflow-hidden rounded-3xl border border-white/15 bg-white/40 shadow-2xl backdrop-blur md:grid-cols-2">
+          <aside className="hidden flex-col justify-between border-r border-[#0f2f20]/10 p-8 text-[#0f2f20] md:flex">
             <div>
               <img src="/docs/logo1-Photoroom.png" alt="Sayariq" className="h-14 w-auto" />
-              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-[#7ceea8]">Sayariq Export</p>
+              <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-[#0d8a49]">Sayariq Export</p>
               <h1 className="mt-3 text-4xl font-black leading-tight">Portal ERP de operación agrícola y exportación.</h1>
-              <p className="mt-4 text-sm text-white/75">
+              <p className="mt-4 text-sm text-[#284539]/80">
                 Accede con tu cuenta para gestionar lotes, liquidaciones y operación diaria. Si no tienes
                 sesión, puedes volver a la landing pública.
               </p>
             </div>
-            <Link href="/" className="inline-flex w-fit rounded-full border border-[#7ceea8]/60 px-4 py-2 text-sm font-semibold text-[#7ceea8] hover:bg-[#7ceea8] hover:text-black">
+            <Link href="/" className="inline-flex w-fit rounded-full border border-[#0d8a49]/60 px-4 py-2 text-sm font-semibold text-[#0d8a49] hover:bg-[#0d8a49] hover:text-white">
               Volver al landing
             </Link>
           </aside>
 
-          <section className="w-full bg-white/95 p-6 md:p-8">
+          <section className="w-full bg-white/97 p-6 md:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Sayariq ERP</p>
             <h2 className="mt-1 text-2xl font-semibold text-slate-900">Acceso al sistema</h2>
 
