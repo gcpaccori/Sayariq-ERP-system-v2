@@ -110,6 +110,7 @@ export default function LoginPage() {
       email,
       password,
       options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
           role: "adm",
           full_name: normalizedName,
@@ -147,11 +148,18 @@ export default function LoginPage() {
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
 
     if (oauthError) {
+      if (oauthError.message.toLowerCase().includes("provider is not enabled")) {
+        setError(
+          `El proveedor ${provider} no está habilitado en Supabase. Actívalo en Authentication > Providers.`
+        );
+        return;
+      }
+
       setError(oauthError.message);
     }
   };

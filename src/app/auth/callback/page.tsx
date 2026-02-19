@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -29,20 +30,20 @@ async function enforceAdmRole(userId: string, currentRole: unknown) {
   }
 }
 
-export default function Home() {
-  const [message, setMessage] = useState("Procesando autenticación...");
+export default function AuthCallbackPage() {
+  const [message, setMessage] = useState("Validando enlace de acceso...");
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   useEffect(() => {
-    async function resolveSession() {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user;
+    let handled = false;
 
-      if (!user?.id) {
-        router.replace("/login");
+    async function finishLogin(user: User) {
+      if (handled) {
         return;
       }
+
+      handled = true;
 
       try {
         await enforceAdmRole(user.id, user.user_metadata?.role);
@@ -50,11 +51,37 @@ export default function Home() {
         router.replace("/dashboard");
         router.refresh();
       } catch {
-        setMessage("Ingresaste, pero hubo un problema al sincronizar el rol adm.");
+        setMessage("Ingresaste, pero no pudimos completar la sincronización del rol.");
       }
     }
 
-    void resolveSession();
+    async function resolveExistingSession() {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user;
+
+      if (user) {
+        await finishLogin(user);
+      }
+    }
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        await finishLogin(session.user);
+      }
+    });
+
+    void resolveExistingSession();
+
+    const fallbackTimer = setTimeout(() => {
+      if (!handled) {
+        router.replace("/login");
+      }
+    }, 3000);
+
+    return () => {
+      clearTimeout(fallbackTimer);
+      listener.subscription.unsubscribe();
+    };
   }, [router, supabase]);
 
   return (
