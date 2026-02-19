@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import ActionFormModal from '@/components/action-form-modal';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface LoteOption {
   id: number;
@@ -23,9 +22,9 @@ export function RentabilidadFilters({
   currentLote,
 }: RentabilidadFiltersProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [productoFilter, setProductoFilter] = React.useState(currentProducto);
   const [loteFilter, setLoteFilter] = React.useState(currentLote > 0 ? String(currentLote) : '');
-  const [isOpen, setIsOpen] = React.useState(false);
 
   const handleApply = () => {
     const params = new URLSearchParams();
@@ -46,33 +45,17 @@ export function RentabilidadFilters({
 
   return (
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 sm:p-4 transition-all duration-200">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Filtros:
-        </p>
-        <ActionFormModal
-          title="Filtros de rentabilidad"
-          description="Aplica filtros por producto y lote."
-          open={isOpen}
-          onOpenChange={setIsOpen}
-          size="md"
-          trigger={
-            <button
-              type="button"
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors duration-150"
-            >
-              Abrir filtros
-            </button>
-          }
-        >
-          <form 
-            className="flex flex-col sm:flex-row sm:items-end gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleApply();
-              setIsOpen(false);
-            }}
-          >
+      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">
+        Filtros:
+      </p>
+
+      <form 
+        className="flex flex-col sm:flex-row sm:items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleApply();
+        }}
+      >
         {/* Producto */}
         <div className="flex-1 min-w-0">
           <label className="block">
@@ -128,9 +111,7 @@ export function RentabilidadFilters({
             Limpiar
           </button>
         </div>
-          </form>
-        </ActionFormModal>
-      </div>
+      </form>
     </div>
   );
 }
