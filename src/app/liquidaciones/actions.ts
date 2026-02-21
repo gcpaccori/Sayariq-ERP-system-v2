@@ -479,7 +479,7 @@ export async function createLiquidacionProductorAction(formData: FormData) {
   const supabase = getSupabaseServerClient();
 
   const { data: clasificaciones } = await supabase
-    .from("lote_clasificacion")
+    .from("vw_lote_clasificacion_vigente")
     .select(
       "categoria_id,peso_bruto,numero_jabas,peso_jabas,porcentaje_humedad,peso_descuento_humedad,peso_neto"
     )

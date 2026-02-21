@@ -122,7 +122,7 @@ async function getStockDisponibleLoteCategoria(loteId: number, categoriaId: numb
   const supabase = getSupabaseServerClient();
 
   const { data: clasif } = await supabase
-    .from("lote_clasificacion")
+    .from("vw_lote_clasificacion_vigente")
     .select("peso_neto")
     .eq("lote_id", loteId)
     .eq("categoria_id", categoriaId)
@@ -148,7 +148,7 @@ async function recalculateAndUpdateLoteEstado(loteId: number) {
   const supabase = getSupabaseServerClient();
 
   const { data: clasificaciones } = await supabase
-    .from("lote_clasificacion")
+    .from("vw_lote_clasificacion_vigente")
     .select("categoria_id,peso_neto")
     .eq("lote_id", loteId);
 
@@ -256,6 +256,79 @@ export async function createPedidoAction(formData: FormData) {
   redirectWithMessage("ok", `Pedido ${pedidoCreado.numero_pedido} creado correctamente.`);
 }
 
+export async function updatePedidoAction(formData: FormData) {
+  const pedidoId = Number(getField(formData, "pedido_id"));
+  const clienteId = Number(getField(formData, "cliente_id"));
+  const producto = getField(formData, "producto") as Producto;
+  const categoriaIdRaw = Number(getField(formData, "categoria_id") || "0");
+  const categoriaId = categoriaIdRaw > 0 ? categoriaIdRaw : null;
+  const kgSolicitados = toDecimal(getField(formData, "kg_solicitados"));
+  const precioKg = toDecimal(getField(formData, "precio_kg"));
+  const fechaPedido = getField(formData, "fecha_pedido");
+
+  if (!pedidoId || Number.isNaN(pedidoId)) {
+    redirectWithMessage("error", "Pedido inválido para editar.");
+  }
+
+  if (!clienteId || Number.isNaN(clienteId)) {
+    redirectWithMessage("error", "Selecciona un cliente válido.");
+  }
+
+  const productosValidos: Producto[] = ["Jengibre", "Curcuma"];
+  if (!productosValidos.includes(producto)) {
+    redirectWithMessage("error", "Producto inválido. Solo se permite Jengibre o Curcuma.");
+  }
+
+  if (
+    Number.isNaN(kgSolicitados) ||
+    Number.isNaN(precioKg) ||
+    kgSolicitados <= 0 ||
+    precioKg <= 0 ||
+    !fechaPedido
+  ) {
+    redirectWithMessage("error", "Kg solicitados, precio y fecha son obligatorios y válidos.");
+  }
+
+  const isCliente = await ensureCliente(clienteId);
+  if (!isCliente) {
+    redirectWithMessage("error", "La persona seleccionada no tiene rol cliente.");
+  }
+
+  if (categoriaId) {
+    const isCategoriaValida = await ensureCategoriaActiva(categoriaId);
+    if (!isCategoriaValida) {
+      redirectWithMessage("error", "La categoría seleccionada no existe o está inactiva.");
+    }
+  }
+
+  const totalEstimado = round2(kgSolicitados * precioKg);
+  const supabase = getSupabaseServerClient();
+
+  const { error } = await supabase
+    .from("pedidos")
+    .update({
+      cliente_id: clienteId,
+      producto,
+      categoria_id: categoriaId,
+      kg_solicitados: round2(kgSolicitados),
+      precio_kg: round2(precioKg),
+      total_estimado: totalEstimado,
+      fecha_pedido: fechaPedido,
+      fecha_entrega: getField(formData, "fecha_entrega") || null,
+      observaciones: getField(formData, "observaciones") || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", pedidoId)
+    .neq("estado", "cancelado");
+
+  if (error) {
+    redirectWithMessage("error", error.message);
+  }
+
+  revalidatePath("/pedidos");
+  redirectWithMessage("ok", `Pedido ${pedidoId} actualizado correctamente.`);
+}
+
 export async function asignarLotePedidoAction(formData: FormData) {
   const pedidoId = Number(getField(formData, "pedido_id"));
   const loteId = Number(getField(formData, "lote_id"));
@@ -317,9 +390,8 @@ export async function asignarLotePedidoAction(formData: FormData) {
     );
   }
 
-  if (pedido.categoria_id && Number(pedido.categoria_id) !== categoriaId) {
-    redirectWithMessage("error", "La categoría asignada no coincide con la categoría del pedido.");
-  }
+  // Regla actualizada: el pedido conserva categoría referencial, pero la asignación
+  // puede realizarse con cualquier categoría del mismo producto.
 
   const stockDisponible = await getStockDisponibleLoteCategoria(loteId, categoriaId);
   if (stockDisponible <= 0.01) {
