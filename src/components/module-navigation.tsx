@@ -14,6 +14,7 @@ import {
   LineChart,
   Wallet,
   TrendingUp,
+  ClipboardCheck,
   PanelLeft,
   PanelLeftClose,
   X,
@@ -36,6 +37,7 @@ const modules = [
   { href: "/analitica", label: "Módulo 7 · Analítica", icon: LineChart },
   { href: "/estado-cuenta-productor", label: "Módulo 8 · Estado Productor", icon: Wallet },
   { href: "/rentabilidad-lotes", label: "Módulo 9 · Rentabilidad", icon: TrendingUp },
+  { href: "/clasificacion-neta", label: "Módulo 10 · Clasificación Neta", icon: ClipboardCheck },
 ];
 
 export default function ModuleNavigation({ currentModule }: ModuleNavigationProps) {

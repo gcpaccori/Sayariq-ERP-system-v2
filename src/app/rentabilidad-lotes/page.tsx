@@ -165,7 +165,7 @@ export default async function RentabilidadLotesPage({
       : Promise.resolve({ data: [] }),
     loteIds.length > 0
       ? supabase
-          .from("lote_clasificacion")
+          .from("vw_lote_clasificacion_vigente")
           .select("lote_id,categoria_id,codigo_clasificacion,peso_neto")
           .in("lote_id", loteIds)
       : Promise.resolve({ data: [] }),
