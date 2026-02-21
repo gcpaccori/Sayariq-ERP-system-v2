@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { Search, Eye } from "lucide-react";
 
-import { asignarLotePedidoAction, createPedidoAction, updatePedidoAction } from "./actions";
+import {
+  asignarLotePedidoAction,
+  createPedidoAction,
+  deleteAsignacionPedidoAction,
+  updateAsignacionPedidoAction,
+  updatePedidoAction,
+} from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
@@ -1005,13 +1011,16 @@ export default async function PedidosPage({
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
                         Fecha
                       </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {asignacionesPedidoSeleccionado.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="p-4 text-center text-gray-500"
                         >
                           Sin asignaciones para este pedido.
@@ -1041,6 +1050,53 @@ export default async function PedidosPage({
                           {row.subtotal}
                         </td>
                         <td className="px-4 py-3">{row.fecha_asignacion}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <form action={updateAsignacionPedidoAction} className="flex flex-wrap items-center gap-2">
+                              <input type="hidden" name="asignacion_id" value={String(row.id)} />
+                              <input
+                                name="kg_asignados"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                defaultValue={String(row.kg_asignados)}
+                                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                required
+                              />
+                              <input
+                                name="precio_kg"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                defaultValue={String(row.precio_kg)}
+                                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                required
+                              />
+                              <input
+                                name="fecha_asignacion"
+                                type="date"
+                                defaultValue={row.fecha_asignacion}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                required
+                              />
+                              <input
+                                name="observaciones"
+                                placeholder="Obs"
+                                className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
+                              />
+                              <button type="submit" className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700">
+                                Modificar
+                              </button>
+                            </form>
+
+                            <form action={deleteAsignacionPedidoAction}>
+                              <input type="hidden" name="asignacion_id" value={String(row.id)} />
+                              <button type="submit" className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700">
+                                Quitar
+                              </button>
+                            </form>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
