@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { clasificarLoteAction, createLoteAction } from "./actions";
+import { clasificarLoteAction, createLoteAction, updateLoteAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
@@ -21,6 +21,7 @@ type SearchParams = {
   desde?: string;
   hasta?: string;
   clasificar?: string;
+  editar?: string;
   ver?: string;
   ok?: string;
   error?: string;
@@ -343,6 +344,7 @@ export default async function AlmacenPage({
   ]);
 
   const clasificarId = Number(search.clasificar ?? "0");
+  const editarId = Number(search.editar ?? "0");
   const verId = Number(search.ver ?? "0");
 
   const loteAClasificar =
@@ -354,6 +356,11 @@ export default async function AlmacenPage({
   const loteVerDetalle =
     verId > 0
       ? (lotesData.lotes.find((lote) => Number(lote.id) === verId) ?? null)
+      : null;
+
+  const loteEditar =
+    editarId > 0
+      ? (lotesData.lotes.find((lote) => Number(lote.id) === editarId) ?? null)
       : null;
 
   let fotoClasificacionDetalle: string | null = null;
@@ -881,6 +888,94 @@ export default async function AlmacenPage({
             </section>
           ) : null}
 
+          {loteEditar ? (
+            <section className="mb-6 rounded border border-blue-200 bg-blue-50 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-semibold text-blue-900">
+                  Editar lote {loteEditar.numero_lote}
+                </p>
+                <Link href="/almacen" className="rounded border border-blue-300 bg-white px-2 py-1 text-xs">
+                  Cerrar
+                </Link>
+              </div>
+
+              <form action={updateLoteAction} className="grid gap-3">
+                <input type="hidden" name="lote_id" value={loteEditar.id} />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="grid gap-1">
+                    <span className="text-sm">Productor *</span>
+                    <select name="productor_id" defaultValue={String(loteEditar.productor_id)} className="rounded border px-2 py-1" required>
+                      {productores.map((productor) => (
+                        <option key={productor.id} value={String(productor.id)}>
+                          {productor.nombre_completo}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Producto *</span>
+                    <select name="producto" defaultValue={loteEditar.producto} className="rounded border px-2 py-1" required>
+                      <option value="Jengibre">Jengibre</option>
+                      <option value="Curcuma">Curcuma</option>
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Categoría</span>
+                    <select name="categoria_id" defaultValue={loteEditar.categoria_id ? String(loteEditar.categoria_id) : ""} className="rounded border px-2 py-1">
+                      <option value="">Sin categoría</option>
+                      {categorias.map((categoria) => (
+                        <option key={categoria.id} value={String(categoria.id)}>{categoria.nombre}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Fecha ingreso *</span>
+                    <input name="fecha_ingreso" type="date" defaultValue={loteEditar.fecha_ingreso} className="rounded border px-2 py-1" required />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Guía ingreso</span>
+                    <input name="guia_ingreso" defaultValue={loteEditar.guia_ingreso ?? ""} className="rounded border px-2 py-1" />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Peso bruto ingreso (kg) *</span>
+                    <input name="peso_bruto_ingreso" type="number" step="0.01" min="0" defaultValue={loteEditar.peso_bruto_ingreso} className="rounded border px-2 py-1" required />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Número jabas</span>
+                    <input name="numero_jabas" type="number" min="0" defaultValue={loteEditar.numero_jabas ?? 0} className="rounded border px-2 py-1" />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Chofer</span>
+                    <input name="chofer" defaultValue={loteEditar.chofer ?? ""} className="rounded border px-2 py-1" />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Placa vehículo</span>
+                    <input name="placa_vehiculo" defaultValue={loteEditar.placa_vehiculo ?? ""} className="rounded border px-2 py-1" />
+                  </label>
+
+                  <label className="grid gap-1 sm:col-span-3">
+                    <span className="text-sm">Observaciones</span>
+                    <textarea name="observaciones" defaultValue={loteEditar.observaciones ?? ""} className="rounded border px-2 py-1" />
+                  </label>
+                </div>
+
+                <div>
+                  <button type="submit" className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white">
+                    Guardar cambios lote
+                  </button>
+                </div>
+              </form>
+            </section>
+          ) : null}
+
           {loteVerDetalle ? (
             <section className="mb-6 rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
               <h2 className="mb-2 text-lg font-semibold">
@@ -1133,6 +1228,12 @@ export default async function AlmacenPage({
                             className="rounded border px-2 py-1"
                           >
                             Ver detalle
+                          </Link>
+                          <Link
+                            href={`/almacen?editar=${lote.id}`}
+                            className="rounded border px-2 py-1"
+                          >
+                            Editar
                           </Link>
                         </div>
                       </td>

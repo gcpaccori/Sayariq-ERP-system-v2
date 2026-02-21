@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Search, Eye } from "lucide-react";
 
-import { asignarLotePedidoAction, createPedidoAction } from "./actions";
+import { asignarLotePedidoAction, createPedidoAction, updatePedidoAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
@@ -12,6 +12,7 @@ type SearchParams = {
   estado?: "todos" | "pendiente" | "en_proceso" | "completado" | "cancelado";
   cliente?: string;
   asignar?: string;
+  editar?: string;
   ok?: string;
   error?: string;
 };
@@ -377,8 +378,10 @@ export default async function PedidosPage({
   );
 
   const asignarId = Number(search.asignar ?? "0");
+  const editarId = Number(search.editar ?? "0");
   const pedidoSeleccionado =
     asignarId > 0 ? await getPedidoById(asignarId) : null;
+  const pedidoEditar = editarId > 0 ? await getPedidoById(editarId) : null;
 
   const loteDisponibles = pedidoSeleccionado
     ? await getAvailableLotesForPedido(pedidoSeleccionado)
@@ -722,6 +725,84 @@ export default async function PedidosPage({
               </form>
             </div>
           </section>
+
+          {pedidoEditar ? (
+            <section className="mb-8 rounded-xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-blue-900">
+                  Editar pedido {pedidoEditar.numero_pedido}
+                </h2>
+                <Link href="/pedidos" className="rounded border border-blue-300 bg-white px-2 py-1 text-xs">
+                  Cerrar
+                </Link>
+              </div>
+
+              <form action={updatePedidoAction} className="grid gap-3">
+                <input type="hidden" name="pedido_id" value={pedidoEditar.id} />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="grid gap-1">
+                    <span className="text-sm">Cliente *</span>
+                    <select name="cliente_id" defaultValue={String(pedidoEditar.cliente_id)} className="rounded border px-2 py-1" required>
+                      {clientes.map((cliente) => (
+                        <option key={cliente.id} value={String(cliente.id)}>
+                          {cliente.nombre_completo}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Producto *</span>
+                    <select name="producto" defaultValue={pedidoEditar.producto} className="rounded border px-2 py-1" required>
+                      <option value="Jengibre">Jengibre</option>
+                      <option value="Curcuma">Curcuma</option>
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Categoría</span>
+                    <select name="categoria_id" defaultValue={pedidoEditar.categoria_id ? String(pedidoEditar.categoria_id) : ""} className="rounded border px-2 py-1">
+                      <option value="">Varias</option>
+                      {categorias.map((categoria) => (
+                        <option key={categoria.id} value={String(categoria.id)}>{categoria.nombre}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Kg solicitados *</span>
+                    <input name="kg_solicitados" type="number" min="0" step="0.01" defaultValue={pedidoEditar.kg_solicitados} className="rounded border px-2 py-1" required />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Precio por kg *</span>
+                    <input name="precio_kg" type="number" min="0" step="0.01" defaultValue={pedidoEditar.precio_kg} className="rounded border px-2 py-1" required />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Fecha pedido *</span>
+                    <input name="fecha_pedido" type="date" defaultValue={pedidoEditar.fecha_pedido} className="rounded border px-2 py-1" required />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Fecha entrega</span>
+                    <input name="fecha_entrega" type="date" defaultValue={pedidoEditar.fecha_entrega ?? ""} className="rounded border px-2 py-1" />
+                  </label>
+
+                  <label className="grid gap-1 sm:col-span-3">
+                    <span className="text-sm">Observaciones</span>
+                    <textarea name="observaciones" defaultValue={pedidoEditar.observaciones ?? ""} className="rounded border px-2 py-1" />
+                  </label>
+                </div>
+
+                <div>
+                  <button type="submit" className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white">
+                    Guardar cambios pedido
+                  </button>
+                </div>
+              </form>
+            </section>
+          ) : null}
 
           {pedidoSeleccionado ? (
             <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -1112,15 +1193,23 @@ export default async function PedidosPage({
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          {pedido.estado !== "cancelado" ? (
+                          <div className="flex flex-wrap gap-2">
+                            {pedido.estado !== "cancelado" ? (
+                              <Link
+                                href={`/pedidos?asignar=${pedido.id}`}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                              >
+                                <Eye size={14} />
+                                Asignar
+                              </Link>
+                            ) : null}
                             <Link
-                              href={`/pedidos?asignar=${pedido.id}`}
+                              href={`/pedidos?editar=${pedido.id}`}
                               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
                             >
-                              <Eye size={14} />
-                              Asignar
+                              Editar
                             </Link>
-                          ) : null}
+                          </div>
                         </td>
                       </tr>
                     );
