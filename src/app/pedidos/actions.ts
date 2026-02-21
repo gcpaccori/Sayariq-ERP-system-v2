@@ -122,7 +122,7 @@ async function getStockDisponibleLoteCategoria(loteId: number, categoriaId: numb
   const supabase = getSupabaseServerClient();
 
   const { data: clasif } = await supabase
-    .from("lote_clasificacion")
+    .from("vw_lote_clasificacion_vigente")
     .select("peso_neto")
     .eq("lote_id", loteId)
     .eq("categoria_id", categoriaId)
@@ -148,7 +148,7 @@ async function recalculateAndUpdateLoteEstado(loteId: number) {
   const supabase = getSupabaseServerClient();
 
   const { data: clasificaciones } = await supabase
-    .from("lote_clasificacion")
+    .from("vw_lote_clasificacion_vigente")
     .select("categoria_id,peso_neto")
     .eq("lote_id", loteId);
 
