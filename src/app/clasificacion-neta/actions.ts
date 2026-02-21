@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
+type Categoria = { id: number; codigo: string; nombre: string };
+
 function getField(formData: FormData, key: string) {
   const value = formData.get(key);
   return value ? String(value).trim() : "";
@@ -25,46 +27,51 @@ function redirectWithMessage(type: "ok" | "error", message: string): never {
   redirect(`/clasificacion-neta?${params.toString()}`);
 }
 
+async function getCategoriasActivas(): Promise<Categoria[]> {
+  const supabase = getSupabaseServerClient();
+  const { data } = await supabase
+    .from("categorias")
+    .select("id,codigo,nombre")
+    .eq("estado", "activo")
+    .order("orden", { ascending: true });
+
+  return (data ?? []) as Categoria[];
+}
+
+async function resolveActorPersonaId(actorPersonaIdRaw: number | null, actorEmail: string) {
+  if (actorPersonaIdRaw && actorPersonaIdRaw > 0) return actorPersonaIdRaw;
+  if (!actorEmail) return null;
+
+  const supabase = getSupabaseServerClient();
+  const { data } = await supabase
+    .from("personas")
+    .select("id")
+    .ilike("email", actorEmail)
+    .maybeSingle();
+
+  return data ? Number(data.id) : null;
+}
+
 export async function editarClasificacionNetaAction(formData: FormData) {
   const supabase = getSupabaseServerClient();
 
   const loteId = Number(getField(formData, "lote_id"));
-  const clasificacionId = Number(getField(formData, "clasificacion_id"));
-  const actorPersonaId = Number(getField(formData, "actor_persona_id") || "0") || null;
+  const actorPersonaIdRaw = Number(getField(formData, "actor_persona_id") || "0") || null;
+  const actorEmail = getField(formData, "actor_email");
+  const actorNombre = getField(formData, "actor_nombre");
+  const actorPersonaId = await resolveActorPersonaId(actorPersonaIdRaw, actorEmail);
   const motivo = getField(formData, "motivo");
-  const fechaClasificacion = getField(formData, "fecha_clasificacion");
+  const fechaClasificacion = getField(formData, "fecha_clasificacion") || new Date().toISOString().slice(0, 10);
   const causaVariacion = getField(formData, "causa_variacion") || "proceso";
+  const detalleCausa = getField(formData, "detalle_causa") || null;
+  const observaciones = getField(formData, "observaciones") || null;
 
-  const pesoBruto = toDecimal(getField(formData, "peso_bruto"));
-  const numeroJabas = Number(getField(formData, "numero_jabas") || "0") || 0;
-  const pesoJabas = toDecimal(getField(formData, "peso_jabas"));
-  const porcentajeHumedad = toDecimal(getField(formData, "porcentaje_humedad"));
-
-  if (!loteId || !clasificacionId) {
-    redirectWithMessage("error", "Faltan datos del lote/clasificación.");
+  if (!loteId) {
+    redirectWithMessage("error", "Falta lote a reclasificar.");
   }
-
   if (!motivo) {
-    redirectWithMessage("error", "El motivo de modificación es obligatorio.");
+    redirectWithMessage("error", "El motivo es obligatorio.");
   }
-
-  if (!fechaClasificacion) {
-    redirectWithMessage("error", "La fecha de clasificación es obligatoria.");
-  }
-
-  if ([pesoBruto, pesoJabas, porcentajeHumedad].some(Number.isNaN) || pesoBruto <= 0) {
-    redirectWithMessage("error", "Valores de peso/humedad inválidos.");
-  }
-
-  const safePesoJabas = pesoJabas < 0 ? 0 : round3(pesoJabas);
-  const safeHumedad = porcentajeHumedad < 0 ? 0 : round3(porcentajeHumedad);
-  const descuentoHumedad = round3(pesoBruto * (safeHumedad / 100));
-  const pesoNetoNuevo = round3(pesoBruto - safePesoJabas - descuentoHumedad);
-
-  if (pesoNetoNuevo < 0) {
-    redirectWithMessage("error", "El peso neto no puede ser negativo.");
-  }
-
   const { data: lote, error: loteError } = await supabase
     .from("lotes")
     .select("id,numero_lote,productor_id,peso_bruto_ingreso,numero_jabas")
@@ -72,19 +79,48 @@ export async function editarClasificacionNetaAction(formData: FormData) {
     .single();
 
   if (loteError || !lote) {
-    redirectWithMessage("error", loteError?.message ?? "No se encontró el lote.");
+    redirectWithMessage("error", loteError?.message ?? "No existe el lote.");
   }
 
-  const { data: actual, error: actualError } = await supabase
-    .from("lote_clasificacion")
-    .select("*")
-    .eq("id", clasificacionId)
+  // Regla operativa: si ya hubo salida/venta del lote, no se permite reclasificar.
+  // Se interpreta venta como existencia de asignaciones a pedidos para el lote.
+  const { data: asignacionesVendidas } = await supabase
+    .from("pedido_asignaciones")
+    .select("id")
     .eq("lote_id", loteId)
-    .eq("es_vigente", true)
-    .single();
+    .limit(1);
 
-  if (actualError || !actual) {
-    redirectWithMessage("error", "La clasificación vigente no existe o ya fue reemplazada.");
+  if ((asignacionesVendidas ?? []).length > 0) {
+    redirectWithMessage(
+      "error",
+      "Este lote ya tiene salidas/asignaciones. Desde ese punto ya no se permite modificar la clasificación."
+    );
+  }
+
+  const categorias = await getCategoriasActivas();
+  if (categorias.length === 0) {
+    redirectWithMessage("error", "No hay categorías activas.");
+  }
+
+  const { data: vigentesActuales } = await supabase
+    .from("vw_lote_clasificacion_vigente")
+    .select("id,categoria_id,codigo_clasificacion,peso_bruto,numero_jabas,peso_jabas,porcentaje_humedad,peso_descuento_humedad,peso_neto,version_no")
+    .eq("lote_id", loteId);
+
+  const actualMap = new Map<number, {
+    id: number;
+    codigo_clasificacion: string | null;
+    peso_neto: number;
+    version_no: number;
+  }>();
+
+  for (const row of vigentesActuales ?? []) {
+    actualMap.set(Number(row.categoria_id), {
+      id: Number(row.id),
+      codigo_clasificacion: row.codigo_clasificacion ? String(row.codigo_clasificacion) : null,
+      peso_neto: Number(row.peso_neto ?? 0),
+      version_no: Number(row.version_no ?? 1),
+    });
   }
 
   const { data: procesoExiste } = await supabase
@@ -124,59 +160,91 @@ export async function editarClasificacionNetaAction(formData: FormData) {
 
   const versionNueva = versionBase + 1;
 
+  const nuevasFilas: Array<Record<string, unknown>> = [];
+  const nuevoNetoMap = new Map<number, number>();
+
+  for (const categoria of categorias) {
+    const pesoBruto = toDecimal(getField(formData, `peso_bruto_${categoria.id}`));
+    const numeroJabas = Number(getField(formData, `numero_jabas_${categoria.id}`) || "0") || 0;
+    const pesoJabas = toDecimal(getField(formData, `peso_jabas_${categoria.id}`));
+    const porcentajeHumedad = toDecimal(getField(formData, `porcentaje_humedad_${categoria.id}`));
+
+    if ([pesoBruto, pesoJabas, porcentajeHumedad].some(Number.isNaN) || pesoBruto < 0) {
+      redirectWithMessage("error", `Datos inválidos en categoría ${categoria.nombre}.`);
+    }
+
+    if (pesoBruto <= 0) {
+      continue;
+    }
+
+    const safePesoJabas = pesoJabas < 0 ? 0 : round3(pesoJabas);
+    const safeHumedad = porcentajeHumedad < 0 ? 0 : round3(porcentajeHumedad);
+    const descuentoHumedad = round3(pesoBruto * (safeHumedad / 100));
+    const pesoNeto = round3(pesoBruto - safePesoJabas - descuentoHumedad);
+
+    if (pesoNeto < 0) {
+      redirectWithMessage("error", `Peso neto negativo en categoría ${categoria.nombre}.`);
+    }
+
+    const codigoClasificacion =
+      actualMap.get(categoria.id)?.codigo_clasificacion ??
+      `CLS-${lote.numero_lote}-${String(categoria.codigo).toUpperCase()}`;
+
+    nuevoNetoMap.set(categoria.id, pesoNeto);
+
+    nuevasFilas.push({
+      lote_id: loteId,
+      categoria_id: categoria.id,
+      codigo_clasificacion: codigoClasificacion,
+      peso_bruto: round3(pesoBruto),
+      numero_jabas: numeroJabas,
+      peso_jabas: safePesoJabas,
+      porcentaje_humedad: safeHumedad,
+      peso_descuento_humedad: descuentoHumedad,
+      peso_neto: pesoNeto,
+      fecha_clasificacion: fechaClasificacion,
+      observaciones,
+      clasificacion_proceso_id: procesoId,
+      version_no: versionNueva,
+      es_vigente: true,
+      created_by_persona_id: actorPersonaId,
+      updated_by_persona_id: actorPersonaId,
+    });
+  }
+
+  if (nuevasFilas.length === 0) {
+    redirectWithMessage("error", "Debes ingresar peso bruto en al menos una categoría.");
+  }
+
+  const totalBrutoClasificado = round3(
+    nuevasFilas.reduce((acc, row) => acc + Number(row.peso_bruto ?? 0), 0),
+  );
+  if (totalBrutoClasificado > Number(lote.peso_bruto_ingreso ?? 0)) {
+    redirectWithMessage(
+      "error",
+      `El bruto clasificado (${totalBrutoClasificado} kg) supera el ingreso (${Number(lote.peso_bruto_ingreso ?? 0)} kg).`,
+    );
+  }
+
   const { error: caducarError } = await supabase
     .from("lote_clasificacion")
-    .update({
-      es_vigente: false,
-      updated_by_persona_id: actorPersonaId,
-    })
-    .eq("id", clasificacionId)
+    .update({ es_vigente: false, updated_by_persona_id: actorPersonaId })
+    .eq("lote_id", loteId)
     .eq("es_vigente", true);
 
   if (caducarError) {
     redirectWithMessage("error", caducarError.message);
   }
 
-  const { data: nueva, error: nuevaError } = await supabase
-    .from("lote_clasificacion")
-    .insert({
-      lote_id: loteId,
-      categoria_id: Number(actual.categoria_id),
-      codigo_clasificacion: actual.codigo_clasificacion,
-      peso_bruto: round3(pesoBruto),
-      numero_jabas: numeroJabas,
-      peso_jabas: safePesoJabas,
-      porcentaje_humedad: safeHumedad,
-      peso_descuento_humedad: descuentoHumedad,
-      peso_neto: pesoNetoNuevo,
-      fecha_clasificacion: fechaClasificacion,
-      observaciones: getField(formData, "observaciones") || null,
-      clasificacion_proceso_id: procesoId,
-      version_no: versionNueva,
-      es_vigente: true,
-      created_by_persona_id: actorPersonaId,
-      updated_by_persona_id: actorPersonaId,
-    })
-    .select("id,peso_neto")
-    .single();
-
-  if (nuevaError || !nueva) {
-    redirectWithMessage("error", nuevaError?.message ?? "No se pudo insertar la nueva versión.");
+  const { error: insertError } = await supabase.from("lote_clasificacion").insert(nuevasFilas);
+  if (insertError) {
+    redirectWithMessage("error", insertError.message);
   }
 
-  const pesoNetoAnterior = Number(actual.peso_neto ?? 0);
-  const deltaKg = round3(pesoNetoNuevo - pesoNetoAnterior);
-
-  const { data: vigentes } = await supabase
-    .from("lote_clasificacion")
-    .select("peso_bruto,peso_neto,numero_jabas")
-    .eq("lote_id", loteId)
-    .eq("es_vigente", true);
-
-  const pesoBrutoClasificado = round3((vigentes ?? []).reduce((acc, row) => acc + Number(row.peso_bruto ?? 0), 0));
-  const pesoNetoClasificado = round3((vigentes ?? []).reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0));
-  const jabasClasificadas = (vigentes ?? []).reduce((acc, row) => acc + Number(row.numero_jabas ?? 0), 0);
-
+  const pesoNetoClasificado = round3(
+    nuevasFilas.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0),
+  );
+  const jabasClasificadas = nuevasFilas.reduce((acc, row) => acc + Number(row.numero_jabas ?? 0), 0);
   const ingresoKg = Number(lote.peso_bruto_ingreso ?? 0);
   const variacionKg = round3(pesoNetoClasificado - ingresoKg);
   const variacionPct = ingresoKg > 0 ? round3((variacionKg / ingresoKg) * 100) : 0;
@@ -188,7 +256,7 @@ export async function editarClasificacionNetaAction(formData: FormData) {
       total_modificaciones: totalModBase + 1,
       estado: "abierto",
       peso_bruto_ingreso: ingresoKg,
-      peso_bruto_clasificado: pesoBrutoClasificado,
+      peso_bruto_clasificado: totalBrutoClasificado,
       peso_neto_clasificado: pesoNetoClasificado,
       numero_jabas_ingreso: Number(lote.numero_jabas ?? 0),
       numero_jabas_clasificacion: jabasClasificadas,
@@ -213,7 +281,7 @@ export async function editarClasificacionNetaAction(formData: FormData) {
     variacion_pct: variacionPct,
     tipo_variacion: tipoVariacion,
     causa_variacion: causaVariacion,
-    detalle_causa: getField(formData, "detalle_causa") || null,
+    detalle_causa: detalleCausa,
     actor_persona_id: actorPersonaId,
   });
 
@@ -221,44 +289,65 @@ export async function editarClasificacionNetaAction(formData: FormData) {
     redirectWithMessage("error", varError.message);
   }
 
-  const { error: auditError } = await supabase.from("lote_clasificacion_auditoria").insert({
-    lote_id: loteId,
-    clasificacion_proceso_id: procesoId,
-    lote_clasificacion_id: Number(nueva.id),
-    accion: "editar",
-    version_anterior: Number(actual.version_no ?? 1),
-    version_nueva: versionNueva,
-    peso_neto_anterior: pesoNetoAnterior,
-    peso_neto_nuevo: pesoNetoNuevo,
-    diferencia_kg: deltaKg,
-    motivo,
-    actor_persona_id: actorPersonaId,
-  });
+  const kardexRows: Array<Record<string, unknown>> = [];
+  const auditRows: Array<Record<string, unknown>> = [];
 
-  if (auditError) {
-    redirectWithMessage("error", auditError.message);
+  for (const categoria of categorias) {
+    const oldNeto = round3(actualMap.get(categoria.id)?.peso_neto ?? 0);
+    const newNeto = round3(nuevoNetoMap.get(categoria.id) ?? 0);
+    const delta = round3(newNeto - oldNeto);
+
+    if (Math.abs(delta) <= 0.0001) {
+      continue;
+    }
+
+    auditRows.push({
+      lote_id: loteId,
+      clasificacion_proceso_id: procesoId,
+      lote_clasificacion_id: actualMap.get(categoria.id)?.id ?? null,
+      accion: "editar",
+      version_anterior: actualMap.get(categoria.id)?.version_no ?? versionBase,
+      version_nueva: versionNueva,
+      peso_neto_anterior: oldNeto,
+      peso_neto_nuevo: newNeto,
+      diferencia_kg: delta,
+      motivo,
+      actor_persona_id: actorPersonaId,
+    });
+
+    kardexRows.push({
+      tipo_kardex: "producto",
+      tipo_movimiento: "clasificacion",
+      origen: "ajuste",
+      origen_id: procesoId,
+      origen_numero: String(lote.numero_lote),
+      lote_id: loteId,
+      categoria_id: categoria.id,
+      peso_kg: delta,
+      persona_id: Number(lote.productor_id),
+      concepto: `Ajuste clasificación neta lote ${lote.numero_lote} ${categoria.nombre} (v${versionNueva})`,
+      observaciones: `Motivo: ${motivo}${actorNombre ? ` | Actor: ${actorNombre}` : ""}${actorEmail ? ` <${actorEmail}>` : ""}`,
+    });
   }
 
-  const { error: kardexError } = await supabase.from("kardex").insert({
-    tipo_kardex: "producto",
-    tipo_movimiento: "clasificacion",
-    origen: "ajuste",
-    origen_id: procesoId,
-    origen_numero: String(lote.numero_lote),
-    lote_id: loteId,
-    categoria_id: Number(actual.categoria_id),
-    peso_kg: deltaKg,
-    persona_id: Number(lote.productor_id),
-    concepto: `Ajuste clasificación neta lote ${lote.numero_lote} (v${versionNueva})`,
-    observaciones: `Motivo: ${motivo}`,
-  });
+  if (auditRows.length > 0) {
+    const { error: auditError } = await supabase.from("lote_clasificacion_auditoria").insert(auditRows);
+    if (auditError) {
+      redirectWithMessage("error", auditError.message);
+    }
+  }
 
-  if (kardexError) {
-    redirectWithMessage("error", `Edición guardada, pero falló kardex: ${kardexError.message}`);
+  if (kardexRows.length > 0) {
+    const { error: kardexError } = await supabase.from("kardex").insert(kardexRows);
+    if (kardexError) {
+      redirectWithMessage("error", `Reclasificación guardada, pero falló kardex: ${kardexError.message}`);
+    }
   }
 
   revalidatePath("/clasificacion-neta");
   revalidatePath("/almacen");
+  revalidatePath("/pedidos");
+  revalidatePath("/liquidaciones");
   revalidatePath("/kardex");
-  redirectWithMessage("ok", `Clasificación actualizada. Delta: ${deltaKg} kg.`);
+  redirectWithMessage("ok", `Lote ${lote.numero_lote} reclasificado. Variación total: ${variacionKg} kg. Actor: ${actorNombre || actorEmail || "no identificado"}.`);
 }
