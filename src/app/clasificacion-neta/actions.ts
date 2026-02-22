@@ -97,20 +97,6 @@ export async function editarClasificacionNetaAction(formData: FormData) {
     redirectWithMessage("error", loteError?.message ?? "No existe el lote.", loteId);
   }
 
-  const { data: asignacionesVendidas } = await supabase
-    .from("pedido_asignaciones")
-    .select("id")
-    .eq("lote_id", loteId)
-    .limit(1);
-
-  if ((asignacionesVendidas ?? []).length > 0) {
-    redirectWithMessage(
-      "error",
-      "Este lote ya tiene salidas/asignaciones. Desde ese punto ya no se permite modificar la clasificación.",
-      loteId,
-    );
-  }
-
   const categorias = await getCategoriasActivas();
   if (categorias.length === 0) {
     redirectWithMessage("error", "No hay categorías activas.", loteId);
@@ -235,13 +221,6 @@ export async function editarClasificacionNetaAction(formData: FormData) {
   }
 
   const totalBrutoClasificado = round3(nuevasFilas.reduce((acc, row) => acc + Number(row.peso_bruto ?? 0), 0));
-  if (totalBrutoClasificado > Number(lote.peso_bruto_ingreso ?? 0)) {
-    redirectWithMessage(
-      "error",
-      `El bruto clasificado (${totalBrutoClasificado} kg) supera el ingreso (${Number(lote.peso_bruto_ingreso ?? 0)} kg).`,
-      loteId,
-    );
-  }
 
   const { error: caducarError } = await supabase
     .from("lote_clasificacion")
