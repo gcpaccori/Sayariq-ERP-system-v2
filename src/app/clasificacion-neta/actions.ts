@@ -22,8 +22,9 @@ function round3(value: number) {
   return Math.round(value * 1000) / 1000;
 }
 
-function redirectWithMessage(type: "ok" | "error", message: string): never {
+function redirectWithMessage(type: "ok" | "error", message: string, loteId?: number): never {
   const params = new URLSearchParams({ [type]: message });
+  if (loteId) params.set("lote", String(loteId));
   redirect(`/clasificacion-neta?${params.toString()}`);
 }
 
@@ -52,6 +53,20 @@ async function resolveActorPersonaId(actorPersonaIdRaw: number | null, actorEmai
   return data ? Number(data.id) : null;
 }
 
+function buildCodigoClasificacion({
+  numeroLote,
+  categoriaCodigo,
+  procesoId,
+  version,
+}: {
+  numeroLote: string;
+  categoriaCodigo: string;
+  procesoId: number;
+  version: number;
+}) {
+  return `CLS-${numeroLote}-${categoriaCodigo.toUpperCase()}-P${procesoId}-V${version}`;
+}
+
 export async function editarClasificacionNetaAction(formData: FormData) {
   const supabase = getSupabaseServerClient();
 
@@ -70,7 +85,7 @@ export async function editarClasificacionNetaAction(formData: FormData) {
     redirectWithMessage("error", "Falta lote a reclasificar.");
   }
   if (!motivo) {
-    redirectWithMessage("error", "El motivo es obligatorio.");
+    redirectWithMessage("error", "El motivo es obligatorio.", loteId);
   }
   const { data: lote, error: loteError } = await supabase
     .from("lotes")
@@ -79,11 +94,9 @@ export async function editarClasificacionNetaAction(formData: FormData) {
     .single();
 
   if (loteError || !lote) {
-    redirectWithMessage("error", loteError?.message ?? "No existe el lote.");
+    redirectWithMessage("error", loteError?.message ?? "No existe el lote.", loteId);
   }
 
-  // Regla operativa: si ya hubo salida/venta del lote, no se permite reclasificar.
-  // Se interpreta venta como existencia de asignaciones a pedidos para el lote.
   const { data: asignacionesVendidas } = await supabase
     .from("pedido_asignaciones")
     .select("id")
@@ -93,31 +106,33 @@ export async function editarClasificacionNetaAction(formData: FormData) {
   if ((asignacionesVendidas ?? []).length > 0) {
     redirectWithMessage(
       "error",
-      "Este lote ya tiene salidas/asignaciones. Desde ese punto ya no se permite modificar la clasificación."
+      "Este lote ya tiene salidas/asignaciones. Desde ese punto ya no se permite modificar la clasificación.",
+      loteId,
     );
   }
 
   const categorias = await getCategoriasActivas();
   if (categorias.length === 0) {
-    redirectWithMessage("error", "No hay categorías activas.");
+    redirectWithMessage("error", "No hay categorías activas.", loteId);
   }
 
   const { data: vigentesActuales } = await supabase
     .from("vw_lote_clasificacion_vigente")
-    .select("id,categoria_id,codigo_clasificacion,peso_bruto,numero_jabas,peso_jabas,porcentaje_humedad,peso_descuento_humedad,peso_neto,version_no")
+    .select("id,categoria_id,peso_neto,version_no")
     .eq("lote_id", loteId);
 
-  const actualMap = new Map<number, {
-    id: number;
-    codigo_clasificacion: string | null;
-    peso_neto: number;
-    version_no: number;
-  }>();
+  const actualMap = new Map<
+    number,
+    {
+      id: number;
+      peso_neto: number;
+      version_no: number;
+    }
+  >();
 
   for (const row of vigentesActuales ?? []) {
     actualMap.set(Number(row.categoria_id), {
       id: Number(row.id),
-      codigo_clasificacion: row.codigo_clasificacion ? String(row.codigo_clasificacion) : null,
       peso_neto: Number(row.peso_neto ?? 0),
       version_no: Number(row.version_no ?? 1),
     });
@@ -150,7 +165,7 @@ export async function editarClasificacionNetaAction(formData: FormData) {
       .single();
 
     if (procesoError || !creado) {
-      redirectWithMessage("error", procesoError?.message ?? "No se pudo crear proceso neto.");
+      redirectWithMessage("error", procesoError?.message ?? "No se pudo crear proceso neto.", loteId);
     }
 
     procesoId = Number(creado.id);
@@ -170,7 +185,7 @@ export async function editarClasificacionNetaAction(formData: FormData) {
     const porcentajeHumedad = toDecimal(getField(formData, `porcentaje_humedad_${categoria.id}`));
 
     if ([pesoBruto, pesoJabas, porcentajeHumedad].some(Number.isNaN) || pesoBruto < 0) {
-      redirectWithMessage("error", `Datos inválidos en categoría ${categoria.nombre}.`);
+      redirectWithMessage("error", `Datos inválidos en categoría ${categoria.nombre}.`, loteId);
     }
 
     if (pesoBruto <= 0) {
@@ -183,12 +198,15 @@ export async function editarClasificacionNetaAction(formData: FormData) {
     const pesoNeto = round3(pesoBruto - safePesoJabas - descuentoHumedad);
 
     if (pesoNeto < 0) {
-      redirectWithMessage("error", `Peso neto negativo en categoría ${categoria.nombre}.`);
+      redirectWithMessage("error", `Peso neto negativo en categoría ${categoria.nombre}.`, loteId);
     }
 
-    const codigoClasificacion =
-      actualMap.get(categoria.id)?.codigo_clasificacion ??
-      `CLS-${lote.numero_lote}-${String(categoria.codigo).toUpperCase()}`;
+    const codigoClasificacion = buildCodigoClasificacion({
+      numeroLote: String(lote.numero_lote),
+      categoriaCodigo: String(categoria.codigo),
+      procesoId,
+      version: versionNueva,
+    });
 
     nuevoNetoMap.set(categoria.id, pesoNeto);
 
@@ -213,16 +231,15 @@ export async function editarClasificacionNetaAction(formData: FormData) {
   }
 
   if (nuevasFilas.length === 0) {
-    redirectWithMessage("error", "Debes ingresar peso bruto en al menos una categoría.");
+    redirectWithMessage("error", "Debes ingresar peso bruto en al menos una categoría.", loteId);
   }
 
-  const totalBrutoClasificado = round3(
-    nuevasFilas.reduce((acc, row) => acc + Number(row.peso_bruto ?? 0), 0),
-  );
+  const totalBrutoClasificado = round3(nuevasFilas.reduce((acc, row) => acc + Number(row.peso_bruto ?? 0), 0));
   if (totalBrutoClasificado > Number(lote.peso_bruto_ingreso ?? 0)) {
     redirectWithMessage(
       "error",
       `El bruto clasificado (${totalBrutoClasificado} kg) supera el ingreso (${Number(lote.peso_bruto_ingreso ?? 0)} kg).`,
+      loteId,
     );
   }
 
@@ -233,17 +250,15 @@ export async function editarClasificacionNetaAction(formData: FormData) {
     .eq("es_vigente", true);
 
   if (caducarError) {
-    redirectWithMessage("error", caducarError.message);
+    redirectWithMessage("error", caducarError.message, loteId);
   }
 
   const { error: insertError } = await supabase.from("lote_clasificacion").insert(nuevasFilas);
   if (insertError) {
-    redirectWithMessage("error", insertError.message);
+    redirectWithMessage("error", insertError.message, loteId);
   }
 
-  const pesoNetoClasificado = round3(
-    nuevasFilas.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0),
-  );
+  const pesoNetoClasificado = round3(nuevasFilas.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0));
   const jabasClasificadas = nuevasFilas.reduce((acc, row) => acc + Number(row.numero_jabas ?? 0), 0);
   const ingresoKg = Number(lote.peso_bruto_ingreso ?? 0);
   const variacionKg = round3(pesoNetoClasificado - ingresoKg);
@@ -267,7 +282,7 @@ export async function editarClasificacionNetaAction(formData: FormData) {
     .eq("id", procesoId);
 
   if (updProcesoError) {
-    redirectWithMessage("error", updProcesoError.message);
+    redirectWithMessage("error", updProcesoError.message, loteId);
   }
 
   const tipoVariacion = variacionKg > 0 ? "ganancia" : variacionKg < 0 ? "merma" : "sin_cambio";
@@ -286,7 +301,7 @@ export async function editarClasificacionNetaAction(formData: FormData) {
   });
 
   if (varError) {
-    redirectWithMessage("error", varError.message);
+    redirectWithMessage("error", varError.message, loteId);
   }
 
   const kardexRows: Array<Record<string, unknown>> = [];
@@ -333,14 +348,14 @@ export async function editarClasificacionNetaAction(formData: FormData) {
   if (auditRows.length > 0) {
     const { error: auditError } = await supabase.from("lote_clasificacion_auditoria").insert(auditRows);
     if (auditError) {
-      redirectWithMessage("error", auditError.message);
+      redirectWithMessage("error", auditError.message, loteId);
     }
   }
 
   if (kardexRows.length > 0) {
     const { error: kardexError } = await supabase.from("kardex").insert(kardexRows);
     if (kardexError) {
-      redirectWithMessage("error", `Reclasificación guardada, pero falló kardex: ${kardexError.message}`);
+      redirectWithMessage("error", `Reclasificación guardada, pero falló kardex: ${kardexError.message}`, loteId);
     }
   }
 
@@ -349,5 +364,9 @@ export async function editarClasificacionNetaAction(formData: FormData) {
   revalidatePath("/pedidos");
   revalidatePath("/liquidaciones");
   revalidatePath("/kardex");
-  redirectWithMessage("ok", `Lote ${lote.numero_lote} reclasificado. Variación total: ${variacionKg} kg. Actor: ${actorNombre || actorEmail || "no identificado"}.`);
+  redirectWithMessage(
+    "ok",
+    `Lote ${lote.numero_lote} reclasificado. Variación total: ${variacionKg} kg. Actor: ${actorNombre || actorEmail || "no identificado"}.`,
+    loteId,
+  );
 }

@@ -1,9 +1,12 @@
+import Link from "next/link";
+
+import AutoActorFields from "@/components/auto-actor-fields";
 import ModuleNavigation from "@/components/module-navigation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { editarClasificacionNetaAction } from "./actions";
-import AutoActorFields from "@/components/auto-actor-fields";
 
-type SearchParams = { ok?: string; error?: string };
+import { editarClasificacionNetaAction } from "./actions";
+
+type SearchParams = { ok?: string; error?: string; lote?: string };
 
 type Categoria = { id: number; nombre: string; codigo: string; orden: number };
 
@@ -75,64 +78,126 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
     vigentes.map((row) => [toKey(Number(row.lote_id), Number(row.categoria_id)), row]),
   );
 
+  const selectedLoteId = Number(search.lote ?? "0") || null;
+  const selectedLote = selectedLoteId ? lotes.find((l) => Number(l.id) === selectedLoteId) ?? null : null;
+  const selectedRows = selectedLote
+    ? vigentes.filter((row) => Number(row.lote_id) === Number(selectedLote.id))
+    : [];
+
   return (
     <div className="min-h-screen bg-[#F4F6FA] text-[#1F2937]">
       <div className="flex">
         <ModuleNavigation currentModule="/clasificacion-neta" />
-        <main className="flex-1 p-4 md:p-6 lg:p-8">
-          <header className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <main className="flex-1 space-y-4 p-4 md:p-6 lg:p-8">
+          <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-600">Módulo 10</p>
             <h1 className="text-2xl font-semibold text-slate-900">Clasificación Neta · CRUT de lotes</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Reclasifica por todas las categorías activas. El peso del productor no cambia; cambia el neto real comercial.
+              Primero elige un lote. Luego reclasifica por todas las categorías activas sin tocar el peso liquidado al productor.
             </p>
             {search.ok ? <p className="mt-3 rounded-lg bg-emerald-50 p-2 text-sm text-emerald-700">{search.ok}</p> : null}
             {search.error ? <p className="mt-3 rounded-lg bg-rose-50 p-2 text-sm text-rose-700">{search.error}</p> : null}
           </header>
 
-          <section className="space-y-4">
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">Lotes disponibles</h2>
             {lotes.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-500">
-                No hay lotes en estados clasificables.
-              </div>
+              <p className="text-sm text-slate-500">No hay lotes en estados clasificables.</p>
             ) : (
-              lotes.map((lote) => {
-                const loteBloqueado = bloqueadosPorVenta.has(Number(lote.id));
-                const rowsLote = vigentes.filter((row) => Number(row.lote_id) === Number(lote.id));
-                const netoActual = rowsLote.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0);
-                const variacion = netoActual - Number(lote.peso_bruto_ingreso ?? 0);
-                const versionActual = rowsLote.length > 0 ? Math.max(...rowsLote.map((r) => Number(r.version_no ?? 1))) : 1;
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-xs">
+                  <thead className="bg-slate-50 text-slate-700">
+                    <tr>
+                      <th className="px-2 py-2 text-left">Lote</th>
+                      <th className="px-2 py-2 text-left">Productor</th>
+                      <th className="px-2 py-2 text-left">Ingreso</th>
+                      <th className="px-2 py-2 text-left">Neto vigente</th>
+                      <th className="px-2 py-2 text-left">Modificaciones</th>
+                      <th className="px-2 py-2 text-left">Estado</th>
+                      <th className="px-2 py-2 text-left">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {lotes.map((lote) => {
+                      const rowsLote = vigentes.filter((row) => Number(row.lote_id) === Number(lote.id));
+                      const netoActual = rowsLote.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0);
+                      const isSelected = Number(selectedLote?.id) === Number(lote.id);
+
+                      return (
+                        <tr key={lote.id} className={isSelected ? "bg-blue-50/50" : ""}>
+                          <td className="px-2 py-2 font-medium">{lote.numero_lote}</td>
+                          <td className="px-2 py-2">{productorMap.get(Number(lote.productor_id)) ?? "N/D"}</td>
+                          <td className="px-2 py-2">{Number(lote.peso_bruto_ingreso ?? 0).toFixed(2)} kg</td>
+                          <td className="px-2 py-2">{netoActual.toFixed(2)} kg</td>
+                          <td className="px-2 py-2">{procesoMap.get(Number(lote.id)) ?? 0}</td>
+                          <td className="px-2 py-2">{lote.estado}</td>
+                          <td className="px-2 py-2">
+                            <Link
+                              href={`/clasificacion-neta?lote=${lote.id}`}
+                              className="inline-flex rounded-lg border border-blue-200 px-2 py-1 font-medium text-blue-700 hover:bg-blue-50"
+                            >
+                              {isSelected ? "Editando" : "Modificar clasificación"}
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {selectedLote ? (
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              {(() => {
+                const loteBloqueado = bloqueadosPorVenta.has(Number(selectedLote.id));
+                const netoActual = selectedRows.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0);
+                const variacion = netoActual - Number(selectedLote.peso_bruto_ingreso ?? 0);
+                const versionActual =
+                  selectedRows.length > 0 ? Math.max(...selectedRows.map((r) => Number(r.version_no ?? 1))) : 1;
 
                 return (
-                  <article key={lote.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="grid gap-2 text-sm md:grid-cols-4">
-                      <p><strong>Lote:</strong> {lote.numero_lote}</p>
-                      <p><strong>Productor:</strong> {productorMap.get(Number(lote.productor_id)) ?? "N/D"}</p>
-                      <p><strong>Ingreso productor:</strong> {Number(lote.peso_bruto_ingreso ?? 0).toFixed(2)} kg</p>
-                      <p><strong>Neto clasificado:</strong> {netoActual.toFixed(2)} kg</p>
-                      <p><strong>Variación:</strong> {variacion.toFixed(2)} kg</p>
-                      <p><strong>Versión actual:</strong> v{versionActual}</p>
-                      <p><strong>Modificaciones:</strong> {procesoMap.get(Number(lote.id)) ?? 0}</p>
-                      <p><strong>Estado lote:</strong> {lote.estado}</p>
+                  <>
+                    <div className="mb-4 grid gap-2 text-sm md:grid-cols-4">
+                      <p>
+                        <strong>Lote:</strong> {selectedLote.numero_lote}
+                      </p>
+                      <p>
+                        <strong>Ingreso productor:</strong> {Number(selectedLote.peso_bruto_ingreso ?? 0).toFixed(2)} kg
+                      </p>
+                      <p>
+                        <strong>Neto clasificado:</strong> {netoActual.toFixed(2)} kg
+                      </p>
+                      <p>
+                        <strong>Variación:</strong> {variacion.toFixed(2)} kg
+                      </p>
+                      <p>
+                        <strong>Versión actual:</strong> v{versionActual}
+                      </p>
+                      <p>
+                        <strong>Modificaciones:</strong> {procesoMap.get(Number(selectedLote.id)) ?? 0}
+                      </p>
                     </div>
 
                     {loteBloqueado ? (
-                      <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                        Lote bloqueado para reclasificación: ya tiene salidas/asignaciones (venta en proceso o ejecutada).
+                      <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                        Este lote ya tiene venta/asignación registrada y no puede modificarse.
                       </p>
                     ) : null}
 
-                    <form action={editarClasificacionNetaAction} className="mt-4 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <input type="hidden" name="lote_id" value={lote.id} />
-
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <div className="text-xs text-slate-600">
+                    <form action={editarClasificacionNetaAction} className="space-y-4">
+                      <input type="hidden" name="lote_id" value={selectedLote.id} />
+                      <div className="grid gap-3 md:grid-cols-4">
+                        <label className="text-xs text-slate-600">
                           Fecha clasificación
-                          <p className="mt-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm">
-                            Automática al guardar (hoy)
-                          </p>
-                          <input type="hidden" name="fecha_clasificacion" value={new Date().toISOString().slice(0, 10)} readOnly />
-                        </div>
+                          <input
+                            type="date"
+                            name="fecha_clasificacion"
+                            defaultValue={new Date().toISOString().slice(0, 10)}
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                          />
+                        </label>
 
                         <div className="text-xs text-slate-600">
                           Actor
@@ -144,7 +209,10 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
 
                         <label className="text-xs text-slate-600">
                           Causa variación
-                          <select name="causa_variacion" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm">
+                          <select
+                            name="causa_variacion"
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                          >
                             <option value="proceso">Proceso</option>
                             <option value="humedad">Humedad</option>
                             <option value="tierra">Tierra</option>
@@ -168,22 +236,50 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                           </thead>
                           <tbody className="divide-y divide-slate-100 bg-white">
                             {categorias.map((categoria) => {
-                              const key = toKey(Number(lote.id), Number(categoria.id));
+                              const key = toKey(Number(selectedLote.id), Number(categoria.id));
                               const actual = vigenteMap.get(key);
                               return (
                                 <tr key={categoria.id}>
                                   <td className="px-2 py-2">{categoria.nombre}</td>
                                   <td className="px-2 py-2">
-                                    <input disabled={loteBloqueado} name={`peso_bruto_${categoria.id}`} type="number" step="0.001" defaultValue={Number(actual?.peso_bruto ?? 0)} className="w-24 rounded border border-slate-300 px-2 py-1" />
+                                    <input
+                                      disabled={loteBloqueado}
+                                      name={`peso_bruto_${categoria.id}`}
+                                      type="number"
+                                      step="0.001"
+                                      defaultValue={Number(actual?.peso_bruto ?? 0)}
+                                      className="w-24 rounded border border-slate-300 px-2 py-1"
+                                    />
                                   </td>
                                   <td className="px-2 py-2">
-                                    <input disabled={loteBloqueado} name={`numero_jabas_${categoria.id}`} type="number" min={0} defaultValue={Number(actual?.numero_jabas ?? 0)} className="w-20 rounded border border-slate-300 px-2 py-1" />
+                                    <input
+                                      disabled={loteBloqueado}
+                                      name={`numero_jabas_${categoria.id}`}
+                                      type="number"
+                                      min={0}
+                                      defaultValue={Number(actual?.numero_jabas ?? 0)}
+                                      className="w-20 rounded border border-slate-300 px-2 py-1"
+                                    />
                                   </td>
                                   <td className="px-2 py-2">
-                                    <input disabled={loteBloqueado} name={`peso_jabas_${categoria.id}`} type="number" step="0.001" defaultValue={Number(actual?.peso_jabas ?? 0)} className="w-24 rounded border border-slate-300 px-2 py-1" />
+                                    <input
+                                      disabled={loteBloqueado}
+                                      name={`peso_jabas_${categoria.id}`}
+                                      type="number"
+                                      step="0.001"
+                                      defaultValue={Number(actual?.peso_jabas ?? 0)}
+                                      className="w-24 rounded border border-slate-300 px-2 py-1"
+                                    />
                                   </td>
                                   <td className="px-2 py-2">
-                                    <input disabled={loteBloqueado} name={`porcentaje_humedad_${categoria.id}`} type="number" step="0.01" defaultValue={Number(actual?.porcentaje_humedad ?? 0)} className="w-20 rounded border border-slate-300 px-2 py-1" />
+                                    <input
+                                      disabled={loteBloqueado}
+                                      name={`porcentaje_humedad_${categoria.id}`}
+                                      type="number"
+                                      step="0.01"
+                                      defaultValue={Number(actual?.porcentaje_humedad ?? 0)}
+                                      className="w-20 rounded border border-slate-300 px-2 py-1"
+                                    />
                                   </td>
                                   <td className="px-2 py-2">{Number(actual?.peso_neto ?? 0).toFixed(2)} kg</td>
                                 </tr>
@@ -196,30 +292,54 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                       <div className="grid gap-3 md:grid-cols-2">
                         <label className="text-xs text-slate-600">
                           Motivo de modificación
-                          <input disabled={loteBloqueado} name="motivo" required placeholder="Ej: ajuste por tierra y humedad" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm" />
+                          <input
+                            disabled={loteBloqueado}
+                            name="motivo"
+                            required
+                            placeholder="Ej: ajuste por tierra y humedad"
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                          />
                         </label>
                         <label className="text-xs text-slate-600">
                           Detalle causa
-                          <input disabled={loteBloqueado} name="detalle_causa" placeholder="Detalle opcional" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm" />
+                          <input
+                            disabled={loteBloqueado}
+                            name="detalle_causa"
+                            placeholder="Detalle opcional"
+                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                          />
                         </label>
                       </div>
 
                       <label className="block text-xs text-slate-600">
                         Observaciones
-                        <textarea disabled={loteBloqueado} name="observaciones" rows={2} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm" />
+                        <textarea
+                          disabled={loteBloqueado}
+                          name="observaciones"
+                          rows={2}
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                        />
                       </label>
 
-                      <button disabled={loteBloqueado} type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400">
+                      <button
+                        disabled={loteBloqueado}
+                        type="submit"
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
                         {loteBloqueado
                           ? "Bloqueado por venta/asignación"
                           : "Guardar reclasificación (todas las categorías)"}
                       </button>
                     </form>
-                  </article>
+                  </>
                 );
-              })
-            )}
-          </section>
+              })()}
+            </section>
+          ) : (
+            <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-600">
+              Selecciona un lote en la tabla superior para abrir el formulario de reclasificación.
+            </section>
+          )}
         </main>
       </div>
     </div>
