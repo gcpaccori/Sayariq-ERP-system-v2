@@ -27,6 +27,7 @@ type SearchParams = {
 type Categoria = { id: number; nombre: string; orden: number };
 type Persona = { id: number; nombre_completo: string; tipo_documento?: string | null; documento?: string | null };
 type Lote = { id: number; numero_lote: string; productor_id: number };
+type ClasificacionVigenteJabas = { lote_id: number; categoria_id: number; numero_jabas: number | null };
 
 type KardexRow = {
   id: number;
@@ -85,6 +86,11 @@ function buildFilterQuery(base: URLSearchParams, tab: Tab) {
 
 function toIsoDate(value: Date) {
   return value.toISOString().slice(0, 10);
+}
+
+function loteCategoriaKey(loteId: number | null, categoriaId: number | null) {
+  if (!loteId || !categoriaId) return null;
+  return `${loteId}:${categoriaId}`;
 }
 
 function sanitizeDate(search: SearchParams, minDate: string | null) {
@@ -416,6 +422,23 @@ export default async function KardexPage({
 
   const detalleLotesRows = kardexData.rows.filter((row) => row.tipo_kardex === "producto");
   const asignacionContextMap = await getAsignacionesContext(detalleLotesRows);
+
+  const loteIdsDetalle = [...new Set(detalleLotesRows.map((row) => Number(row.lote_id ?? 0)).filter((id) => id > 0))];
+  const { data: clasifVigenteData } =
+    loteIdsDetalle.length > 0
+      ? await getSupabaseServerClient()
+          .from("vw_lote_clasificacion_vigente")
+          .select("lote_id,categoria_id,numero_jabas")
+          .in("lote_id", loteIdsDetalle)
+      : { data: [] as ClasificacionVigenteJabas[] };
+
+  const jabasVigenteMap = new Map<string, number>();
+  for (const row of (clasifVigenteData ?? []) as ClasificacionVigenteJabas[]) {
+    const key = loteCategoriaKey(Number(row.lote_id), Number(row.categoria_id));
+    if (!key) continue;
+    jabasVigenteMap.set(key, Number(row.numero_jabas ?? 0));
+  }
+
   const dineroRows = kardexData.rows.filter((row) => row.tipo_kardex === "dinero");
   const saldosRows = computeSaldos(kardexData.rows, catalogs.personas);
 
@@ -785,6 +808,7 @@ export default async function KardexPage({
                 <th className="p-2">Tipo Mov.</th>
                 <th className="p-2">Categoría</th>
                 <th className="p-2">Kg</th>
+                <th className="p-2">N° jabas (cat.)</th>
                 <th className="p-2">Destino venta</th>
                 <th className="p-2">Precio plan/kg</th>
                 <th className="p-2">Precio venta/kg</th>
@@ -795,7 +819,7 @@ export default async function KardexPage({
             <tbody>
               {detalleLotesRows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="p-3 text-center">
+                  <td colSpan={12} className="p-3 text-center">
                     Sin movimientos de producto.
                   </td>
                 </tr>
@@ -808,6 +832,9 @@ export default async function KardexPage({
                   ? asignacionContextMap.get(Number(row.origen_id))
                   : undefined;
 
+                const jabasKey = loteCategoriaKey(row.lote_id, row.categoria_id);
+                const numeroJabas = jabasKey ? jabasVigenteMap.get(jabasKey) : undefined;
+
                 return (
                   <tr key={row.id} className="border-b align-top">
                     <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
@@ -816,6 +843,7 @@ export default async function KardexPage({
                     <td className="p-2">{row.tipo_movimiento}</td>
                     <td className="p-2">{row.categoria_id ? categoriaMap.get(row.categoria_id) ?? row.categoria_id : "-"}</td>
                     <td className="p-2">{round2(signedKg)}</td>
+                    <td className="p-2">{typeof numeroJabas === "number" ? numeroJabas : "-"}</td>
                     <td className="p-2">{asignacionCtx?.pedidoNumero ?? "-"}</td>
                     <td className="p-2">{asignacionCtx ? asignacionCtx.precioPlanKg : "-"}</td>
                     <td className="p-2">{asignacionCtx ? asignacionCtx.precioVentaKg : "-"}</td>
