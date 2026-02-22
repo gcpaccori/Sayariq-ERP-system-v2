@@ -199,6 +199,70 @@ export async function createLoteAction(formData: FormData) {
   redirectWithMessage("ok", `Lote ${loteInsertado.numero_lote} creado correctamente.${fotoDetalle}`);
 }
 
+export async function updateLoteAction(formData: FormData) {
+  const loteId = Number(getField(formData, "lote_id"));
+  const productorId = Number(getField(formData, "productor_id"));
+  const producto = getField(formData, "producto") as Producto;
+  const categoriaIdRaw = Number(getField(formData, "categoria_id") || "0");
+  const categoriaId = categoriaIdRaw > 0 ? categoriaIdRaw : null;
+  const fechaIngreso = getField(formData, "fecha_ingreso");
+  const pesoBrutoIngreso = toDecimal(getField(formData, "peso_bruto_ingreso"));
+
+  if (!loteId || Number.isNaN(loteId)) {
+    redirectWithMessage("error", "Lote inválido para editar.");
+  }
+
+  if (!productorId || Number.isNaN(productorId)) {
+    redirectWithMessage("error", "Selecciona un productor válido.");
+  }
+
+  const productosValidos: Producto[] = ["Jengibre", "Curcuma"];
+  if (!productosValidos.includes(producto)) {
+    redirectWithMessage("error", "Producto inválido. Solo se permite Jengibre o Curcuma.");
+  }
+
+  if (!fechaIngreso || Number.isNaN(pesoBrutoIngreso) || pesoBrutoIngreso <= 0) {
+    redirectWithMessage("error", "Fecha y peso bruto son obligatorios y válidos.");
+  }
+
+  const isProductor = await ensureProductor(productorId);
+  if (!isProductor) {
+    redirectWithMessage("error", "La persona seleccionada no tiene rol productor.");
+  }
+
+  if (categoriaId) {
+    const isCategoriaValida = await ensureCategoriaActiva(categoriaId);
+    if (!isCategoriaValida) {
+      redirectWithMessage("error", "La categoría seleccionada no existe o está inactiva.");
+    }
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { error } = await supabase
+    .from("lotes")
+    .update({
+      productor_id: productorId,
+      producto,
+      categoria_id: categoriaId,
+      fecha_ingreso: fechaIngreso,
+      guia_ingreso: getField(formData, "guia_ingreso") || null,
+      peso_bruto_ingreso: round2(pesoBrutoIngreso),
+      numero_jabas: Number(getField(formData, "numero_jabas") || "0") || 0,
+      chofer: getField(formData, "chofer") || null,
+      placa_vehiculo: getField(formData, "placa_vehiculo") || null,
+      observaciones: getField(formData, "observaciones") || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", loteId);
+
+  if (error) {
+    redirectWithMessage("error", error.message);
+  }
+
+  revalidatePath("/almacen");
+  redirectWithMessage("ok", `Lote ${loteId} actualizado correctamente.`);
+}
+
 async function getLoteSinClasificar(loteId: number): Promise<Lote | null> {
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
