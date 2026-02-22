@@ -80,6 +80,15 @@ function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function extractCategoriaIdsFromObs(observaciones: string | null) {
+  const match = (observaciones ?? "").match(/\[CATS:([^\]]+)\]/);
+  if (!match) return [] as number[];
+  return match[1]
+    .split(",")
+    .map((value) => Number(String(value).trim()))
+    .filter((value) => Number.isFinite(value) && value > 0);
+}
+
 async function getClientesActivos() {
   const supabase = getSupabaseServerClient();
   const { data: rolesData } = await supabase
@@ -500,21 +509,17 @@ export default async function PedidosPage({
                         </select>
                       </label>
 
-                      <label className="grid gap-1">
+                      <label className="grid gap-1 sm:col-span-3">
                         <span className="text-sm font-semibold text-gray-700">
-                          Categoría (opcional)
+                          Categorías solicitadas (puedes elegir varias)
                         </span>
                         <select
-                          name="categoria_id"
-                          defaultValue=""
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                          name="categoria_ids"
+                          multiple
+                          className="min-h-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                         >
-                          <option value="">Varias</option>
                           {categorias.map((categoria) => (
-                            <option
-                              key={categoria.id}
-                              value={String(categoria.id)}
-                            >
+                            <option key={categoria.id} value={String(categoria.id)}>
                               {categoria.nombre}
                             </option>
                           ))}
@@ -739,6 +744,12 @@ export default async function PedidosPage({
                 </Link>
               </div>
 
+              {(() => {
+                const categoriasPedido = pedidoEditar.categoria_id
+                  ? [Number(pedidoEditar.categoria_id)]
+                  : extractCategoriaIdsFromObs(pedidoEditar.observaciones);
+
+                return (
               <form action={updatePedidoAction} className="grid gap-3">
                 <input type="hidden" name="pedido_id" value={pedidoEditar.id} />
                 <div className="grid gap-3 sm:grid-cols-3">
@@ -761,12 +772,18 @@ export default async function PedidosPage({
                     </select>
                   </label>
 
-                  <label className="grid gap-1">
-                    <span className="text-sm">Categoría</span>
-                    <select name="categoria_id" defaultValue={pedidoEditar.categoria_id ? String(pedidoEditar.categoria_id) : ""} className="rounded border px-2 py-1">
-                      <option value="">Varias</option>
+                  <label className="grid gap-1 sm:col-span-3">
+                    <span className="text-sm">Categorías solicitadas (varias)</span>
+                    <select
+                      name="categoria_ids"
+                      multiple
+                      defaultValue={categoriasPedido.map((value) => String(value))}
+                      className="min-h-24 rounded border px-2 py-1"
+                    >
                       {categorias.map((categoria) => (
-                        <option key={categoria.id} value={String(categoria.id)}>{categoria.nombre}</option>
+                        <option key={categoria.id} value={String(categoria.id)}>
+                          {categoria.nombre}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -803,6 +820,8 @@ export default async function PedidosPage({
                   </button>
                 </div>
               </form>
+                );
+              })()}
             </section>
           ) : null}
 

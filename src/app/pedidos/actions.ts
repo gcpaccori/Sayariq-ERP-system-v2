@@ -41,6 +41,22 @@ function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function extractCategoriaIds(formData: FormData) {
+  const values = formData
+    .getAll("categoria_ids")
+    .map((value) => Number(String(value)))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  return [...new Set(values)];
+}
+
+function buildObservacionesConCategorias(observacionesInput: string, categoriaIds: number[]) {
+  const clean = (observacionesInput || "").replace(/\s*\[CATS:[^\]]*\]\s*/g, "").trim();
+  if (categoriaIds.length === 0) return clean || null;
+  const marker = `[CATS:${categoriaIds.join(",")}]`;
+  return clean ? `${clean} ${marker}` : marker;
+}
+
 function redirectWithMessage(type: "ok" | "error", message: string): never {
   const params = new URLSearchParams({ [type]: message });
   redirect(`/pedidos?${params.toString()}`);
@@ -205,8 +221,8 @@ async function recalculateAndUpdatePedidoEstado(pedidoId: number) {
 export async function createPedidoAction(formData: FormData) {
   const clienteId = Number(getField(formData, "cliente_id"));
   const producto = getField(formData, "producto") as Producto;
-  const categoriaIdRaw = Number(getField(formData, "categoria_id") || "0");
-  const categoriaId = categoriaIdRaw > 0 ? categoriaIdRaw : null;
+  const categoriaIds = extractCategoriaIds(formData);
+  const categoriaId = categoriaIds.length === 1 ? categoriaIds[0] : null;
   const kgSolicitados = toDecimal(getField(formData, "kg_solicitados"));
   const precioKg = toDecimal(getField(formData, "precio_kg"));
   const fechaPedido = getField(formData, "fecha_pedido");
@@ -235,10 +251,10 @@ export async function createPedidoAction(formData: FormData) {
     redirectWithMessage("error", "La persona seleccionada no tiene rol cliente.");
   }
 
-  if (categoriaId) {
-    const isCategoriaValida = await ensureCategoriaActiva(categoriaId);
+  for (const categoriaIdIter of categoriaIds) {
+    const isCategoriaValida = await ensureCategoriaActiva(categoriaIdIter);
     if (!isCategoriaValida) {
-      redirectWithMessage("error", "La categoría seleccionada no existe o está inactiva.");
+      redirectWithMessage("error", "Una categoría seleccionada no existe o está inactiva.");
     }
   }
 
@@ -255,7 +271,7 @@ export async function createPedidoAction(formData: FormData) {
     total_estimado: totalEstimado,
     fecha_pedido: fechaPedido,
     fecha_entrega: getField(formData, "fecha_entrega") || null,
-    observaciones: getField(formData, "observaciones") || null,
+    observaciones: buildObservacionesConCategorias(getField(formData, "observaciones"), categoriaIds),
     estado: "pendiente",
   };
 
@@ -278,8 +294,8 @@ export async function updatePedidoAction(formData: FormData) {
   const pedidoId = Number(getField(formData, "pedido_id"));
   const clienteId = Number(getField(formData, "cliente_id"));
   const producto = getField(formData, "producto") as Producto;
-  const categoriaIdRaw = Number(getField(formData, "categoria_id") || "0");
-  const categoriaId = categoriaIdRaw > 0 ? categoriaIdRaw : null;
+  const categoriaIds = extractCategoriaIds(formData);
+  const categoriaId = categoriaIds.length === 1 ? categoriaIds[0] : null;
   const kgSolicitados = toDecimal(getField(formData, "kg_solicitados"));
   const precioKg = toDecimal(getField(formData, "precio_kg"));
   const fechaPedido = getField(formData, "fecha_pedido");
@@ -312,10 +328,10 @@ export async function updatePedidoAction(formData: FormData) {
     redirectWithMessage("error", "La persona seleccionada no tiene rol cliente.");
   }
 
-  if (categoriaId) {
-    const isCategoriaValida = await ensureCategoriaActiva(categoriaId);
+  for (const categoriaIdIter of categoriaIds) {
+    const isCategoriaValida = await ensureCategoriaActiva(categoriaIdIter);
     if (!isCategoriaValida) {
-      redirectWithMessage("error", "La categoría seleccionada no existe o está inactiva.");
+      redirectWithMessage("error", "Una categoría seleccionada no existe o está inactiva.");
     }
   }
 
@@ -333,7 +349,7 @@ export async function updatePedidoAction(formData: FormData) {
       total_estimado: totalEstimado,
       fecha_pedido: fechaPedido,
       fecha_entrega: getField(formData, "fecha_entrega") || null,
-      observaciones: getField(formData, "observaciones") || null,
+      observaciones: buildObservacionesConCategorias(getField(formData, "observaciones"), categoriaIds),
       updated_at: new Date().toISOString(),
     })
     .eq("id", pedidoId)
