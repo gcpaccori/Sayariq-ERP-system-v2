@@ -75,7 +75,7 @@ export default function PersonSearchField({
   };
 
   return (
-    <div ref={wrapperRef} className="relative grid gap-1">
+    <div ref={wrapperRef} className="relative grid min-w-0 gap-1">
       <label htmlFor={inputId} className="text-sm">
         {label}
         {required ? " *" : ""}
@@ -90,12 +90,13 @@ export default function PersonSearchField({
           onChange={(event) => handleInputChange(event.target.value)}
           placeholder={placeholder}
           autoComplete="off"
-          className="w-full rounded border px-2 py-1 pl-8"
+          className="w-full min-w-0 rounded border px-2 py-1 pl-8"
         />
       </div>
 
       {isOpen ? (
-        <div className="absolute left-0 right-0 top-full z-40 mt-1 max-h-56 overflow-y-auto rounded border border-gray-200 bg-white shadow-lg">
+        <div className="absolute left-0 top-full z-30 mt-1 w-full max-w-full overflow-hidden rounded border border-gray-200 bg-white shadow-lg">
+          <div className="max-h-56 overflow-y-auto overflow-x-hidden">
           {filteredPeople.length > 0 ? (
             filteredPeople.map((person) => (
               <button
@@ -104,9 +105,9 @@ export default function PersonSearchField({
                 onClick={() => handleSelectPerson(person)}
                 className="block w-full border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-blue-50"
               >
-                <div className="font-medium text-gray-900">{person.nombre_completo}</div>
+                <div className="truncate font-medium text-gray-900" title={person.nombre_completo}>{person.nombre_completo}</div>
                 {person.tipo_documento || person.documento ? (
-                  <div className="text-xs text-gray-500">
+                  <div className="truncate text-xs text-gray-500" title={`${person.tipo_documento ?? "Doc"}: ${person.documento ?? "-"}`} >
                     {person.tipo_documento ?? "Doc"}: {person.documento ?? "-"}
                   </div>
                 ) : null}
@@ -115,6 +116,7 @@ export default function PersonSearchField({
           ) : (
             <div className="px-3 py-2 text-sm text-gray-500">Sin resultados</div>
           )}
+          </div>
         </div>
       ) : null}
 
