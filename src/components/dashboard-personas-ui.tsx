@@ -101,6 +101,13 @@ const moduleCards: Array<{
     description: "Rentabilidad por lote para priorizar inversiones y proteger márgenes en contexto competitivo.",
     icon: TrendingUp,
   },
+  {
+    title: "Módulo 10 · Clasificación Neta",
+    href: "/clasificacion-neta",
+    image: "https://images.unsplash.com/photo-1581093588401-22f66f6e0f55?auto=format&fit=crop&w=1400&q=80",
+    description: "Control de variaciones de peso y auditoría de reclasificación con impacto directo en kardex.",
+    icon: ClipboardList,
+  },
 ];
 
 export default function DashboardPersonasUi({ people }: Props) {

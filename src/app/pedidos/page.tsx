@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { Search, Eye } from "lucide-react";
 
-import { asignarLotePedidoAction, createPedidoAction } from "./actions";
+import {
+  asignarLotePedidoAction,
+  createPedidoAction,
+  deleteAsignacionPedidoAction,
+  updateAsignacionPedidoAction,
+  updatePedidoAction,
+} from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
@@ -12,6 +18,7 @@ type SearchParams = {
   estado?: "todos" | "pendiente" | "en_proceso" | "completado" | "cancelado";
   cliente?: string;
   asignar?: string;
+  editar?: string;
   ok?: string;
   error?: string;
 };
@@ -71,6 +78,15 @@ function escapeLike(input: string) {
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function extractCategoriaIdsFromObs(observaciones: string | null) {
+  const match = (observaciones ?? "").match(/\[CATS:([^\]]+)\]/);
+  if (!match) return [] as number[];
+  return match[1]
+    .split(",")
+    .map((value) => Number(String(value).trim()))
+    .filter((value) => Number.isFinite(value) && value > 0);
 }
 
 async function getClientesActivos() {
@@ -256,14 +272,10 @@ async function getAvailableLotesForPedido(
 
   const loteIds = lotes.map((lote) => Number(lote.id));
 
-  let clasifQuery = supabase
-    .from("lote_clasificacion")
+  const clasifQuery = supabase
+    .from("vw_lote_clasificacion_vigente")
     .select("lote_id,categoria_id,peso_neto")
     .in("lote_id", loteIds);
-
-  if (pedido.categoria_id) {
-    clasifQuery = clasifQuery.eq("categoria_id", Number(pedido.categoria_id));
-  }
 
   const { data: clasificaciones } = await clasifQuery;
   if (!clasificaciones || clasificaciones.length === 0) return [];
@@ -377,8 +389,10 @@ export default async function PedidosPage({
   );
 
   const asignarId = Number(search.asignar ?? "0");
+  const editarId = Number(search.editar ?? "0");
   const pedidoSeleccionado =
     asignarId > 0 ? await getPedidoById(asignarId) : null;
+  const pedidoEditar = editarId > 0 ? await getPedidoById(editarId) : null;
 
   const loteDisponibles = pedidoSeleccionado
     ? await getAvailableLotesForPedido(pedidoSeleccionado)
@@ -495,21 +509,17 @@ export default async function PedidosPage({
                         </select>
                       </label>
 
-                      <label className="grid gap-1">
+                      <label className="grid gap-1 sm:col-span-3">
                         <span className="text-sm font-semibold text-gray-700">
-                          Categoría (opcional)
+                          Categorías solicitadas (puedes elegir varias)
                         </span>
                         <select
-                          name="categoria_id"
-                          defaultValue=""
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                          name="categoria_ids"
+                          multiple
+                          className="min-h-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                         >
-                          <option value="">Varias</option>
                           {categorias.map((categoria) => (
-                            <option
-                              key={categoria.id}
-                              value={String(categoria.id)}
-                            >
+                            <option key={categoria.id} value={String(categoria.id)}>
                               {categoria.nombre}
                             </option>
                           ))}
@@ -723,6 +733,98 @@ export default async function PedidosPage({
             </div>
           </section>
 
+          {pedidoEditar ? (
+            <section className="mb-8 rounded-xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-blue-900">
+                  Editar pedido {pedidoEditar.numero_pedido}
+                </h2>
+                <Link href="/pedidos" className="rounded border border-blue-300 bg-white px-2 py-1 text-xs">
+                  Cerrar
+                </Link>
+              </div>
+
+              {(() => {
+                const categoriasPedido = pedidoEditar.categoria_id
+                  ? [Number(pedidoEditar.categoria_id)]
+                  : extractCategoriaIdsFromObs(pedidoEditar.observaciones);
+
+                return (
+              <form action={updatePedidoAction} className="grid gap-3">
+                <input type="hidden" name="pedido_id" value={pedidoEditar.id} />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="grid gap-1">
+                    <span className="text-sm">Cliente *</span>
+                    <select name="cliente_id" defaultValue={String(pedidoEditar.cliente_id)} className="rounded border px-2 py-1" required>
+                      {clientes.map((cliente) => (
+                        <option key={cliente.id} value={String(cliente.id)}>
+                          {cliente.nombre_completo}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Producto *</span>
+                    <select name="producto" defaultValue={pedidoEditar.producto} className="rounded border px-2 py-1" required>
+                      <option value="Jengibre">Jengibre</option>
+                      <option value="Curcuma">Curcuma</option>
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1 sm:col-span-3">
+                    <span className="text-sm">Categorías solicitadas (varias)</span>
+                    <select
+                      name="categoria_ids"
+                      multiple
+                      defaultValue={categoriasPedido.map((value) => String(value))}
+                      className="min-h-24 rounded border px-2 py-1"
+                    >
+                      {categorias.map((categoria) => (
+                        <option key={categoria.id} value={String(categoria.id)}>
+                          {categoria.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Kg solicitados *</span>
+                    <input name="kg_solicitados" type="number" min="0" step="0.01" defaultValue={pedidoEditar.kg_solicitados} className="rounded border px-2 py-1" required />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Precio por kg *</span>
+                    <input name="precio_kg" type="number" min="0" step="0.01" defaultValue={pedidoEditar.precio_kg} className="rounded border px-2 py-1" required />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Fecha pedido *</span>
+                    <input name="fecha_pedido" type="date" defaultValue={pedidoEditar.fecha_pedido} className="rounded border px-2 py-1" required />
+                  </label>
+
+                  <label className="grid gap-1">
+                    <span className="text-sm">Fecha entrega</span>
+                    <input name="fecha_entrega" type="date" defaultValue={pedidoEditar.fecha_entrega ?? ""} className="rounded border px-2 py-1" />
+                  </label>
+
+                  <label className="grid gap-1 sm:col-span-3">
+                    <span className="text-sm">Observaciones</span>
+                    <textarea name="observaciones" defaultValue={pedidoEditar.observaciones ?? ""} className="rounded border px-2 py-1" />
+                  </label>
+                </div>
+
+                <div>
+                  <button type="submit" className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white">
+                    Guardar cambios pedido
+                  </button>
+                </div>
+              </form>
+                );
+              })()}
+            </section>
+          ) : null}
+
           {pedidoSeleccionado ? (
             <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="mb-6">
@@ -746,6 +848,9 @@ export default async function PedidosPage({
                       ? categoriaMap.get(pedidoSeleccionado.categoria_id)
                       : "Varias"}
                   </span>
+                </p>
+                <p className="mt-1 text-xs text-blue-700">
+                  Nota: puedes asignar cualquier categoría disponible del mismo producto.
                 </p>
               </div>
 
@@ -925,13 +1030,16 @@ export default async function PedidosPage({
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
                         Fecha
                       </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {asignacionesPedidoSeleccionado.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="p-4 text-center text-gray-500"
                         >
                           Sin asignaciones para este pedido.
@@ -961,6 +1069,53 @@ export default async function PedidosPage({
                           {row.subtotal}
                         </td>
                         <td className="px-4 py-3">{row.fecha_asignacion}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <form action={updateAsignacionPedidoAction} className="flex flex-wrap items-center gap-2">
+                              <input type="hidden" name="asignacion_id" value={String(row.id)} />
+                              <input
+                                name="kg_asignados"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                defaultValue={String(row.kg_asignados)}
+                                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                required
+                              />
+                              <input
+                                name="precio_kg"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                defaultValue={String(row.precio_kg)}
+                                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                required
+                              />
+                              <input
+                                name="fecha_asignacion"
+                                type="date"
+                                defaultValue={row.fecha_asignacion}
+                                className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                required
+                              />
+                              <input
+                                name="observaciones"
+                                placeholder="Obs"
+                                className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
+                              />
+                              <button type="submit" className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700">
+                                Modificar
+                              </button>
+                            </form>
+
+                            <form action={deleteAsignacionPedidoAction}>
+                              <input type="hidden" name="asignacion_id" value={String(row.id)} />
+                              <button type="submit" className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700">
+                                Quitar
+                              </button>
+                            </form>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1112,15 +1267,23 @@ export default async function PedidosPage({
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          {pedido.estado !== "cancelado" ? (
+                          <div className="flex flex-wrap gap-2">
+                            {pedido.estado !== "cancelado" ? (
+                              <Link
+                                href={`/pedidos?asignar=${pedido.id}`}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                              >
+                                <Eye size={14} />
+                                Asignar
+                              </Link>
+                            ) : null}
                             <Link
-                              href={`/pedidos?asignar=${pedido.id}`}
+                              href={`/pedidos?editar=${pedido.id}`}
                               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
                             >
-                              <Eye size={14} />
-                              Asignar
+                              Editar
                             </Link>
-                          ) : null}
+                          </div>
                         </td>
                       </tr>
                     );
