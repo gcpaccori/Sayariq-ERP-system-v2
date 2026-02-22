@@ -51,6 +51,11 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+function truncateText(value: string, max = 28): string {
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1)}…`;
+}
+
 function obtenerGeolocation() {
   if (!navigator.geolocation) {
     alert('Geolocalización no soportada en este navegador');
@@ -222,11 +227,17 @@ export function PagoLiquidacionForm({
                 </option>
                 {liquidaciones
                   .filter((row) => row.estado === 'confirmada' && row.estado_pago !== 'pagado' && row.estado_pago !== 'cobrado')
-                  .map((row) => (
-                    <option key={row.id} value={String(row.id)}>
-                      {row.numero_liquidacion} ({row.tipo}) - Productor/Cliente: {personaMap.get(row.persona_id) || `(ID ${row.persona_id})`} - Saldo: S/ {round2(Math.max(0, row.total_a_pagar - (row.monto_pagado ?? 0)))}
-                    </option>
-                  ))}
+                  .map((row) => {
+                    const persona = personaMap.get(row.persona_id) || `ID ${row.persona_id}`;
+                    const saldo = round2(Math.max(0, row.total_a_pagar - (row.monto_pagado ?? 0)));
+                    const optionLabel = `${row.numero_liquidacion} · ${row.tipo} · ${truncateText(persona)} · S/ ${saldo}`;
+
+                    return (
+                      <option key={row.id} value={String(row.id)}>
+                        {optionLabel}
+                      </option>
+                    );
+                  })}
               </select>
             </label>
 
