@@ -887,8 +887,8 @@ export default async function PedidosPage({
               <p className="mb-4 text-sm text-gray-600">
                 Selecciona lotes para asignar kg a este pedido:
               </p>
-              <div className="mb-8 overflow-x-auto rounded-lg border border-gray-200">
-                <table className="w-full text-sm">
+              <div className="mb-8 sx-table-wrap">
+                <table className="sx-table">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50">
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
@@ -1008,8 +1008,8 @@ export default async function PedidosPage({
               <p className="mb-4 text-sm text-gray-600">
                 Historial de cortes realizados para este pedido:
               </p>
-              <div className="overflow-x-auto rounded-lg border border-gray-200">
-                <table className="w-full text-sm">
+              <div className="sx-table-wrap">
+                <table className="sx-table">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50">
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
@@ -1135,7 +1135,7 @@ export default async function PedidosPage({
               </p>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="sx-table">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">

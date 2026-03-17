@@ -174,7 +174,7 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
               <p className="text-sm text-slate-500">No hay lotes en estados clasificables.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 text-xs">
+                <table className="sx-table">
                   <thead className="bg-slate-50 text-slate-700">
                     <tr>
                       <th className="px-2 py-2 text-left">Lote</th>
@@ -236,8 +236,8 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                       <p><strong>Registro en vista:</strong> {selectedVersion === 1 ? "Registro inicial" : `Modificación ${selectedVersion - 1} (v${selectedVersion})`}</p>
                     </div>
 
-                    <div className="mb-4 overflow-x-auto rounded-lg border border-slate-200">
-                      <table className="min-w-full divide-y divide-slate-200 text-xs">
+                    <div className="mb-4 sx-table-wrap">
+                      <table className="sx-table">
                         <thead className="bg-slate-50 text-slate-700">
                           <tr>
                             <th className="px-2 py-2 text-left">Registro</th>
@@ -295,8 +295,8 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                         <p className="rounded-lg bg-slate-100 p-2 text-xs text-slate-700">
                           Estás viendo un registro histórico. Para editar, vuelve a la versión actual.
                         </p>
-                        <div className="overflow-x-auto rounded-lg border border-slate-200">
-                          <table className="min-w-full divide-y divide-slate-200 text-xs">
+                        <div className="sx-table-wrap">
+                          <table className="sx-table">
                             <thead className="bg-white text-slate-600">
                               <tr>
                                 <th className="px-2 py-2 text-left">Categoría</th>

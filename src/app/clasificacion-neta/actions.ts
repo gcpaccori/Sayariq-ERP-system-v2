@@ -67,6 +67,40 @@ function buildCodigoClasificacion({
   return `CLS-${numeroLote}-${categoriaCodigo.toUpperCase()}-P${procesoId}-V${version}`;
 }
 
+async function resolveEstadoLoteReclasificado(loteId: number, nuevoNetoMap: Map<number, number>) {
+  const supabase = getSupabaseServerClient();
+
+  const { data: asignaciones, error } = await supabase
+    .from("pedido_asignaciones")
+    .select("categoria_id,kg_asignados")
+    .eq("lote_id", loteId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!asignaciones || asignaciones.length === 0) {
+    return "clasificado" as const;
+  }
+
+  const asignadoMap = new Map<number, number>();
+  for (const row of asignaciones) {
+    const categoriaId = Number(row.categoria_id);
+    const current = asignadoMap.get(categoriaId) ?? 0;
+    asignadoMap.set(categoriaId, current + Number(row.kg_asignados ?? 0));
+  }
+
+  for (const [categoriaId, neto] of nuevoNetoMap.entries()) {
+    const asignado = asignadoMap.get(categoriaId) ?? 0;
+    const disponible = round3(Number(neto ?? 0) - asignado);
+    if (disponible > 0.01) {
+      return "clasificado" as const;
+    }
+  }
+
+  return "asignado" as const;
+}
+
 export async function editarClasificacionNetaAction(formData: FormData) {
   const supabase = getSupabaseServerClient();
 
@@ -262,6 +296,24 @@ export async function editarClasificacionNetaAction(formData: FormData) {
 
   if (updProcesoError) {
     redirectWithMessage("error", updProcesoError.message, loteId);
+  }
+
+  let estadoLoteNuevo: "sin_clasificar" | "clasificado" | "asignado" = "clasificado";
+  try {
+    estadoLoteNuevo = await resolveEstadoLoteReclasificado(loteId, nuevoNetoMap);
+  } catch (estadoError) {
+    const message = estadoError instanceof Error ? estadoError.message : "No se pudo recalcular el estado del lote.";
+    redirectWithMessage("error", message, loteId);
+  }
+
+  const { error: updEstadoLoteError } = await supabase
+    .from("lotes")
+    .update({ estado: estadoLoteNuevo })
+    .eq("id", loteId)
+    .in("estado", ["sin_clasificar", "clasificado", "asignado"]);
+
+  if (updEstadoLoteError) {
+    redirectWithMessage("error", updEstadoLoteError.message, loteId);
   }
 
   const tipoVariacion = variacionKg > 0 ? "ganancia" : variacionKg < 0 ? "merma" : "sin_cambio";

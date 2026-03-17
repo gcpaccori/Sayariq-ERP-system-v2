@@ -799,8 +799,8 @@ export default async function LiquidacionesPage({
         </p>
 
         <p className="mb-2 text-xs">Qué muestra esta tabla: lotes habilitados para liquidación de productor.</p>
-        <div className="mb-3 overflow-x-auto rounded-xl border border-gray-200 bg-white">
-          <table className="min-w-full border-collapse text-sm">
+        <div className="mb-3 sx-table-wrap">
+          <table className="sx-table">
             <thead>
               <tr className="border-b text-left">
                 <th className="p-2">Lote</th>
@@ -865,8 +865,8 @@ export default async function LiquidacionesPage({
             ) : (
               <>
                 <p className="text-xs">Qué muestra esta tabla: detalle por categoría de kg vendidos, ya liquidados y pendientes por liquidar.</p>
-                <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-                  <table className="min-w-full border-collapse text-sm">
+                <div className="sx-table-wrap">
+                  <table className="sx-table">
                     <thead>
                       <tr className="border-b text-left">
                         <th className="p-2">Código clasif.</th>
@@ -1025,8 +1025,8 @@ export default async function LiquidacionesPage({
           </p>
 
           <p className="text-xs">Qué muestra esta tabla: historial de pagos parciales por liquidación.</p>
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-            <table className="min-w-full border-collapse text-sm">
+          <div className="sx-table-wrap">
+            <table className="sx-table">
               <thead>
                 <tr className="border-b text-left">
                   <th className="p-2">Fecha</th>
@@ -1097,8 +1097,8 @@ export default async function LiquidacionesPage({
           </p>
 
           <p className="text-xs">Qué muestra esta tabla: adelantos entregados, su estado y en qué liquidación se aplicaron.</p>
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-            <table className="min-w-full border-collapse text-sm">
+          <div className="sx-table-wrap">
+            <table className="sx-table">
               <thead>
                 <tr className="border-b text-left">
                   <th className="p-2">Foto</th>
@@ -1186,8 +1186,8 @@ export default async function LiquidacionesPage({
         </p>
 
         <p className="mb-2 text-xs">Qué muestra esta tabla: pedidos habilitados para liquidación de cliente.</p>
-        <div className="mb-3 overflow-x-auto rounded-xl border border-gray-200 bg-white">
-          <table className="min-w-full border-collapse text-sm">
+        <div className="mb-3 sx-table-wrap">
+          <table className="sx-table">
             <thead>
               <tr className="border-b text-left">
                 <th className="p-2">Pedido</th>
@@ -1233,8 +1233,8 @@ export default async function LiquidacionesPage({
             </p>
 
             <p className="text-xs">Qué muestra esta tabla: saldo pendiente por categoría del pedido seleccionado.</p>
-            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-              <table className="min-w-full border-collapse text-sm">
+            <div className="sx-table-wrap">
+              <table className="sx-table">
                 <thead>
                   <tr className="border-b text-left">
                     <th className="p-2">Categoría</th>
@@ -1268,8 +1268,8 @@ export default async function LiquidacionesPage({
 
             <h3 className="mb-2 mt-3 text-sm font-semibold">Divisiones (códigos de corte del pedido)</h3>
             <p className="text-xs">Qué muestra esta tabla: cortes/divisiones que explican origen de kg y precio de la liquidación.</p>
-            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-              <table className="min-w-full border-collapse text-sm">
+            <div className="sx-table-wrap">
+              <table className="sx-table">
                 <thead>
                   <tr className="border-b text-left">
                     <th className="p-2">Código división</th>

@@ -752,8 +752,8 @@ export default async function KardexPage({
       {tab === "stock" ? (
         <section className="rounded border p-4">
           <p className="mb-2 text-xs">Qué muestra esta tabla: balance de entrada, salida y stock disponible por categoría.</p>
-          <div className="overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
+          <div className="sx-table-wrap">
+          <table className="sx-table">
             <thead>
               <tr className="border-b text-left">
                 <th className="p-2">Categoría</th>
@@ -798,8 +798,8 @@ export default async function KardexPage({
       {tab === "lotes" ? (
         <section className="rounded border p-4">
           <p className="mb-2 text-xs">Qué muestra esta tabla: movimientos de producto por lote con destino comercial y precios.</p>
-          <div className="overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
+          <div className="sx-table-wrap">
+          <table className="sx-table">
             <thead>
               <tr className="border-b text-left">
                 <th className="p-2">Lote</th>
@@ -862,8 +862,8 @@ export default async function KardexPage({
         <>
           <section className="mb-6 rounded border p-4">
             <p className="mb-2 text-xs">Qué muestra esta tabla: detalle cronológico de ingresos y egresos monetarios del kardex.</p>
-            <div className="overflow-x-auto rounded border">
-            <table className="min-w-full border-collapse text-sm">
+            <div className="sx-table-wrap">
+            <table className="sx-table">
               <thead>
                 <tr className="border-b text-left">
                   <th className="p-2">Fecha</th>
@@ -900,7 +900,7 @@ export default async function KardexPage({
             </div>
           </section>
 
-          <section className="overflow-x-auto rounded border">
+          <section className="sx-table-wrap">
             <h3 className="border-b p-3 text-base font-semibold">
               {personaSeleccionada
                 ? `Resumen de deuda de ${personaSeleccionada.nombre_completo}`
@@ -911,7 +911,7 @@ export default async function KardexPage({
                 ? "Qué muestra esta tabla: saldo neto de la persona filtrada, calculado como ingresos menos egresos."
                 : "Qué muestra esta tabla: sin filtro de persona, se agrupan todos los movimientos de dinero por persona y se calcula su saldo neto (ingresos - egresos)."}
             </p>
-            <table className="min-w-full border-collapse text-sm">
+            <table className="sx-table">
               <thead>
                 <tr className="border-b text-left">
                   <th className="p-2">Persona</th>

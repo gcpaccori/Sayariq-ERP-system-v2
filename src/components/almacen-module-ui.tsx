@@ -123,14 +123,14 @@ export default function AlmacenModuleUI({
               <button
                 type="button"
                 onClick={openCreate}
-                className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md active:shadow-none"
+                className="sx-btn sx-btn-primary"
               >
                 <Plus size={18} className="flex-shrink-0" />
                 <span>Registrar Lote</span>
               </button>
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+                className="sx-btn sx-btn-secondary"
               >
                 ← Inicio
               </Link>
@@ -222,7 +222,7 @@ export default function AlmacenModuleUI({
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="sx-table">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50 text-left">
                       <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Foto</th>

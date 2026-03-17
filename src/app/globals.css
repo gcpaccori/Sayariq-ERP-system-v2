@@ -1,8 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f7fb;
+  --foreground: #152238;
+  --surface: #ffffff;
+  --surface-soft: #f8fbff;
+  --border: #d9e2ef;
+  --border-strong: #c8d5e6;
+  --muted: #4f5d73;
+  --primary: #1a73e8;
+  --primary-hover: #1765cc;
+  --ring: 0 0 0 4px rgb(26 115 232 / 16%);
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
+  --shadow-md: 0 8px 24px rgb(16 24 40 / 8%);
 }
 
 @theme inline {
@@ -12,45 +25,44 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
-/* Tema visual Google 2027 (blanco) para módulos operativos */
+* {
+  box-sizing: border-box;
+}
+
+/* Design system base para módulos operativos (todo excepto dashboard) */
 .google-2027-theme {
-  --g-border: #dfe3eb;
-  --g-border-strong: #ccd3df;
-  --g-surface: #ffffff;
-  --g-surface-soft: #f8fbff;
-  --g-text: #202124;
-  --g-muted: #5f6368;
-  --g-accent: #1a73e8;
   min-height: 100vh;
-  color: var(--g-text);
-  background: linear-gradient(180deg, #ffffff 0%, var(--g-surface-soft) 100%);
+  color: var(--foreground);
+  background: linear-gradient(180deg, #ffffff 0%, var(--surface-soft) 100%);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.google-2027-theme {
+  --g-border: var(--border);
+  --g-border-strong: var(--border-strong);
+  --g-surface: var(--surface);
+  --g-surface-soft: var(--surface-soft);
+  --g-text: var(--foreground);
+  --g-muted: var(--muted);
+  --g-accent: var(--primary);
 }
 
 .google-2027-theme h1,
 .google-2027-theme h2,
 .google-2027-theme h3,
-.google-2027-theme h4 {
+.google-2027-theme h4,
+.google-2027-theme h5,
+.google-2027-theme h6 {
   color: var(--g-text);
   letter-spacing: -0.02em;
-}
-
-.google-2027-theme p,
-.google-2027-theme label,
-.google-2027-theme small {
-  color: var(--g-muted);
 }
 
 .google-2027-theme section,
@@ -61,33 +73,44 @@ body {
 .google-2027-theme .rounded-xl.border,
 .google-2027-theme .rounded-2xl.border,
 .google-2027-theme .rounded-3xl.border {
-  border-color: var(--g-border);
+  border: 1px solid var(--g-border);
   background: var(--g-surface);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 24px rgba(16, 24, 40, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .google-2027-theme a {
   color: #174ea6;
+  text-underline-offset: 2px;
+}
+
+.google-2027-theme p,
+.google-2027-theme label,
+.google-2027-theme small,
+.google-2027-theme li,
+.google-2027-theme td,
+.google-2027-theme th,
+.google-2027-theme span {
+  color: var(--g-muted);
 }
 
 .google-2027-theme input,
 .google-2027-theme select,
 .google-2027-theme textarea,
 .google-2027-theme button {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border-color: var(--g-border-strong);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, transform 0.15s ease;
 }
 
 .google-2027-theme button:not([class*="bg-"]) {
-  background: #fff;
+  background: var(--surface);
 }
 
 .google-2027-theme input:hover,
 .google-2027-theme select:hover,
 .google-2027-theme textarea:hover,
 .google-2027-theme button:hover {
-  border-color: #b9c5d7;
+  border-color: #b5c5db;
 }
 
 .google-2027-theme input:focus,
@@ -95,30 +118,42 @@ body {
 .google-2027-theme textarea:focus {
   outline: none;
   border-color: var(--g-accent);
-  box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.14);
+  box-shadow: var(--ring);
 }
 
 .google-2027-theme table {
+  width: 100%;
+  border-collapse: collapse;
   background: #fff;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .google-2027-theme thead {
-  background: #f6f9fe;
+  background: #f5f8fd;
 }
 
 .google-2027-theme th {
-  color: #3c4043;
+  color: #324257;
   font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.7rem 0.9rem;
 }
 
 .google-2027-theme td {
   color: var(--g-muted);
+  padding: 0.65rem 0.9rem;
 }
 
 .google-2027-theme tr {
-  border-color: #e6ebf3;
+  border-bottom: 1px solid #e6edf7;
+}
+
+.google-2027-theme tbody tr:hover {
+  background: #f8fbff;
 }
 
 .google-2027-theme .chip,
@@ -129,27 +164,6 @@ body {
   color: #174ea6;
 }
 
-
-/* Tipografía uniforme para módulos 1-9 */
-.google-2027-theme {
-  font-size: 15px;
-  line-height: 1.45;
-}
-
-.google-2027-theme p,
-.google-2027-theme label,
-.google-2027-theme span,
-.google-2027-theme li,
-.google-2027-theme td,
-.google-2027-theme th,
-.google-2027-theme input,
-.google-2027-theme select,
-.google-2027-theme textarea,
-.google-2027-theme button,
-.google-2027-theme a {
-  font-size: 0.95rem;
-}
-
 .google-2027-theme h1 {
   font-size: clamp(1.6rem, 2.4vw, 2rem);
 }
@@ -158,7 +172,7 @@ body {
   font-size: clamp(1.25rem, 2vw, 1.55rem);
 }
 
-/* Utilidades nuevas para Módulo 9 rediseñado */
+/* Utilidades de estado */
 .google-2027-theme {
   --status-success: #10b981;
   --status-success-light: #d1fae5;
@@ -170,9 +184,8 @@ body {
   --status-info-light: #dbeafe;
 }
 
-/* Tarjetas de estado mejoradas */
 .google-2027-theme .stat-card {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--g-border);
   background: var(--g-surface);
   padding: 1rem;
@@ -180,11 +193,10 @@ body {
 }
 
 .google-2027-theme .stat-card:hover {
-  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.1);
-  border-color: #c5d3e1;
+  box-shadow: var(--shadow-md);
+  border-color: #becfe3;
 }
 
-/* Status badges */
 .google-2027-theme .badge-success {
   background-color: rgba(16, 185, 129, 0.1);
   color: #047857;
@@ -209,7 +221,6 @@ body {
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
-/* Responsive grid para tarjetas */
 .google-2027-theme .stat-grid {
   display: grid;
   gap: 1rem;
@@ -222,11 +233,12 @@ body {
   }
 }
 
-/* Tabla responsive mejorada */
 .google-2027-theme .table-wrapper {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1);
+  border: 1px solid var(--g-border);
+  box-shadow: var(--shadow-sm);
+  background: var(--surface);
 }
 
 .google-2027-theme .table-wrapper table {
@@ -236,21 +248,21 @@ body {
 
 .google-2027-theme .table-wrapper thead {
   background: #f3f5fa;
-  border-bottom: 2px solid var(--g-border);
+  border-bottom: 1px solid var(--g-border);
 }
 
 .google-2027-theme .table-wrapper th {
-  padding: 12px 16px;
+  padding: 0.75rem 1rem;
   text-align: left;
   font-weight: 600;
-  color: #202124;
+  color: #324257;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .google-2027-theme .table-wrapper td {
-  padding: 12px 16px;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--g-border);
   color: var(--g-muted);
 }
@@ -263,17 +275,16 @@ body {
   background-color: #f8fbff;
 }
 
-/* Cards expandibles */
 .google-2027-theme .expand-card {
   border: 1px solid var(--g-border);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: var(--g-surface);
   overflow: hidden;
   transition: all 0.2s ease;
 }
 
 .google-2027-theme .expand-card:hover {
-  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+  box-shadow: var(--shadow-md);
   border-color: #c5d3e1;
 }
 
@@ -293,7 +304,6 @@ body {
   border-top: 1px solid var(--g-border);
 }
 
-/* Indicadores de ganancia */
 .google-2027-theme .profit-positive {
   color: #10b981;
   font-weight: 600;
@@ -304,7 +314,6 @@ body {
   font-weight: 600;
 }
 
-/* Tabs navigation */
 .google-2027-theme .tabs-nav {
   display: flex;
   gap: 0.5rem;
@@ -332,4 +341,362 @@ body {
 .google-2027-theme .tabs-nav button.active {
   color: var(--g-accent);
   border-bottom-color: var(--g-accent);
+}
+
+/* Primitivas reutilizables para nuevas pantallas */
+.google-2027-theme .sx-btn,
+.google-2027-theme .sx-input,
+.google-2027-theme .sx-select,
+.google-2027-theme .sx-textarea,
+.google-2027-theme .sx-card,
+.google-2027-theme .sx-table-wrap {
+  border-radius: var(--radius-md);
+}
+
+.google-2027-theme .sx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  padding: 0.58rem 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.google-2027-theme .sx-btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.google-2027-theme .sx-btn-primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.google-2027-theme .sx-btn-secondary {
+  background: #fff;
+  border-color: var(--g-border-strong);
+  color: #29384d;
+}
+
+.google-2027-theme .sx-btn-secondary:hover {
+  background: #f7faff;
+}
+
+.google-2027-theme .sx-input,
+.google-2027-theme .sx-select,
+.google-2027-theme .sx-textarea {
+  width: 100%;
+  border: 1px solid var(--g-border-strong);
+  background: #fff;
+  color: var(--g-text);
+  padding: 0.55rem 0.72rem;
+  font-size: 0.92rem;
+}
+
+.google-2027-theme .sx-input:focus,
+.google-2027-theme .sx-select:focus,
+.google-2027-theme .sx-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+
+/* Capa de compatibilidad: unifica clases históricas sin romper JSX existente */
+.google-2027-theme :is(button, a)[class*="bg-\\[\\#1A73E8\\]"],
+.google-2027-theme :is(button, a)[class*="hover:bg-\\[\\#1765CC\\]"],
+.google-2027-theme :is(button, a)[class*="bg-blue-600"] {
+  background: var(--primary) !important;
+  border: 1px solid var(--primary) !important;
+  color: #fff !important;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+}
+
+.google-2027-theme :is(button, a)[class*="bg-\\[\\#1A73E8\\]"]:hover,
+.google-2027-theme :is(button, a)[class*="hover:bg-\\[\\#1765CC\\]"]:hover,
+.google-2027-theme :is(button, a)[class*="bg-blue-600"]:hover {
+  background: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
+}
+
+.google-2027-theme :is(button, a)[class*="border-gray-300"][class*="bg-white"] {
+  border-color: var(--g-border-strong) !important;
+  color: #2d3f55 !important;
+  border-radius: var(--radius-md);
+}
+
+.google-2027-theme :is(input, select, textarea)[class*="border-gray-300"],
+.google-2027-theme :is(input, select, textarea)[class*="rounded border px-2 py-1"] {
+  border-color: var(--g-border-strong) !important;
+  border-radius: var(--radius-sm) !important;
+  background: #fff !important;
+  color: var(--g-text) !important;
+}
+
+.google-2027-theme :is(input, select, textarea)[class*="border-gray-300"]:focus,
+.google-2027-theme :is(input, select, textarea)[class*="rounded border px-2 py-1"]:focus {
+  border-color: var(--primary) !important;
+  box-shadow: var(--ring) !important;
+  outline: none !important;
+}
+
+.google-2027-theme table[class*="min-w-full border-collapse text-sm"],
+.google-2027-theme table[class*="w-full text-sm"],
+.google-2027-theme table[class*="min-w-full divide-y"] {
+  border: 1px solid var(--g-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #fff;
+}
+
+.google-2027-theme :is(th, td)[class*="px-4 py-3"],
+.google-2027-theme :is(th, td)[class*="px-2 py-2"] {
+  vertical-align: middle;
+}
+
+/* Responsivo nativo */
+@media (max-width: 1024px) {
+  .google-2027-theme {
+    font-size: 14.5px;
+  }
+
+  .google-2027-theme h1 {
+    font-size: clamp(1.4rem, 4.8vw, 1.8rem);
+  }
+
+  .google-2027-theme h2 {
+    font-size: clamp(1.12rem, 3.8vw, 1.35rem);
+  }
+}
+
+@media (max-width: 768px) {
+  .google-2027-theme {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .google-2027-theme .table-wrapper,
+  .google-2027-theme .overflow-x-auto {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .google-2027-theme .tabs-nav {
+    overflow-x: auto;
+    padding-bottom: 0.35rem;
+    scrollbar-width: thin;
+  }
+
+  .google-2027-theme .tabs-nav button {
+    white-space: nowrap;
+  }
+
+  .google-2027-theme :is(button, a)[class*="px-5 py-2.5"],
+  .google-2027-theme :is(button, a)[class*="px-4 py-2.5"] {
+    padding: 0.54rem 0.86rem !important;
+    font-size: 0.84rem !important;
+  }
+}
+
+/* Segunda pasada anti-frankenstein: menos encuadre y más jerarquía visual */
+.google-2027-theme {
+  --sx-space-1: 0.5rem;
+  --sx-space-2: 0.75rem;
+  --sx-space-3: 1rem;
+  --sx-space-4: 1.25rem;
+  --sx-space-5: 1.5rem;
+}
+
+.google-2027-theme :is(main, section, article, div)[class*="max-w-7xl"] {
+  width: min(100%, 96rem);
+}
+
+.google-2027-theme :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"] {
+  border-color: var(--g-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-sm);
+  background: #fff !important;
+}
+
+.google-2027-theme :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"]
+  :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"] {
+  border-color: #e7eef8 !important;
+  background: #fbfdff !important;
+  box-shadow: none !important;
+}
+
+.google-2027-theme :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"]
+  :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"]
+  :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"] {
+  border-color: #eef3fa !important;
+  background: #ffffff !important;
+}
+
+.google-2027-theme [class*="mb-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"],
+.google-2027-theme [class*="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"],
+.google-2027-theme [class*="overflow-x-auto rounded-xl border border-gray-200 bg-white"] {
+  border-color: var(--g-border) !important;
+  box-shadow: var(--shadow-sm) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+.google-2027-theme [style*="radial-gradient("] {
+  background-image: none !important;
+}
+
+.google-2027-theme [class*="grid gap-1"],
+.google-2027-theme [class*="grid gap-1.5"],
+.google-2027-theme [class*="grid gap-2"],
+.google-2027-theme [class*="grid gap-3"],
+.google-2027-theme [class*="grid gap-4"] {
+  row-gap: var(--sx-space-3);
+}
+
+.google-2027-theme [class*="px-3 py-2.5"],
+.google-2027-theme [class*="px-4 py-2.5"],
+.google-2027-theme [class*="px-5 py-2.5"] {
+  min-height: 2.5rem;
+}
+
+.google-2027-theme [class*="text-xs font-semibold uppercase tracking-wide"],
+.google-2027-theme [class*="text-xs font-semibold uppercase tracking-["] {
+  letter-spacing: 0.08em !important;
+  color: #5a687f !important;
+}
+
+.google-2027-theme .overflow-x-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #bfd0e7 transparent;
+}
+
+.google-2027-theme .overflow-x-auto::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.google-2027-theme .overflow-x-auto::-webkit-scrollbar-thumb {
+  background: #bfd0e7;
+  border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+  .google-2027-theme :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"] {
+    border-radius: var(--radius-sm) !important;
+  }
+
+  .google-2027-theme [class*="p-6"],
+  .google-2027-theme [class*="p-5"],
+  .google-2027-theme [class*="p-4"] {
+    padding: 0.85rem !important;
+  }
+}
+
+/* Tercera pasada: contrato de forma único (cards + tablas) */
+.google-2027-theme {
+  --sx-card-radius: 14px;
+  --sx-card-border: 1px solid var(--g-border);
+  --sx-card-shadow: var(--shadow-sm);
+  --sx-table-radius: 14px;
+  --sx-table-head-bg: #f4f8ff;
+  --sx-table-row-border: #e5edf8;
+}
+
+/* Cards unificadas: puede variar color/contenido, no la geometría */
+.google-2027-theme :is(div, section, article, aside, details)[class*="rounded-xl"][class*="border"],
+.google-2027-theme :is(div, section, article, aside, details)[class*="rounded-2xl"][class*="border"],
+.google-2027-theme :is(div, section, article, aside, details)[class*="rounded-lg"][class*="border"] {
+  border-radius: var(--sx-card-radius) !important;
+  border: var(--sx-card-border) !important;
+  box-shadow: var(--sx-card-shadow) !important;
+}
+
+.google-2027-theme :is(div, section, article, aside, details)[class*="bg-gradient-to-br"][class*="border"],
+.google-2027-theme :is(div, section, article, aside, details)[class*="bg-gradient-to-r"][class*="border"] {
+  border-radius: var(--sx-card-radius) !important;
+  border: var(--sx-card-border) !important;
+  box-shadow: var(--sx-card-shadow) !important;
+}
+
+/* Tablas reutilizables: todos los wrappers convergen a un solo look */
+.google-2027-theme .sx-table-wrap,
+.google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] {
+  border: 1px solid var(--g-border) !important;
+  border-radius: var(--sx-table-radius) !important;
+  background: #fff !important;
+  box-shadow: var(--shadow-sm) !important;
+  overflow: auto;
+}
+
+.google-2027-theme .sx-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.google-2027-theme .sx-table-wrap table,
+.google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.google-2027-theme .sx-table-wrap thead,
+.google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] thead {
+  background: var(--sx-table-head-bg) !important;
+}
+
+.google-2027-theme .sx-table-wrap th,
+.google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] th {
+  padding: 0.72rem 0.95rem !important;
+  font-size: 0.78rem !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  color: #324257 !important;
+  border-bottom: 1px solid var(--sx-table-row-border) !important;
+}
+
+.google-2027-theme .sx-table-wrap td,
+.google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] td {
+  padding: 0.68rem 0.95rem !important;
+  border-bottom: 1px solid var(--sx-table-row-border) !important;
+  vertical-align: middle !important;
+}
+
+.google-2027-theme .sx-table-wrap tbody tr:last-child td,
+.google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+.google-2027-theme .sx-table-wrap tbody tr:hover,
+.google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] tbody tr:hover {
+  background: #f7fbff !important;
+}
+
+@media (max-width: 768px) {
+  .google-2027-theme :is(div, section, article, aside, details)[class*="rounded-xl"][class*="border"],
+  .google-2027-theme :is(div, section, article, aside, details)[class*="rounded-2xl"][class*="border"],
+  .google-2027-theme :is(div, section, article, aside, details)[class*="rounded-lg"][class*="border"],
+  .google-2027-theme .sx-table-wrap,
+  .google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] {
+    border-radius: 10px !important;
+  }
+
+  .google-2027-theme .sx-table-wrap th,
+  .google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] th,
+  .google-2027-theme .sx-table-wrap td,
+  .google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] td {
+    padding: 0.58rem 0.72rem !important;
+  }
 }

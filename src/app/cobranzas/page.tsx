@@ -349,8 +349,8 @@ export default async function CobranzasPage({
         </p>
 
         <p className="mb-2 text-xs">Qué muestra esta tabla: pedidos disponibles para generar nueva liquidación de cliente.</p>
-        <div className="mb-3 overflow-x-auto rounded border">
-          <table className="min-w-full border-collapse text-sm">
+        <div className="mb-3 sx-table-wrap">
+          <table className="sx-table">
             <thead>
               <tr className="border-b text-left">
                 <th className="p-2">Pedido</th>
@@ -397,8 +397,8 @@ export default async function CobranzasPage({
             </p>
 
             <p className="text-xs">Qué muestra esta tabla: kg pendientes y precio por categoría que se liquidarán al cliente.</p>
-            <div className="overflow-x-auto rounded border">
-              <table className="min-w-full border-collapse text-sm">
+            <div className="sx-table-wrap">
+              <table className="sx-table">
                 <thead>
                   <tr className="border-b text-left">
                     <th className="p-2">Categoría</th>
@@ -573,8 +573,8 @@ export default async function CobranzasPage({
 
       <section className="rounded border p-4">
         <p className="mb-2 text-xs">Qué muestra esta tabla: historial de liquidaciones cliente con comprobantes y estado de cobro.</p>
-        <div className="overflow-x-auto rounded border">
-        <table className="min-w-full border-collapse text-sm">
+        <div className="sx-table-wrap">
+        <table className="sx-table">
           <thead>
             <tr className="border-b text-left">
               <th className="p-2">Foto</th>

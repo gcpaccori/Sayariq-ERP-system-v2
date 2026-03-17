@@ -199,7 +199,7 @@ export function LoteProfitabilityCard({
               <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100 mb-2 uppercase tracking-wide">
                 Detalles por categoría
               </h4>
-              <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-700">
+              <div className="sx-table-wrap">
                 <table className="min-w-full text-xs sm:text-sm">
                   <thead>
                     <tr className="bg-slate-200 dark:bg-slate-800">

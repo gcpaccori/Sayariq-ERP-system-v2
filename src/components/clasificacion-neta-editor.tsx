@@ -106,8 +106,8 @@ export default function ClasificacionNetaEditor({ categorias, rowsIniciales, pes
             : " (sin variación)."}
       </p>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="min-w-full divide-y divide-slate-200 text-xs">
+      <div className="sx-table-wrap">
+        <table className="sx-table">
           <thead className="bg-white text-slate-600">
             <tr>
               <th className="px-2 py-2 text-left">Categoría</th>

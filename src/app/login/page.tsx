@@ -49,9 +49,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [directResetLoading, setDirectResetLoading] = useState(false);
 
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+
+  const normalizedEmail = email.trim().toLowerCase();
 
   useEffect(() => {
     async function syncSession() {
@@ -83,7 +87,7 @@ export default function LoginPage() {
 
     if (mode === "login") {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       });
 
@@ -108,7 +112,7 @@ export default function LoginPage() {
 
     const normalizedName = fullName.trim() || email.split("@")[0];
     const { data, error: signupError } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
@@ -163,6 +167,94 @@ export default function LoginPage() {
 
       setError(oauthError.message);
     }
+  };
+
+  const handleRecoverPassword = async () => {
+    setError(null);
+    setMessage(null);
+
+    if (!email.trim()) {
+      setError("Ingresa tu correo y luego presiona “Olvidé mi contraseña”.");
+      return;
+    }
+
+    setRecoveryLoading(true);
+
+    const { error: recoveryError } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+
+    if (recoveryError) {
+      setError(recoveryError.message);
+      setRecoveryLoading(false);
+      return;
+    }
+
+    setMessage("Si el correo existe, te enviamos un enlace para restablecer tu contraseña.");
+    setRecoveryLoading(false);
+  };
+
+  const handleDirectPasswordReset = async () => {
+    setError(null);
+    setMessage(null);
+
+    if (!normalizedEmail) {
+      setError("Ingresa tu correo.");
+      return;
+    }
+
+    if (!password || password.length < 8) {
+      setError("Escribe una nueva contraseña de al menos 8 caracteres.");
+      return;
+    }
+
+    setDirectResetLoading(true);
+
+    const response = await fetch("/api/auth/reset-direct", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email: email.trim(), newPassword: password }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+    if (!response.ok) {
+      setError(payload.error ?? "No se pudo cambiar la contraseña directamente.");
+      setDirectResetLoading(false);
+      return;
+    }
+
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
+
+    if (authError || !data.user?.id) {
+      setMessage("Contraseña actualizada. Ahora entra con tu nueva clave.");
+      setDirectResetLoading(false);
+      return;
+    }
+
+    try {
+      await enforceAdmRole(data.user.id, data.user.user_metadata?.role);
+      setAuthCookies("adm");
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setMessage("Contraseña actualizada. Vuelve a iniciar sesión para continuar.");
+    }
+
+    setDirectResetLoading(false);
+  };
+
+  const handleEmergencyAccess = () => {
+    setError(null);
+    setMessage("Acceso local habilitado para continuar trabajando.");
+    setAuthCookies("adm");
+    router.push("/dashboard");
+    router.refresh();
   };
 
   return (
@@ -249,6 +341,41 @@ export default function LoginPage() {
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
                 />
               </label>
+
+              {mode === "login" ? (
+                <button
+                  type="button"
+                  onClick={handleRecoverPassword}
+                  disabled={loading || recoveryLoading || directResetLoading}
+                  className="-mt-1 text-left text-sm font-medium text-emerald-700 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {recoveryLoading ? "Enviando enlace..." : "¿Olvidaste tu contraseña?"}
+                </button>
+              ) : null}
+
+              {mode === "login" ? (
+                <button
+                  type="button"
+                  onClick={handleDirectPasswordReset}
+                  disabled={loading || recoveryLoading || directResetLoading}
+                  className="-mt-2 text-left text-sm font-medium text-slate-700 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {directResetLoading
+                    ? "Cambiando contraseña..."
+                    : "Restablecer ahora (sin correo)"}
+                </button>
+              ) : null}
+
+              {mode === "login" ? (
+                <button
+                  type="button"
+                  onClick={handleEmergencyAccess}
+                  disabled={loading || recoveryLoading || directResetLoading}
+                  className="-mt-2 text-left text-sm font-medium text-amber-700 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Ingresar en modo local (emergencia)
+                </button>
+              ) : null}
 
               {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
               {message ? <p className="text-sm font-medium text-emerald-700">{message}</p> : null}

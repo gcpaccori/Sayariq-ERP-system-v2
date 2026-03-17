@@ -278,12 +278,12 @@ export function PagoLiquidacionForm({
 
         <div id="liq-pagos-historial" className="mt-1 rounded-xl border border-gray-100 p-3 md:p-4" style={{ display: "none" }}>
           <h3 className="mb-2 text-sm font-semibold">Historial de pagos de este lote</h3>
-          <div id="liq-pagos-tabla" className="overflow-x-auto rounded-md border border-gray-100"></div>
+          <div id="liq-pagos-tabla" className="sx-table-wrap"></div>
         </div>
 
         <div id="liq-adelantos" className="mt-1 rounded-xl border border-gray-100 p-3 md:p-4" style={{ display: "none" }}>
           <h3 className="mb-2 text-sm font-semibold">Adelantos pendientes del productor</h3>
-          <div id="liq-adelantos-tabla" className="overflow-x-auto rounded-md border border-gray-100"></div>
+          <div id="liq-adelantos-tabla" className="sx-table-wrap"></div>
         </div>
 
         <section className="rounded-xl border border-gray-100 p-3 md:p-4">
@@ -350,7 +350,7 @@ export function PagoLiquidacionForm({
         </details>
 
         <div className="mt-2 flex justify-end rounded-xl border-t border-gray-200 pt-3">
-          <button type="submit" className="inline-flex items-center gap-2 rounded-lg bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1765CC]">Registrar pago</button>
+          <button type="submit" className="sx-btn sx-btn-primary">Registrar pago</button>
         </div>
       </form>
     </div>

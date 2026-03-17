@@ -102,8 +102,8 @@ export default async function ComprobanteLiquidacionPage({ params }: Props) {
 
         <section className="mt-5">
           <h2 className="mb-2 text-base font-semibold text-gray-900">Detalle por categoría pagada</h2>
-          <div className="overflow-x-auto rounded border border-gray-200">
-            <table className="min-w-full border-collapse text-sm">
+          <div className="sx-table-wrap">
+            <table className="sx-table">
               <thead>
                 <tr className="border-b bg-gray-50 text-left">
                   <th className="p-2">Código</th>

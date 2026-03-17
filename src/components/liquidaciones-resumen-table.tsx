@@ -145,7 +145,7 @@ export default function LiquidacionesResumenTable({
           </div>
 
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+            <table className="sx-table">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Foto</th>
@@ -247,11 +247,11 @@ export default function LiquidacionesResumenTable({
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => setPage(1)} disabled={page === 1} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">Primero</button>
-              <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">Anterior</button>
+              <button onClick={() => setPage(1)} disabled={page === 1} className="sx-btn sx-btn-secondary disabled:opacity-50 disabled:cursor-not-allowed">Primero</button>
+              <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="sx-btn sx-btn-secondary disabled:opacity-50 disabled:cursor-not-allowed">Anterior</button>
               <span className="text-sm">{page} / {totalPages}</span>
-              <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="inline-flex items-center gap-2 rounded-lg bg-[#1A73E8] px-3 py-1 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] disabled:opacity-50 disabled:cursor-not-allowed">Siguiente</button>
-              <button onClick={() => setPage(totalPages)} disabled={page === totalPages} className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">Último</button>
+              <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="sx-btn sx-btn-primary disabled:opacity-50 disabled:cursor-not-allowed">Siguiente</button>
+              <button onClick={() => setPage(totalPages)} disabled={page === totalPages} className="sx-btn sx-btn-secondary disabled:opacity-50 disabled:cursor-not-allowed">Último</button>
             </div>
           </div>
         </>
@@ -261,7 +261,7 @@ export default function LiquidacionesResumenTable({
       {openUrl ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setOpenUrl(null)}>
           <div className="max-h-[90vh] max-w-[90vw] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setOpenUrl(null)} className="mb-2 inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-[#1765CC]">Cerrar</button>
+            <button onClick={() => setOpenUrl(null)} className="sx-btn sx-btn-primary mb-2">Cerrar</button>
             <div className="rounded bg-white p-2">
               <Image src={openUrl} alt="Imagen" width={1200} height={800} className="h-auto w-full rounded object-contain" />
             </div>

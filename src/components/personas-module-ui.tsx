@@ -230,14 +230,14 @@ export default function PersonasModuleUI({
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="inline-flex items-center gap-2.5 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:text-white hover:shadow-md active:shadow-none"
+                className="sx-btn sx-btn-primary"
               >
                 <Plus size={18} className="flex-shrink-0" />
                 <span className="text-inherit">Registrar Persona</span>
               </button>
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+                className="sx-btn sx-btn-secondary"
               >
                 ← Inicio
               </Link>
@@ -331,7 +331,7 @@ export default function PersonasModuleUI({
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
+                <table className="sx-table">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50">
                       <th className="px-4 py-3 text-left font-semibold text-gray-700">Foto</th>

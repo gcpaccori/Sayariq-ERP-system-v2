@@ -29,7 +29,7 @@ export default async function KardexPrintPage({ searchParams }: { searchParams: 
       </div>
       <h1 className="mb-3 text-xl font-semibold">Kardex ({tab})</h1>
       <p className="mb-3 text-sm">Filtros fecha: {search.desde ?? "-"} a {search.hasta ?? "-"}</p>
-      <table className="min-w-full border-collapse text-sm">
+      <table className="sx-table">
         <thead>
           <tr className="border-b text-left">
             <th className="p-2">Fecha</th>

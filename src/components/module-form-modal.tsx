@@ -23,7 +23,7 @@ export default function ModuleFormModal({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2.5 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:text-white hover:shadow-md active:shadow-none"
+        className="sx-btn sx-btn-primary"
       >
         <Plus size={18} className="flex-shrink-0" />
         <span>{buttonLabel}</span>

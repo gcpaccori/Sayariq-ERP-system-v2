@@ -788,8 +788,8 @@ export default async function AlmacenPage({
                     Qué muestra esta tabla: formato de captura por categoría
                     para registrar la clasificación del lote.
                   </p>
-                  <div className="overflow-x-auto rounded-lg border border-gray-100">
-                    <table className="min-w-full border-collapse text-sm">
+                  <div className="sx-table-wrap">
+                    <table className="sx-table">
                       <thead>
                         <tr className="border-b text-left">
                           <th className="p-2">Categoría</th>
@@ -1008,8 +1008,8 @@ export default async function AlmacenPage({
                 Qué muestra esta tabla: resultado técnico de clasificación
                 (bruto, descuentos y neto) por categoría.
               </p>
-              <div className="overflow-x-auto rounded-lg border border-gray-100">
-                <table className="min-w-full border-collapse text-sm">
+              <div className="sx-table-wrap">
+                <table className="sx-table">
                   <thead>
                     <tr className="border-b text-left">
                       <th className="p-2">Código clasif.</th>
@@ -1057,8 +1057,8 @@ export default async function AlmacenPage({
                 Qué muestra esta tabla: comparación entre kg clasificados,
                 asignados y sobrantes por categoría.
               </p>
-              <div className="mb-4 overflow-x-auto rounded border">
-                <table className="min-w-full border-collapse text-sm">
+              <div className="mb-4 sx-table-wrap">
+                <table className="sx-table">
                   <thead>
                     <tr className="border-b text-left">
                       <th className="p-2">Categoría</th>
@@ -1090,8 +1090,8 @@ export default async function AlmacenPage({
                 Qué muestra esta tabla: a qué pedido/cliente se destinó cada
                 división del lote y su precio de venta.
               </p>
-              <div className="overflow-x-auto rounded border">
-                <table className="min-w-full border-collapse text-sm">
+              <div className="sx-table-wrap">
+                <table className="sx-table">
                   <thead>
                     <tr className="border-b text-left">
                       <th className="p-2">Código división</th>
@@ -1157,8 +1157,8 @@ export default async function AlmacenPage({
               Qué muestra esta tabla: listado general de lotes con estado
               operativo y accesos a acciones.
             </p>
-            <div className="overflow-x-auto rounded border">
-              <table className="min-w-full border-collapse text-sm">
+            <div className="sx-table-wrap">
+              <table className="sx-table">
                 <thead>
                   <tr className="border-b text-left">
                     <th className="p-2">Foto</th>
