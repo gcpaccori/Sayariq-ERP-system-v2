@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Provider } from "@supabase/supabase-js";
 
 import { normalizeRole, type SystemRole } from "@/lib/auth/roles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -15,14 +14,6 @@ function setAuthCookies(role: SystemRole) {
   document.cookie = `sayariq-auth=1; path=/; max-age=${oneDay}; samesite=lax`;
   document.cookie = `sayariq-role=${role}; path=/; max-age=${oneDay}; samesite=lax`;
 }
-
-const oauthProviders: Array<{ provider: Provider; label: string }> = [
-  { provider: "google", label: "Google" },
-  { provider: "twitter", label: "X / Twitter" },
-  { provider: "facebook", label: "Facebook" },
-  { provider: "github", label: "GitHub" },
-  { provider: "discord", label: "Discord" },
-];
 
 function isStrongPassword(password: string) {
   const hasUpper = /[A-Z]/.test(password);
@@ -124,29 +115,6 @@ export default function LoginPage() {
     );
     setMode("login");
     setLoading(false);
-  };
-
-  const handleOAuthLogin = async (provider: Provider) => {
-    setError(null);
-    setMessage(null);
-
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (oauthError) {
-      if (oauthError.message.toLowerCase().includes("provider is not enabled")) {
-        setError(
-          `El proveedor ${provider} no está habilitado en Supabase. Actívalo en Authentication > Providers.`
-        );
-        return;
-      }
-
-      setError(oauthError.message);
-    }
   };
 
   const handleRecoverPassword = async () => {
@@ -282,21 +250,6 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="my-5 h-px bg-slate-200" />
-
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">O usa login social</p>
-            <div className="grid grid-cols-1 gap-2">
-              {oauthProviders.map((item) => (
-                <button
-                  key={item.provider}
-                  type="button"
-                  onClick={() => handleOAuthLogin(item.provider)}
-                  className="inline-flex w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-                >
-                  Continuar con {item.label}
-                </button>
-              ))}
-            </div>
           </section>
         </div>
       </section>
