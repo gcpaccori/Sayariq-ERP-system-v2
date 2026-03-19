@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { ensureWriteAccess } from "@/lib/auth/server";
 import { normalizeRole, type SystemRole } from "@/lib/auth/roles";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient } from "@/lib/supabase/server";
 
 function getField(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -31,7 +31,18 @@ export async function updateUserRoleAction(formData: FormData) {
     redirectWithMessage("error", "Usuario inválido.");
   }
 
-  const supabase = getSupabaseServerClient();
+  let supabase: ReturnType<typeof getSupabaseAdminClient>;
+  try {
+    supabase = getSupabaseAdminClient();
+  } catch (error) {
+    redirectWithMessage(
+      "error",
+      error instanceof Error
+        ? error.message
+        : "No se pudo inicializar el cliente administrativo."
+    );
+  }
+
   const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
 
   if (userError || !userData.user) {

@@ -1,6 +1,6 @@
 import ModuleNavigation from "@/components/module-navigation";
 import { normalizeRole, type SystemRole } from "@/lib/auth/roles";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient } from "@/lib/supabase/server";
 
 import { updateUserRoleAction } from "./actions";
 
@@ -37,7 +37,19 @@ function parseDate(rawDate: string) {
 }
 
 async function getUsers(searchParams: SearchParams) {
-  const supabase = getSupabaseServerClient();
+  let supabase: ReturnType<typeof getSupabaseAdminClient>;
+  try {
+    supabase = getSupabaseAdminClient();
+  } catch (error) {
+    return {
+      users: [] as SecurityUser[],
+      error:
+        error instanceof Error
+          ? error.message
+          : "No se pudo inicializar el cliente administrativo.",
+    };
+  }
+
   const users: SecurityUser[] = [];
 
   for (let page = 1; page <= 5; page += 1) {
