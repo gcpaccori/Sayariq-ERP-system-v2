@@ -96,24 +96,24 @@ export default function LiquidacionesResumenTable({
               return <div key={row.id} className="rounded-lg border border-gray-100 bg-white p-3 shadow-sm">
                 <div className="flex items-start gap-3">
                   <div className="shrink-0">
-                      {fotoMap[row.id] ? (
-                        (() => {
-                          const { thumbSrc, imageSrc } = getFotoSources(fotoMap[row.id]);
-                          return thumbSrc ? (
-                            <button onClick={() => setOpenUrl(imageSrc)} className="block">
-                              <Image src={thumbSrc} alt={`Foto ${row.numero_liquidacion}`} width={64} height={64} className="h-16 w-16 rounded object-cover" />
-                            </button>
-                          ) : imageSrc ? (
-                            <button onClick={() => setOpenUrl(imageSrc)} className="block">
-                              <div className="h-16 w-16 overflow-hidden rounded bg-gray-100">
-                                <Image src={imageSrc} alt={`Foto ${row.numero_liquidacion}`} width={64} height={64} className="h-16 w-16 object-cover" />
-                              </div>
-                            </button>
-                          ) : (
-                            <div className="h-16 w-16 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500">-</div>
-                          );
-                        })()
-                      ) : (
+                    {fotoMap[row.id] ? (
+                      (() => {
+                        const { thumbSrc, imageSrc } = getFotoSources(fotoMap[row.id]);
+                        return thumbSrc ? (
+                          <button onClick={() => setOpenUrl(imageSrc)} className="block">
+                            <Image src={thumbSrc} alt={`Foto ${row.numero_liquidacion}`} width={64} height={64} className="h-16 w-16 rounded object-cover" />
+                          </button>
+                        ) : imageSrc ? (
+                          <button onClick={() => setOpenUrl(imageSrc)} className="block">
+                            <div className="h-16 w-16 overflow-hidden rounded bg-gray-100">
+                              <Image src={imageSrc} alt={`Foto ${row.numero_liquidacion}`} width={64} height={64} className="h-16 w-16 object-cover" />
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="h-16 w-16 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500">-</div>
+                        );
+                      })()
+                    ) : (
                       <div className="h-16 w-16 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500">-</div>
                     )}
                   </div>
@@ -159,14 +159,14 @@ export default function LiquidacionesResumenTable({
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Total a pagar</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Estado</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Estado pago</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Acciones</th>
+                  <th className="sticky right-0 bg-gray-50 px-4 py-3 text-center font-semibold text-gray-700 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] z-10">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {pageRows.map((row) => {
                   const { imageSrc } = getFotoSources(fotoMap[row.id]);
 
-                  return <tr key={row.id} className="transition duration-200 hover:bg-gray-50">
+                  return <tr key={row.id} className="group transition duration-200 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       {fotoMap[row.id] ? (
                         (() => {
@@ -205,8 +205,8 @@ export default function LiquidacionesResumenTable({
                     <td className="px-4 py-3">S/ {row.total_a_pagar}</td>
                     <td className="px-4 py-3">{row.estado}</td>
                     <td className="px-4 py-3">{row.estado_pago}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                    <td className="sticky right-0 bg-white px-4 py-3 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-gray-50 z-10">
+                      <div className="flex items-center justify-center gap-2">
                         {imageSrc ? (
                           <a
                             href={imageSrc}
@@ -240,7 +240,7 @@ export default function LiquidacionesResumenTable({
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600">Filas por página:</label>
               <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-                {[5,10,20,50].map((n) => (
+                {[5, 10, 20, 50].map((n) => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>

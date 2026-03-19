@@ -400,26 +400,26 @@ export default async function PedidosPage({
 
   const asignacionesPedidoSeleccionado = pedidoSeleccionado
     ? asignaciones.filter(
-        (row) => Number(row.pedido_id) === pedidoSeleccionado.id,
-      )
+      (row) => Number(row.pedido_id) === pedidoSeleccionado.id,
+    )
     : [];
 
   const kgAsignadoSeleccionado = pedidoSeleccionado
     ? round2(
-        asignacionesPedidoSeleccionado.reduce(
-          (acc, row) => acc + Number(row.kg_asignados ?? 0),
-          0,
-        ),
-      )
+      asignacionesPedidoSeleccionado.reduce(
+        (acc, row) => acc + Number(row.kg_asignados ?? 0),
+        0,
+      ),
+    )
     : 0;
 
   const kgFaltanteSeleccionado = pedidoSeleccionado
     ? round2(
-        Math.max(
-          0,
-          Number(pedidoSeleccionado.kg_solicitados) - kgAsignadoSeleccionado,
-        ),
-      )
+      Math.max(
+        0,
+        Number(pedidoSeleccionado.kg_solicitados) - kgAsignadoSeleccionado,
+      ),
+    )
     : 0;
 
   const loteIdsSel = [
@@ -431,9 +431,9 @@ export default async function PedidosPage({
   const { data: lotesSelData } =
     loteIdsSel.length > 0
       ? await supabase
-          .from("lotes")
-          .select("id,numero_lote")
-          .in("id", loteIdsSel)
+        .from("lotes")
+        .select("id,numero_lote")
+        .in("id", loteIdsSel)
       : { data: [] as Array<{ id: number; numero_lote: string }> };
 
   const loteMapSel = new Map<number, string>();
@@ -734,125 +734,108 @@ export default async function PedidosPage({
           </section>
 
           {pedidoEditar ? (
-            <section className="mb-8 rounded-xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-blue-900">
-                  Editar pedido {pedidoEditar.numero_pedido}
-                </h2>
-                <Link href="/pedidos" className="rounded border border-blue-300 bg-white px-2 py-1 text-xs">
-                  Cerrar
-                </Link>
-              </div>
-
+            <ModuleFormModal
+              isOpen={true}
+              closeHref="/pedidos"
+              title={`Editar Pedido ${pedidoEditar.numero_pedido}`}
+              description="Modifica los datos del pedido y guarda los cambios."
+              maxWidth="4xl"
+            >
               {(() => {
                 const categoriasPedido = pedidoEditar.categoria_id
                   ? [Number(pedidoEditar.categoria_id)]
                   : extractCategoriaIdsFromObs(pedidoEditar.observaciones);
 
                 return (
-              <form action={updatePedidoAction} className="grid gap-3">
-                <input type="hidden" name="pedido_id" value={pedidoEditar.id} />
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <label className="grid gap-1">
-                    <span className="text-sm">Cliente *</span>
-                    <select name="cliente_id" defaultValue={String(pedidoEditar.cliente_id)} className="rounded border px-2 py-1" required>
-                      {clientes.map((cliente) => (
-                        <option key={cliente.id} value={String(cliente.id)}>
-                          {cliente.nombre_completo}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <form action={updatePedidoAction} className="grid gap-4">
+                    <input type="hidden" name="pedido_id" value={pedidoEditar.id} />
+                    <div className="grid gap-4 sm:grid-cols-3">
+                      <label className="grid gap-1.5">
+                        <span className="text-sm font-semibold text-gray-900">Cliente *</span>
+                        <select name="cliente_id" defaultValue={String(pedidoEditar.cliente_id)} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required>
+                          {clientes.map((cliente) => (
+                            <option key={cliente.id} value={String(cliente.id)}>
+                              {cliente.nombre_completo}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                  <label className="grid gap-1">
-                    <span className="text-sm">Producto *</span>
-                    <select name="producto" defaultValue={pedidoEditar.producto} className="rounded border px-2 py-1" required>
-                      <option value="Jengibre">Jengibre</option>
-                      <option value="Curcuma">Curcuma</option>
-                    </select>
-                  </label>
+                      <label className="grid gap-1.5">
+                        <span className="text-sm font-semibold text-gray-900">Producto *</span>
+                        <select name="producto" defaultValue={pedidoEditar.producto} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required>
+                          <option value="Jengibre">Jengibre</option>
+                          <option value="Curcuma">Curcuma</option>
+                        </select>
+                      </label>
 
-                  <label className="grid gap-1 sm:col-span-3">
-                    <span className="text-sm">Categorías solicitadas (varias)</span>
-                    <select
-                      name="categoria_ids"
-                      multiple
-                      defaultValue={categoriasPedido.map((value) => String(value))}
-                      className="min-h-24 rounded border px-2 py-1"
-                    >
-                      {categorias.map((categoria) => (
-                        <option key={categoria.id} value={String(categoria.id)}>
-                          {categoria.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      <label className="grid gap-1.5 sm:col-span-3">
+                        <span className="text-sm font-semibold text-gray-900">Categorías solicitadas (varias)</span>
+                        <select
+                          name="categoria_ids"
+                          multiple
+                          defaultValue={categoriasPedido.map((value) => String(value))}
+                          className="min-h-24 rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                        >
+                          {categorias.map((categoria) => (
+                            <option key={categoria.id} value={String(categoria.id)}>
+                              {categoria.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                  <label className="grid gap-1">
-                    <span className="text-sm">Kg solicitados *</span>
-                    <input name="kg_solicitados" type="number" min="0" step="0.01" defaultValue={pedidoEditar.kg_solicitados} className="rounded border px-2 py-1" required />
-                  </label>
+                      <label className="grid gap-1.5">
+                        <span className="text-sm font-semibold text-gray-900">Kg solicitados *</span>
+                        <input name="kg_solicitados" type="number" min="0" step="0.01" defaultValue={pedidoEditar.kg_solicitados} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required />
+                      </label>
 
-                  <label className="grid gap-1">
-                    <span className="text-sm">Precio por kg *</span>
-                    <input name="precio_kg" type="number" min="0" step="0.01" defaultValue={pedidoEditar.precio_kg} className="rounded border px-2 py-1" required />
-                  </label>
+                      <label className="grid gap-1.5">
+                        <span className="text-sm font-semibold text-gray-900">Precio por kg *</span>
+                        <input name="precio_kg" type="number" min="0" step="0.01" defaultValue={pedidoEditar.precio_kg} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required />
+                      </label>
 
-                  <label className="grid gap-1">
-                    <span className="text-sm">Fecha pedido *</span>
-                    <input name="fecha_pedido" type="date" defaultValue={pedidoEditar.fecha_pedido} className="rounded border px-2 py-1" required />
-                  </label>
+                      <label className="grid gap-1.5">
+                        <span className="text-sm font-semibold text-gray-900">Fecha pedido *</span>
+                        <input name="fecha_pedido" type="date" defaultValue={pedidoEditar.fecha_pedido} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required />
+                      </label>
 
-                  <label className="grid gap-1">
-                    <span className="text-sm">Fecha entrega</span>
-                    <input name="fecha_entrega" type="date" defaultValue={pedidoEditar.fecha_entrega ?? ""} className="rounded border px-2 py-1" />
-                  </label>
+                      <label className="grid gap-1.5">
+                        <span className="text-sm font-semibold text-gray-900">Fecha entrega</span>
+                        <input name="fecha_entrega" type="date" defaultValue={pedidoEditar.fecha_entrega ?? ""} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                      </label>
 
-                  <label className="grid gap-1 sm:col-span-3">
-                    <span className="text-sm">Observaciones</span>
-                    <textarea name="observaciones" defaultValue={pedidoEditar.observaciones ?? ""} className="rounded border px-2 py-1" />
-                  </label>
-                </div>
+                      <label className="grid gap-1.5 sm:col-span-3">
+                        <span className="text-sm font-semibold text-gray-900">Observaciones</span>
+                        <textarea name="observaciones" defaultValue={pedidoEditar.observaciones ?? ""} className="min-h-20 rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                      </label>
+                    </div>
 
-                <div>
-                  <button type="submit" className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white">
-                    Guardar cambios pedido
-                  </button>
-                </div>
-              </form>
+                    <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row">
+                      <button type="submit" className="flex-1 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md">
+                        Guardar cambios pedido
+                      </button>
+                      <Link href="/pedidos" className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400">
+                        Cancelar
+                      </Link>
+                    </div>
+                  </form>
                 );
               })()}
-            </section>
+            </ModuleFormModal>
           ) : null}
 
           {pedidoSeleccionado ? (
-            <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Asignar lotes al pedido {pedidoSeleccionado.numero_pedido}
-                </h2>
-                <p className="mt-1 text-sm text-gray-600">
-                  Cliente:{" "}
-                  <span className="font-medium">
-                    {pedidosData.clienteMap.get(
-                      pedidoSeleccionado.cliente_id,
-                    ) ?? pedidoSeleccionado.cliente_id}
-                  </span>{" "}
-                  | Producto:{" "}
-                  <span className="font-medium">
-                    {pedidoSeleccionado.producto}
-                  </span>{" "}
-                  | Categoría:{" "}
-                  <span className="font-medium">
-                    {pedidoSeleccionado.categoria_id
-                      ? categoriaMap.get(pedidoSeleccionado.categoria_id)
-                      : "Varias"}
-                  </span>
-                </p>
-                <p className="mt-1 text-xs text-blue-700">
-                  Nota: puedes asignar cualquier categoría disponible del mismo producto.
-                </p>
-              </div>
+            <ModuleFormModal
+              isOpen={true}
+              closeHref="/pedidos"
+              title={`Asignar lotes al pedido ${pedidoSeleccionado.numero_pedido}`}
+              description={`Cliente: ${pedidosData.clienteMap.get(pedidoSeleccionado.cliente_id) ?? pedidoSeleccionado.cliente_id} | Producto: ${pedidoSeleccionado.producto} | Categoría: ${pedidoSeleccionado.categoria_id ? categoriaMap.get(pedidoSeleccionado.categoria_id) : "Varias"}`}
+              maxWidth="5xl"
+            >
+              <p className="mb-4 text-xs text-blue-700">
+                Nota: puedes asignar cualquier categoría disponible del mismo producto.
+              </p>
 
               <div className="mb-6 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border border-gray-200 bg-blue-50 p-4">
@@ -1030,7 +1013,7 @@ export default async function PedidosPage({
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
                         Fecha
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
+                      <th className="sticky right-0 bg-gray-50 px-4 py-3 text-center text-xs font-semibold uppercase text-gray-600 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] z-10">
                         Acciones
                       </th>
                     </tr>
@@ -1050,7 +1033,7 @@ export default async function PedidosPage({
                     {asignacionesPedidoSeleccionado.map((row) => (
                       <tr
                         key={row.id}
-                        className="border-b border-gray-200 hover:bg-gray-50"
+                        className="group border-b border-gray-200 hover:bg-gray-50"
                       >
                         <td className="px-4 py-3 font-medium">
                           {loteMapSel.get(Number(row.lote_id)) ?? row.lote_id}
@@ -1069,8 +1052,8 @@ export default async function PedidosPage({
                           {row.subtotal}
                         </td>
                         <td className="px-4 py-3">{row.fecha_asignacion}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
+                        <td className="sticky right-0 bg-white px-4 py-3 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-gray-50 z-10">
+                          <div className="flex flex-wrap items-start justify-center gap-2">
                             <form action={updateAsignacionPedidoAction} className="flex flex-wrap items-center gap-2">
                               <input type="hidden" name="asignacion_id" value={String(row.id)} />
                               <input
@@ -1121,7 +1104,7 @@ export default async function PedidosPage({
                   </tbody>
                 </table>
               </div>
-            </section>
+            </ModuleFormModal>
           ) : null}
 
           <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -1171,7 +1154,7 @@ export default async function PedidosPage({
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
                       Estado
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
+                    <th className="sticky right-0 bg-gray-50 px-4 py-3 text-center text-xs font-semibold uppercase text-gray-600 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] z-10">
                       Acciones
                     </th>
                   </tr>
@@ -1207,7 +1190,7 @@ export default async function PedidosPage({
                     return (
                       <tr
                         key={pedido.id}
-                        className="border-b border-gray-200 align-top hover:bg-gray-50"
+                        className="group border-b border-gray-200 align-top hover:bg-gray-50"
                       >
                         <td className="px-4 py-3 font-medium text-gray-900">
                           {pedido.numero_pedido}
@@ -1266,8 +1249,8 @@ export default async function PedidosPage({
                             {pedido.estado}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-2">
+                        <td className="sticky right-0 bg-white px-4 py-3 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-gray-50 z-10">
+                          <div className="flex flex-wrap items-start justify-center gap-2">
                             {pedido.estado !== "cancelado" ? (
                               <Link
                                 href={`/pedidos?asignar=${pedido.id}`}

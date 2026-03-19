@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
-import FormToggleSection from "@/components/form-toggle-section";
+import ModuleFormModal from "@/components/module-form-modal";
 import PersonSearchField from "@/components/person-search-field";
 
 type Tab = "stock" | "lotes" | "dinero";
@@ -238,9 +238,9 @@ async function getAsignacionesContext(rows: KardexRow[]) {
   const { data: pedidos } =
     pedidoIds.length > 0
       ? await supabase
-          .from("pedidos")
-          .select("id,numero_pedido,precio_kg")
-          .in("id", pedidoIds)
+        .from("pedidos")
+        .select("id,numero_pedido,precio_kg")
+        .in("id", pedidoIds)
       : { data: [] as Array<{ id: number; numero_pedido: string; precio_kg: number }> };
 
   const pedidoMap = new Map<number, { numero_pedido: string; precio_kg: number }>();
@@ -427,9 +427,9 @@ export default async function KardexPage({
   const { data: clasifVigenteData } =
     loteIdsDetalle.length > 0
       ? await getSupabaseServerClient()
-          .from("vw_lote_clasificacion_vigente")
-          .select("lote_id,categoria_id,numero_jabas")
-          .in("lote_id", loteIdsDetalle)
+        .from("vw_lote_clasificacion_vigente")
+        .select("lote_id,categoria_id,numero_jabas")
+        .in("lote_id", loteIdsDetalle)
       : { data: [] as ClasificacionVigenteJabas[] };
 
   const jabasVigenteMap = new Map<string, number>();
@@ -510,448 +510,477 @@ export default async function KardexPage({
       <ModuleNavigation currentModule="kardex" />
       <main className="google-2027-theme w-full flex-1 p-6">
         <div className="mx-auto w-full max-w-7xl">
-        <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <h1 className="text-2xl font-semibold">Módulo 4: Kardex General</h1>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
-          >
-            ← Inicio
-          </Link>
-      </div>
-
-      <section className="mb-4 rounded border p-4">
-        <p className="text-sm">
-          El kardex unifica movimientos de producto y dinero en un solo historial auditable. Las cards
-          resumen la posición actual (stock, deudas y volumen de movimientos) y los tabs detallan origen,
-          impacto y trazabilidad.
-        </p>
-      </section>
-
-      {kardexData.errorMessage ? (
-        <p className="mb-4 rounded border border-red-600 p-2 text-sm">{kardexData.errorMessage}</p>
-      ) : null}
-
-      <section className="mb-6 grid gap-3 sm:grid-cols-5">
-        <div className="rounded border p-3">
-          <p className="text-sm">Kg en almacén</p>
-          <p className="text-2xl font-bold">{totalKgDisponibles}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Categorías con stock</p>
-          <p className="text-2xl font-bold">{categoriasConStock}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Movimientos</p>
-          <p className="text-2xl font-bold">{totalMovimientos}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Deudas a productores</p>
-          <p className="text-2xl font-bold">{totalDeudaProductores}</p>
-        </div>
-        <div className="rounded border p-3">
-          <p className="text-sm">Deudas de clientes</p>
-          <p className="text-2xl font-bold">{totalDeudaClientes}</p>
-        </div>
-      </section>
-
-      <section className="mb-6 rounded border p-4">
-        <h2 className="mb-3 text-lg font-semibold">Gráfico mensual (últimos 12 meses)</h2>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded border p-3">
-            <h3 className="mb-2 font-medium">Dinero: ingreso vs egreso</h3>
-            <div className="space-y-2 text-sm">
-              {monthlySeries.length === 0 ? <p>Sin datos mensuales.</p> : null}
-              {monthlySeries.map((row) => (
-                <div key={`dinero-${row.month}`} className="rounded border p-2">
-                  <p className="mb-1 font-medium">{row.month}</p>
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="w-20">Ingreso</span>
-                    <div className="h-3 flex-1 rounded border">
-                      <div
-                        className="h-full bg-green-600"
-                        style={{ width: `${Math.max(2, (row.dinero_ingreso / maxDinero) * 100)}%` }}
-                      />
-                    </div>
-                    <span>{row.dinero_ingreso}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-20">Egreso</span>
-                    <div className="h-3 flex-1 rounded border">
-                      <div
-                        className="h-full bg-red-600"
-                        style={{ width: `${Math.max(2, (row.dinero_egreso / maxDinero) * 100)}%` }}
-                      />
-                    </div>
-                    <span>{row.dinero_egreso}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Módulo 4: Kardex General</h1>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+            >
+              ← Inicio
+            </Link>
           </div>
 
-          <div className="rounded border p-3">
-            <h3 className="mb-2 font-medium">Carga: entrada vs salida</h3>
-            <div className="space-y-2 text-sm">
-              {monthlySeries.length === 0 ? <p>Sin datos mensuales.</p> : null}
-              {monthlySeries.map((row) => (
-                <div key={`carga-${row.month}`} className="rounded border p-2">
-                  <p className="mb-1 font-medium">{row.month}</p>
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="w-20">Entrada</span>
-                    <div className="h-3 flex-1 rounded border">
-                      <div
-                        className="h-full bg-blue-600"
-                        style={{ width: `${Math.max(2, (row.carga_entrada / maxCarga) * 100)}%` }}
-                      />
-                    </div>
-                    <span>{row.carga_entrada}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-20">Salida</span>
-                    <div className="h-3 flex-1 rounded border">
-                      <div
-                        className="h-full bg-orange-600"
-                        style={{ width: `${Math.max(2, (row.carga_salida / maxCarga) * 100)}%` }}
-                      />
-                    </div>
-                    <span>{row.carga_salida}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="mb-4 rounded border p-4">
-        <FormToggleSection title="Filtros" description="Refina movimientos y trazabilidad del kardex.">
-        <form className="grid gap-3 sm:grid-cols-5">
-          <input
-            name="q"
-            defaultValue={search.q ?? ""}
-            placeholder="Buscar por concepto"
-            className="rounded border px-2 py-1 sm:col-span-2"
-          />
-
-          <select
-            name="tipo_kardex"
-            defaultValue={search.tipo_kardex ?? "todos"}
-            className="rounded border px-2 py-1"
-          >
-            <option value="todos">Tipo kardex: todos</option>
-            <option value="producto">producto</option>
-            <option value="dinero">dinero</option>
-          </select>
-
-          <select
-            name="tipo_movimiento"
-            defaultValue={search.tipo_movimiento ?? "todos"}
-            className="rounded border px-2 py-1"
-          >
-            <option value="todos">Movimientos: todos</option>
-            <option value="entrada">entrada</option>
-            <option value="clasificacion">clasificacion</option>
-            <option value="salida">salida</option>
-            <option value="ingreso">ingreso</option>
-            <option value="egreso">egreso</option>
-          </select>
-
-          <select name="origen" defaultValue={search.origen ?? "todos"} className="rounded border px-2 py-1">
-            <option value="todos">Origen: todos</option>
-            <option value="lote_ingreso">lote_ingreso</option>
-            <option value="clasificacion">clasificacion</option>
-            <option value="asignacion_pedido">asignacion_pedido</option>
-            <option value="liquidacion_productor">liquidacion_productor</option>
-            <option value="liquidacion_cliente">liquidacion_cliente</option>
-            <option value="adelanto">adelanto</option>
-            <option value="pago_directo">pago_directo</option>
-            <option value="ajuste">ajuste</option>
-          </select>
-
-          <label className="grid gap-1">
-            <span className="text-xs">Desde</span>
-            <input name="desde" type="date" min={dateScope.minDate} max={dateScope.maxDate} defaultValue={normalizedSearch.desde ?? ""} className="rounded border px-2 py-1" />
-          </label>
-
-          <label className="grid gap-1">
-            <span className="text-xs">Hasta</span>
-            <input name="hasta" type="date" min={dateScope.minDate} max={dateScope.maxDate} defaultValue={normalizedSearch.hasta ?? ""} className="rounded border px-2 py-1" />
-          </label>
-
-          <label className="grid gap-1">
-            <span className="text-xs">Mes</span>
-            <input name="mes" type="month" defaultValue={search.mes ?? ""} className="rounded border px-2 py-1" />
-          </label>
-
-          <select name="rango" defaultValue={search.rango ?? "todos"} className="rounded border px-2 py-1">
-            <option value="todos">Rango rápido: todos</option>
-            <option value="ultimo_mes">Último mes hacia atrás</option>
-          </select>
-
-          <PersonSearchField
-            name="persona"
-            label="Persona"
-            people={catalogs.personas}
-            defaultId={Number(search.persona ?? "0")}
-            placeholder="Buscar persona por nombre o DNI"
-          />
-
-          <select name="lote" defaultValue={search.lote ?? ""} className="rounded border px-2 py-1">
-            <option value="">Lote: todos</option>
-            {catalogs.lotes.map((lote) => (
-              <option key={lote.id} value={String(lote.id)}>
-                {lote.numero_lote}
-              </option>
-            ))}
-          </select>
-
-          <select name="categoria" defaultValue={search.categoria ?? ""} className="rounded border px-2 py-1">
-            <option value="">Categoría: todas</option>
-            {catalogs.categorias.map((categoria) => (
-              <option key={categoria.id} value={String(categoria.id)}>
-                {categoria.nombre}
-              </option>
-            ))}
-          </select>
-
-          <input type="hidden" name="tab" value={tab} />
-          <input type="hidden" name="page" value="1" />
-
-          <select name="page_size" defaultValue={String(pageSize)} className="rounded border px-2 py-1">
-            <option value="25">25 por página</option>
-            <option value="50">50 por página</option>
-            <option value="100">100 por página</option>
-          </select>
-
-          <div className="sm:col-span-5">
-            <button className="rounded border px-3 py-1">Aplicar filtros</button>
-          </div>
-        </form>
-        </FormToggleSection>
-      </section>
-
-      <section className="mb-4 flex flex-wrap gap-2">
-        <Link href={buildFilterQuery(queryParams, "stock")} className="rounded border px-3 py-1 text-sm">
-          Stock por categoría
-        </Link>
-        <Link href={buildFilterQuery(queryParams, "lotes")} className="rounded border px-3 py-1 text-sm">
-          Detalle por lote
-        </Link>
-        <Link href={buildFilterQuery(queryParams, "dinero")} className="rounded border px-3 py-1 text-sm">
-          Movimientos de dinero
-        </Link>
-      </section>
-
-      <section className="mb-4 flex flex-wrap gap-2">
-        <Link href={exportCsvHref} className="rounded border px-3 py-1 text-sm">Exportar Excel (CSV)</Link>
-        <Link href={printHref} className="rounded border px-3 py-1 text-sm" target="_blank">Imprimir / Guardar PDF</Link>
-      </section>
-
-      {tab === "stock" ? (
-        <section className="rounded border p-4">
-          <p className="mb-2 text-xs">Qué muestra esta tabla: balance de entrada, salida y stock disponible por categoría.</p>
-          <div className="sx-table-wrap">
-          <table className="sx-table">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Categoría</th>
-                <th className="p-2">Kg entrados (clasif.)</th>
-                <th className="p-2">Kg salidos (asignados)</th>
-                <th className="p-2">Kg disponibles</th>
-                <th className="p-2">Lotes con stock</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stockRows.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-3 text-center">
-                    Sin movimientos para mostrar.
-                  </td>
-                </tr>
-              ) : null}
-
-              {stockPageRows.map((row) => (
-                <tr key={row.categoria_id} className="border-b">
-                  <td className="p-2">{row.categoria}</td>
-                  <td className="p-2">{row.kg_entrados}</td>
-                  <td className="p-2">{row.kg_salidos}</td>
-                  <td className="p-2">{row.kg_disponibles}</td>
-                  <td className="p-2">{row.lotes_con_stock}</td>
-                </tr>
-              ))}
-
-              <tr className="border-t font-semibold">
-                <td className="p-2">TOTAL</td>
-                <td className="p-2">{totalKgEntrados}</td>
-                <td className="p-2">{totalKgSalidos}</td>
-                <td className="p-2">{totalKgDisponibles}</td>
-                <td className="p-2">-</td>
-              </tr>
-            </tbody>
-          </table>
-          </div>
-        </section>
-      ) : null}
-
-      {tab === "lotes" ? (
-        <section className="rounded border p-4">
-          <p className="mb-2 text-xs">Qué muestra esta tabla: movimientos de producto por lote con destino comercial y precios.</p>
-          <div className="sx-table-wrap">
-          <table className="sx-table">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Lote</th>
-                <th className="p-2">Persona</th>
-                <th className="p-2">Fecha</th>
-                <th className="p-2">Tipo Mov.</th>
-                <th className="p-2">Categoría</th>
-                <th className="p-2">Kg</th>
-                <th className="p-2">N° jabas (cat.)</th>
-                <th className="p-2">Destino venta</th>
-                <th className="p-2">Precio plan/kg</th>
-                <th className="p-2">Precio venta/kg</th>
-                <th className="p-2">Subtotal venta</th>
-                <th className="p-2">Concepto</th>
-              </tr>
-            </thead>
-            <tbody>
-              {detalleLotesRows.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="p-3 text-center">
-                    Sin movimientos de producto.
-                  </td>
-                </tr>
-              ) : null}
-
-                {lotesPageRows.map((row) => {
-                const kgValue = Number(row.peso_kg ?? 0);
-                const signedKg = row.tipo_movimiento === "salida" ? -Math.abs(kgValue) : kgValue;
-                const asignacionCtx = row.origen_id
-                  ? asignacionContextMap.get(Number(row.origen_id))
-                  : undefined;
-
-                const jabasKey = loteCategoriaKey(row.lote_id, row.categoria_id);
-                const numeroJabas = jabasKey ? jabasVigenteMap.get(jabasKey) : undefined;
-
-                return (
-                  <tr key={row.id} className="border-b align-top">
-                    <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
-                    <td className="p-2">{row.persona_id ? personaMap.get(row.persona_id) ?? row.persona_id : "-"}</td>
-                    <td className="p-2">{new Date(row.fecha).toLocaleString()}</td>
-                    <td className="p-2">{row.tipo_movimiento}</td>
-                    <td className="p-2">{row.categoria_id ? categoriaMap.get(row.categoria_id) ?? row.categoria_id : "-"}</td>
-                    <td className="p-2">{round2(signedKg)}</td>
-                    <td className="p-2">{typeof numeroJabas === "number" ? numeroJabas : "-"}</td>
-                    <td className="p-2">{asignacionCtx?.pedidoNumero ?? "-"}</td>
-                    <td className="p-2">{asignacionCtx ? asignacionCtx.precioPlanKg : "-"}</td>
-                    <td className="p-2">{asignacionCtx ? asignacionCtx.precioVentaKg : "-"}</td>
-                    <td className="p-2">{asignacionCtx ? asignacionCtx.subtotalVenta : "-"}</td>
-                    <td className="p-2">{row.concepto}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
-        </section>
-      ) : null}
-
-      {tab === "dinero" ? (
-        <>
-          <section className="mb-6 rounded border p-4">
-            <p className="mb-2 text-xs">Qué muestra esta tabla: detalle cronológico de ingresos y egresos monetarios del kardex.</p>
-            <div className="sx-table-wrap">
-            <table className="sx-table">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Fecha</th>
-                  <th className="p-2">Persona</th>
-                  <th className="p-2">Tipo</th>
-                  <th className="p-2">Origen</th>
-                  <th className="p-2">Concepto</th>
-                  <th className="p-2">Monto</th>
-                  <th className="p-2">Dirección</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dineroRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-3 text-center">
-                      Sin movimientos de dinero.
-                    </td>
-                  </tr>
-                ) : null}
-
-                {dineroPageRows.map((row) => (
-                  <tr key={row.id} className="border-b align-top">
-                    <td className="p-2">{new Date(row.fecha).toLocaleString()}</td>
-                    <td className="p-2">{row.persona_id ? personaMap.get(row.persona_id) ?? row.persona_id : "-"}</td>
-                    <td className="p-2">{row.tipo_movimiento}</td>
-                    <td className="p-2">{row.origen}</td>
-                    <td className="p-2">{row.concepto}</td>
-                    <td className="p-2">{round2(Number(row.monto ?? 0))}</td>
-                    <td className="p-2">{row.tipo_movimiento === "egreso" ? "Empresa -> Persona" : "Persona -> Empresa"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </section>
-
-          <section className="sx-table-wrap">
-            <h3 className="border-b p-3 text-base font-semibold">
-              {personaSeleccionada
-                ? `Resumen de deuda de ${personaSeleccionada.nombre_completo}`
-                : "Resumen global de deudas (agrupado por persona)"}
-            </h3>
-            <p className="px-3 pt-2 text-xs">
-              {personaSeleccionada
-                ? "Qué muestra esta tabla: saldo neto de la persona filtrada, calculado como ingresos menos egresos."
-                : "Qué muestra esta tabla: sin filtro de persona, se agrupan todos los movimientos de dinero por persona y se calcula su saldo neto (ingresos - egresos)."}
+          <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">
+            <p className="text-sm text-gray-700">
+              El kardex unifica movimientos de producto y dinero en un solo historial auditable. Las cards
+              resumen la posición actual (stock, deudas y volumen de movimientos) y los tabs detallan origen,
+              impacto y trazabilidad.
             </p>
-            <table className="sx-table">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Persona</th>
-                  <th className="p-2">Total deudas (nos deben)</th>
-                  <th className="p-2">Total deudas (debemos)</th>
-                  <th className="p-2">Saldo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {saldosRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="p-3 text-center">
-                      Sin saldos para mostrar.
-                    </td>
-                  </tr>
-                ) : null}
-
-                {saldosRows.map((row) => (
-                  <tr key={row.persona_id} className="border-b">
-                    <td className="p-2">{row.nombre}</td>
-                    <td className="p-2">{row.total_deudas_nos_deben}</td>
-                    <td className="p-2">{row.total_deudas_debemos}</td>
-                    <td className="p-2">{row.saldo}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </section>
-        </>
-      ) : null}
 
-      <section className="mt-4 flex items-center gap-3 text-sm">
-        <span>Página {safePage} de {totalPages}</span>
-        {safePage > 1 ? (
-          <Link href={`/kardex?${new URLSearchParams({ ...Object.fromEntries(queryParams), tab, page: String(safePage - 1) }).toString()}`} className="rounded border px-2 py-1">Anterior</Link>
-        ) : null}
-        {safePage < totalPages ? (
-          <Link href={`/kardex?${new URLSearchParams({ ...Object.fromEntries(queryParams), tab, page: String(safePage + 1) }).toString()}`} className="rounded border px-2 py-1">Siguiente</Link>
-        ) : null}
-      </section>
+          {kardexData.errorMessage ? (
+            <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">✕ {kardexData.errorMessage}</p>
+          ) : null}
+
+          <section className="mb-6 grid gap-3 sm:grid-cols-5">
+            <div className="rounded-xl bg-gradient-to-br from-green-50 to-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-green-600">Kg en almacén</p>
+              <p className="mt-1 text-2xl font-bold text-green-900">{totalKgDisponibles}</p>
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Categorías con stock</p>
+              <p className="mt-1 text-2xl font-bold text-blue-900">{categoriasConStock}</p>
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-white to-gray-100 p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Movimientos</p>
+              <p className="mt-1 text-2xl font-bold text-gray-900">{totalMovimientos}</p>
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-orange-50 to-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Deudas a productores</p>
+              <p className="mt-1 text-2xl font-bold text-orange-900">{totalDeudaProductores}</p>
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-red-600">Deudas de clientes</p>
+              <p className="mt-1 text-2xl font-bold text-red-900">{totalDeudaClientes}</p>
+            </div>
+          </section>
+
+          <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-bold tracking-tight text-gray-900">Gráfico mensual (últimos 12 meses)</h2>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-xl bg-gray-50 p-4 shadow-inner">
+                <h3 className="mb-2 font-medium">Dinero: ingreso vs egreso</h3>
+                <div className="space-y-2 text-sm">
+                  {monthlySeries.length === 0 ? <p>Sin datos mensuales.</p> : null}
+                  {monthlySeries.map((row) => (
+                    <div key={`dinero-${row.month}`} className="rounded-xl bg-white p-3 shadow-sm md:shadow-md">
+                      <p className="mb-1 font-medium">{row.month}</p>
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="w-20">Ingreso</span>
+                        <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-green-500 to-green-600"
+                            style={{ width: `${Math.max(2, (row.dinero_ingreso / maxDinero) * 100)}%` }}
+                          />
+                        </div>
+                        <span>{row.dinero_ingreso}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-20">Egreso</span>
+                        <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-red-400 to-red-600"
+                            style={{ width: `${Math.max(2, (row.dinero_egreso / maxDinero) * 100)}%` }}
+                          />
+                        </div>
+                        <span>{row.dinero_egreso}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-gray-50 p-4 shadow-inner">
+                <h3 className="mb-2 font-medium">Carga: entrada vs salida</h3>
+                <div className="space-y-2 text-sm">
+                  {monthlySeries.length === 0 ? <p>Sin datos mensuales.</p> : null}
+                  {monthlySeries.map((row) => (
+                    <div key={`carga-${row.month}`} className="rounded-xl bg-white p-3 shadow-sm md:shadow-md">
+                      <p className="mb-1 font-medium">{row.month}</p>
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="w-20">Entrada</span>
+                        <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
+                            style={{ width: `${Math.max(2, (row.carga_entrada / maxCarga) * 100)}%` }}
+                          />
+                        </div>
+                        <span>{row.carga_entrada}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-20">Salida</span>
+                        <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-orange-400 to-orange-600"
+                            style={{ width: `${Math.max(2, (row.carga_salida / maxCarga) * 100)}%` }}
+                          />
+                        </div>
+                        <span>{row.carga_salida}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold tracking-tight text-gray-900">Filtros de Búsqueda</h2>
+              <p className="text-xs text-slate-500">Ajusta los criterios para refinar el Kardex</p>
+            </div>
+            <form className="grid gap-4 grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              <div className="grid gap-1.5 sm:col-span-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Búsqueda rápida</span>
+                <input
+                  name="q"
+                  defaultValue={search.q ?? ""}
+                  placeholder="Buscar por concepto o documento..."
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                />
+              </div>
+
+              <div className="grid gap-1.5 ">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tipo Kardex</span>
+                <select
+                  name="tipo_kardex"
+                  defaultValue={search.tipo_kardex ?? "todos"}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="producto">Producto</option>
+                  <option value="dinero">Dinero</option>
+                </select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Movimiento</span>
+                <select
+                  name="tipo_movimiento"
+                  defaultValue={search.tipo_movimiento ?? "todos"}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="entrada">Entrada</option>
+                  <option value="clasificacion">Clasificación</option>
+                  <option value="salida">Salida</option>
+                  <option value="ingreso">Ingreso</option>
+                  <option value="egreso">Egreso</option>
+                </select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Origen</span>
+                <select name="origen" defaultValue={search.origen ?? "todos"} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
+                  <option value="todos">Todos los orígenes</option>
+                  <option value="lote_ingreso">Lote Ingreso</option>
+                  <option value="clasificacion">Clasificación</option>
+                  <option value="asignacion_pedido">Asignación Pedido</option>
+                  <option value="liquidacion_productor">Liquidación Productor</option>
+                  <option value="liquidacion_cliente">Liquidación Cliente</option>
+                  <option value="adelanto">Adelanto</option>
+                  <option value="pago_directo">Pago Directo</option>
+                  <option value="ajuste">Ajuste</option>
+                </select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Fecha desde</span>
+                <input name="desde" type="date" min={dateScope.minDate} max={dateScope.maxDate} defaultValue={normalizedSearch.desde ?? ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+              </div>
+
+              <div className="grid gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Fecha hasta</span>
+                <input name="hasta" type="date" min={dateScope.minDate} max={dateScope.maxDate} defaultValue={normalizedSearch.hasta ?? ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+              </div>
+
+              <div className="grid gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">O por Mes</span>
+                <input name="mes" type="month" defaultValue={search.mes ?? ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+              </div>
+
+              <div className="grid gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Rápido</span>
+                <select name="rango" defaultValue={search.rango ?? "todos"} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
+                  <option value="todos">Cualquier fecha</option>
+                  <option value="ultimo_mes">Último mes</option>
+                </select>
+              </div>
+
+              <div className="grid gap-1.5 sm:col-span-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Persona (Productor/Cliente)</span>
+                <PersonSearchField
+                  name="persona"
+                  label=""
+                  people={catalogs.personas}
+                  defaultId={Number(search.persona ?? "0")}
+                  placeholder="Nombre o DNI..."
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Lote</span>
+                <select name="lote" defaultValue={search.lote ?? ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
+                  <option value="">Cualquier lote</option>
+                  {catalogs.lotes.map((lote) => (
+                    <option key={lote.id} value={String(lote.id)}>
+                      {lote.numero_lote}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Categoría</span>
+                <select name="categoria" defaultValue={search.categoria ?? ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
+                  <option value="">Cualquier categoría</option>
+                  {catalogs.categorias.map((categoria) => (
+                    <option key={categoria.id} value={String(categoria.id)}>
+                      {categoria.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Items / Pág</span>
+                <select name="page_size" defaultValue={String(pageSize)} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+
+              <input type="hidden" name="tab" value={tab} />
+              <input type="hidden" name="page" value="1" />
+
+              <div className="flex items-end sm:col-span-3 lg:col-span-1">
+                <button className="sx-btn sx-btn-primary w-full">Aplicar filtros</button>
+              </div>
+            </form>
+          </section>
+
+          <section className="mb-4 flex flex-wrap gap-2">
+            <Link href={buildFilterQuery(queryParams, "stock")} className="sx-btn sx-btn-secondary">
+              Stock por categoría
+            </Link>
+            <Link href={buildFilterQuery(queryParams, "lotes")} className="sx-btn sx-btn-secondary">
+              Detalle por lote
+            </Link>
+            <Link href={buildFilterQuery(queryParams, "dinero")} className="sx-btn sx-btn-secondary">
+              Movimientos de dinero
+            </Link>
+          </section>
+
+          <section className="mb-4 flex flex-wrap gap-2">
+            <Link href={exportCsvHref} className="sx-btn sx-btn-secondary">Exportar Excel (CSV)</Link>
+            <Link href={printHref} className="sx-btn sx-btn-secondary" target="_blank">Imprimir / Guardar PDF</Link>
+          </section>
+
+          {tab === "stock" ? (
+            <section className="rounded-xl bg-white p-5 shadow-sm">
+              <p className="mb-2 text-xs">Qué muestra esta tabla: balance de entrada, salida y stock disponible por categoría.</p>
+              <div className="sx-table-wrap">
+                <table className="sx-table">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="p-2">Categoría</th>
+                      <th className="p-2">Kg entrados (clasif.)</th>
+                      <th className="p-2">Kg salidos (asignados)</th>
+                      <th className="p-2">Kg disponibles</th>
+                      <th className="p-2">Lotes con stock</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-3 text-center">
+                          Sin movimientos para mostrar.
+                        </td>
+                      </tr>
+                    ) : null}
+
+                    {stockPageRows.map((row) => (
+                      <tr key={row.categoria_id} className="border-b">
+                        <td className="p-2">{row.categoria}</td>
+                        <td className="p-2">{row.kg_entrados}</td>
+                        <td className="p-2">{row.kg_salidos}</td>
+                        <td className="p-2">{row.kg_disponibles}</td>
+                        <td className="p-2">{row.lotes_con_stock}</td>
+                      </tr>
+                    ))}
+
+                    <tr className="border-t font-semibold">
+                      <td className="p-2">TOTAL</td>
+                      <td className="p-2">{totalKgEntrados}</td>
+                      <td className="p-2">{totalKgSalidos}</td>
+                      <td className="p-2">{totalKgDisponibles}</td>
+                      <td className="p-2">-</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+
+          {tab === "lotes" ? (
+            <section className="rounded-xl bg-white p-5 shadow-sm">
+              <p className="mb-2 text-xs">Qué muestra esta tabla: movimientos de producto por lote con destino comercial y precios.</p>
+              <div className="sx-table-wrap">
+                <table className="sx-table">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="p-2">Lote</th>
+                      <th className="p-2">Persona</th>
+                      <th className="p-2">Fecha</th>
+                      <th className="p-2">Tipo Mov.</th>
+                      <th className="p-2">Categoría</th>
+                      <th className="p-2">Kg</th>
+                      <th className="p-2">N° jabas (cat.)</th>
+                      <th className="p-2">Destino venta</th>
+                      <th className="p-2">Precio plan/kg</th>
+                      <th className="p-2">Precio venta/kg</th>
+                      <th className="p-2">Subtotal venta</th>
+                      <th className="p-2">Concepto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detalleLotesRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={12} className="p-3 text-center">
+                          Sin movimientos de producto.
+                        </td>
+                      </tr>
+                    ) : null}
+
+                    {lotesPageRows.map((row) => {
+                      const kgValue = Number(row.peso_kg ?? 0);
+                      const signedKg = row.tipo_movimiento === "salida" ? -Math.abs(kgValue) : kgValue;
+                      const asignacionCtx = row.origen_id
+                        ? asignacionContextMap.get(Number(row.origen_id))
+                        : undefined;
+
+                      const jabasKey = loteCategoriaKey(row.lote_id, row.categoria_id);
+                      const numeroJabas = jabasKey ? jabasVigenteMap.get(jabasKey) : undefined;
+
+                      return (
+                        <tr key={row.id} className="border-b align-top">
+                          <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
+                          <td className="p-2">{row.persona_id ? personaMap.get(row.persona_id) ?? row.persona_id : "-"}</td>
+                          <td className="p-2">{new Date(row.fecha).toLocaleString()}</td>
+                          <td className="p-2">{row.tipo_movimiento}</td>
+                          <td className="p-2">{row.categoria_id ? categoriaMap.get(row.categoria_id) ?? row.categoria_id : "-"}</td>
+                          <td className="p-2">{round2(signedKg)}</td>
+                          <td className="p-2">{typeof numeroJabas === "number" ? numeroJabas : "-"}</td>
+                          <td className="p-2">{asignacionCtx?.pedidoNumero ?? "-"}</td>
+                          <td className="p-2">{asignacionCtx ? asignacionCtx.precioPlanKg : "-"}</td>
+                          <td className="p-2">{asignacionCtx ? asignacionCtx.precioVentaKg : "-"}</td>
+                          <td className="p-2">{asignacionCtx ? asignacionCtx.subtotalVenta : "-"}</td>
+                          <td className="p-2">{row.concepto}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+
+          {tab === "dinero" ? (
+            <>
+              <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">
+                <p className="mb-2 text-xs">Qué muestra esta tabla: detalle cronológico de ingresos y egresos monetarios del kardex.</p>
+                <div className="sx-table-wrap">
+                  <table className="sx-table">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="p-2">Fecha</th>
+                        <th className="p-2">Persona</th>
+                        <th className="p-2">Tipo</th>
+                        <th className="p-2">Origen</th>
+                        <th className="p-2">Concepto</th>
+                        <th className="p-2">Monto</th>
+                        <th className="p-2">Dirección</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dineroRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="p-3 text-center">
+                            Sin movimientos de dinero.
+                          </td>
+                        </tr>
+                      ) : null}
+
+                      {dineroPageRows.map((row) => (
+                        <tr key={row.id} className="border-b align-top">
+                          <td className="p-2">{new Date(row.fecha).toLocaleString()}</td>
+                          <td className="p-2">{row.persona_id ? personaMap.get(row.persona_id) ?? row.persona_id : "-"}</td>
+                          <td className="p-2">{row.tipo_movimiento}</td>
+                          <td className="p-2">{row.origen}</td>
+                          <td className="p-2">{row.concepto}</td>
+                          <td className="p-2">{round2(Number(row.monto ?? 0))}</td>
+                          <td className="p-2">{row.tipo_movimiento === "egreso" ? "Empresa -> Persona" : "Persona -> Empresa"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="sx-table-wrap">
+                <h3 className="border-b p-3 text-base font-semibold">
+                  {personaSeleccionada
+                    ? `Resumen de deuda de ${personaSeleccionada.nombre_completo}`
+                    : "Resumen global de deudas (agrupado por persona)"}
+                </h3>
+                <p className="px-3 pt-2 text-xs">
+                  {personaSeleccionada
+                    ? "Qué muestra esta tabla: saldo neto de la persona filtrada, calculado como ingresos menos egresos."
+                    : "Qué muestra esta tabla: sin filtro de persona, se agrupan todos los movimientos de dinero por persona y se calcula su saldo neto (ingresos - egresos)."}
+                </p>
+                <table className="sx-table">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="p-2">Persona</th>
+                      <th className="p-2">Total deudas (nos deben)</th>
+                      <th className="p-2">Total deudas (debemos)</th>
+                      <th className="p-2">Saldo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {saldosRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="p-3 text-center">
+                          Sin saldos para mostrar.
+                        </td>
+                      </tr>
+                    ) : null}
+
+                    {saldosRows.map((row) => (
+                      <tr key={row.persona_id} className="border-b">
+                        <td className="p-2">{row.nombre}</td>
+                        <td className="p-2">{row.total_deudas_nos_deben}</td>
+                        <td className="p-2">{row.total_deudas_debemos}</td>
+                        <td className="p-2">{row.saldo}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+            </>
+          ) : null}
+
+          <section className="mt-4 flex items-center gap-3 text-sm">
+            <span>Página {safePage} de {totalPages}</span>
+            {safePage > 1 ? (
+              <Link href={`/kardex?${new URLSearchParams({ ...Object.fromEntries(queryParams), tab, page: String(safePage - 1) }).toString()}`} className="sx-btn sx-btn-secondary">Anterior</Link>
+            ) : null}
+            {safePage < totalPages ? (
+              <Link href={`/kardex?${new URLSearchParams({ ...Object.fromEntries(queryParams), tab, page: String(safePage + 1) }).toString()}`} className="sx-btn sx-btn-secondary">Siguiente</Link>
+            ) : null}
+          </section>
         </div>
       </main>
     </div>

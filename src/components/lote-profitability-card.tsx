@@ -96,13 +96,13 @@ export function LoteProfitabilityCard({
                 {producto}
               </span>
             </div>
-            
+
             {/* Productor e ingreso (más compacto) */}
             <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-2 space-y-0.5">
               <div><span className="font-medium">Productor:</span> {productor}</div>
               <div><span className="font-medium">Ingreso:</span> {fechaIngreso}</div>
             </div>
-            
+
             {/* Volumen en línea */}
             <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm">
               <div className="flex flex-col">
@@ -122,11 +122,10 @@ export function LoteProfitabilityCard({
 
           {/* Ganancia y chevron */}
           <div className="flex flex-col items-end flex-shrink-0 pt-1">
-            <div className={`text-lg sm:text-2xl font-bold whitespace-nowrap ${
-              gananciaSobrePagado >= 0
+            <div className={`text-lg sm:text-2xl font-bold whitespace-nowrap ${gananciaSobrePagado >= 0
                 ? 'text-emerald-600 dark:text-emerald-400'
                 : 'text-red-600 dark:text-red-400'
-            }`}>
+              }`}>
               {formatCurrency(gananciaSobrePagado)}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-500">Ganancia</p>
@@ -146,48 +145,45 @@ export function LoteProfitabilityCard({
       {/* Detalles expandibles */}
       {isOpen && (
         <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 sm:px-4 py-3 sm:py-4 space-y-4">
-          
+
           {/* Resumen compacto de 6 métricas principales */}
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
-            <div className="bg-white dark:bg-slate-800 rounded p-2 border border-slate-200 dark:border-slate-700">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm">
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate">Ventas</p>
               <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">{formatCurrency(ventasTotales)}</p>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded p-2 border border-slate-200 dark:border-slate-700">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm">
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate">Costo</p>
               <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">{formatCurrency(costoComprometido)}</p>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded p-2 border border-slate-200 dark:border-slate-700">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm">
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate">Pagado</p>
               <p className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-0.5">{formatCurrency(pagadoReal)}</p>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded p-2 border border-slate-200 dark:border-slate-700">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm">
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate">Saldo</p>
-              <p className={`text-sm font-bold mt-0.5 ${
-                saldoPorPagar <= 0
+              <p className={`text-sm font-bold mt-0.5 ${saldoPorPagar <= 0
                   ? 'text-emerald-600 dark:text-emerald-400'
                   : 'text-red-600 dark:text-red-400'
-              }`}>
+                }`}>
                 {formatCurrency(saldoPorPagar)}
               </p>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded p-2 border border-slate-200 dark:border-slate-700">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm">
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate">Gan. pago</p>
-              <p className={`text-sm font-bold mt-0.5 ${
-                gananciaSobrePagado >= 0
+              <p className={`text-sm font-bold mt-0.5 ${gananciaSobrePagado >= 0
                   ? 'text-emerald-600 dark:text-emerald-400'
                   : 'text-red-600 dark:text-red-400'
-              }`}>
+                }`}>
                 {formatCurrency(gananciaSobrePagado)}
               </p>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded p-2 border border-slate-200 dark:border-slate-700">
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm">
               <p className="text-xs text-slate-600 dark:text-slate-400 font-medium truncate">Gan. costo</p>
-              <p className={`text-sm font-bold mt-0.5 ${
-                gananciaSobreComprometido >= 0
+              <p className={`text-sm font-bold mt-0.5 ${gananciaSobreComprometido >= 0
                   ? 'text-emerald-600 dark:text-emerald-400'
                   : 'text-red-600 dark:text-red-400'
-              }`}>
+                }`}>
                 {formatCurrency(gananciaSobreComprometido)}
               </p>
             </div>

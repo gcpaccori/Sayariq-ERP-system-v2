@@ -3,6 +3,7 @@ import Link from "next/link";
 import AutoActorFields from "@/components/auto-actor-fields";
 import ClasificacionNetaEditor from "@/components/clasificacion-neta-editor";
 import ModuleNavigation from "@/components/module-navigation";
+import ModuleFormModal from "@/components/module-form-modal";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 import { editarClasificacionNetaAction } from "./actions";
@@ -99,17 +100,17 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
 
   const [historialRes, auditoriaRes] = selectedLote
     ? await Promise.all([
-        supabase
-          .from("lote_clasificacion")
-          .select("lote_id,categoria_id,peso_bruto,numero_jabas,peso_jabas,porcentaje_humedad,peso_neto,version_no,created_at")
-          .eq("lote_id", Number(selectedLote.id))
-          .order("version_no", { ascending: true }),
-        supabase
-          .from("lote_clasificacion_auditoria")
-          .select("version_nueva,actor_persona_id,created_at")
-          .eq("lote_id", Number(selectedLote.id))
-          .order("created_at", { ascending: false }),
-      ])
+      supabase
+        .from("lote_clasificacion")
+        .select("lote_id,categoria_id,peso_bruto,numero_jabas,peso_jabas,porcentaje_humedad,peso_neto,version_no,created_at")
+        .eq("lote_id", Number(selectedLote.id))
+        .order("version_no", { ascending: true }),
+      supabase
+        .from("lote_clasificacion_auditoria")
+        .select("version_nueva,actor_persona_id,created_at")
+        .eq("lote_id", Number(selectedLote.id))
+        .order("created_at", { ascending: false }),
+    ])
     : [{ data: [] }, { data: [] }];
 
   const historialRows = (historialRes.data ?? []) as HistorialClasifRow[];
@@ -154,53 +155,74 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
   const isHistorialView = selectedVersion !== versionActual;
 
   return (
-    <div className="min-h-screen bg-[#F4F6FA] text-[#1F2937]">
-      <div className="flex">
-        <ModuleNavigation currentModule="/clasificacion-neta" />
-        <main className="flex-1 space-y-4 p-4 md:p-6 lg:p-8">
-          <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-blue-600">Módulo 10</p>
-            <h1 className="text-2xl font-semibold text-slate-900">Clasificación Neta · CRUT de lotes</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Primero elige un lote. Luego reclasifica por todas las categorías activas sin tocar el peso liquidado al productor.
-            </p>
-            {search.ok ? <p className="mt-3 rounded-lg bg-emerald-50 p-2 text-sm text-emerald-700">{search.ok}</p> : null}
-            {search.error ? <p className="mt-3 rounded-lg bg-rose-50 p-2 text-sm text-rose-700">{search.error}</p> : null}
-          </header>
+    <div className="min-h-screen bg-slate-50 lg:flex">
+      <ModuleNavigation currentModule="/clasificacion-neta" />
+      <main className="google-2027-theme relative flex-1 bg-white text-gray-900">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            opacity: 0.02,
+            backgroundImage: "radial-gradient(#111827 0.8px, transparent 0.8px)",
+            backgroundSize: "16px 16px",
+          }}
+        />
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="relative z-10 mx-auto w-full max-w-7xl p-6">
+          <div className="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center md:gap-6">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+                Módulo 10: Clasificación Neta
+              </h1>
+              <p className="mt-1.5 text-sm font-medium text-gray-600">
+                Primero elige un lote. Luego reclasifica por todas las categorías activas sin tocar el peso liquidado al productor.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+              >
+                ← Inicio
+              </Link>
+            </div>
+          </div>
+
+          {search.ok ? <p className="mb-6 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800 shadow-sm">✓ {search.ok}</p> : null}
+          {search.error ? <p className="mb-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-800 shadow-sm">✕ {search.error}</p> : null}
+
+          <section className="rounded-xl bg-white p-5 shadow-sm">
             <h2 className="mb-3 text-sm font-semibold text-slate-900">Lotes disponibles</h2>
             {lotes.length === 0 ? (
               <p className="text-sm text-slate-500">No hay lotes en estados clasificables.</p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="sx-table-wrap">
                 <table className="sx-table">
-                  <thead className="bg-slate-50 text-slate-700">
-                    <tr>
-                      <th className="px-2 py-2 text-left">Lote</th>
-                      <th className="px-2 py-2 text-left">Productor</th>
-                      <th className="px-2 py-2 text-left">Ingreso</th>
-                      <th className="px-2 py-2 text-left">Neto vigente</th>
-                      <th className="px-2 py-2 text-left">Modificaciones</th>
-                      <th className="px-2 py-2 text-left">Estado</th>
-                      <th className="px-2 py-2 text-left">Acción</th>
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="p-2">Lote</th>
+                      <th className="p-2">Productor</th>
+                      <th className="p-2">Ingreso</th>
+                      <th className="p-2">Neto vigente</th>
+                      <th className="p-2">Modificaciones</th>
+                      <th className="p-2">Estado</th>
+                      <th className="p-2">Acción</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
+                  <tbody>
                     {lotes.map((lote) => {
                       const rowsLote = vigentes.filter((row) => Number(row.lote_id) === Number(lote.id));
                       const netoActual = rowsLote.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0);
                       const isSelected = Number(selectedLote?.id) === Number(lote.id);
 
                       return (
-                        <tr key={lote.id} className={isSelected ? "bg-blue-50/50" : ""}>
-                          <td className="px-2 py-2 font-medium">{lote.numero_lote}</td>
-                          <td className="px-2 py-2">{productorMap.get(Number(lote.productor_id)) ?? "N/D"}</td>
-                          <td className="px-2 py-2">{Number(lote.peso_bruto_ingreso ?? 0).toFixed(2)} kg</td>
-                          <td className="px-2 py-2">{netoActual.toFixed(2)} kg</td>
-                          <td className="px-2 py-2">{procesoMap.get(Number(lote.id)) ?? 0}</td>
-                          <td className="px-2 py-2">{lote.estado}</td>
-                          <td className="px-2 py-2">
+                        <tr key={lote.id} className={`border-b align-top ${isSelected ? "bg-blue-50/50" : "hover:bg-gray-50 transition"}`}>
+                          <td className="p-2">{lote.numero_lote}</td>
+                          <td className="p-2">{productorMap.get(Number(lote.productor_id)) ?? "N/D"}</td>
+                          <td className="p-2">{Number(lote.peso_bruto_ingreso ?? 0).toFixed(2)} kg</td>
+                          <td className="p-2">{netoActual.toFixed(2)} kg</td>
+                          <td className="p-2">{procesoMap.get(Number(lote.id)) ?? 0}</td>
+                          <td className="p-2">{lote.estado}</td>
+                          <td className="p-2">
                             <Link
                               href={`/clasificacion-neta?lote=${lote.id}`}
                               className="inline-flex rounded-lg border border-blue-200 px-2 py-1 font-medium text-blue-700 hover:bg-blue-50"
@@ -218,7 +240,13 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
           </section>
 
           {selectedLote ? (
-            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <ModuleFormModal
+              isOpen={true}
+              closeHref="/clasificacion-neta"
+              title={`Reclasificación: Lote ${selectedLote.numero_lote}`}
+              description={`Ingreso: ${Number(selectedLote.peso_bruto_ingreso ?? 0).toFixed(2)} kg | Versión actual: v${versionActual}`}
+              maxWidth="5xl"
+            >
               {(() => {
                 const loteConAsignaciones = lotesConAsignaciones.has(Number(selectedLote.id));
                 const netoActual = selectedRowsVigentes.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0);
@@ -226,28 +254,24 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
 
                 return (
                   <>
-                    <div className="mb-4 grid gap-2 text-sm md:grid-cols-4">
-                      <p><strong>Lote:</strong> {selectedLote.numero_lote}</p>
-                      <p><strong>Ingreso productor:</strong> {Number(selectedLote.peso_bruto_ingreso ?? 0).toFixed(2)} kg</p>
-                      <p><strong>Neto clasificado:</strong> {netoActual.toFixed(2)} kg</p>
-                      <p><strong>Variación:</strong> {variacion.toFixed(2)} kg</p>
-                      <p><strong>Versión actual:</strong> v{versionActual}</p>
-                      <p><strong>Modificaciones:</strong> {procesoMap.get(Number(selectedLote.id)) ?? 0}</p>
-                      <p><strong>Registro en vista:</strong> {selectedVersion === 1 ? "Registro inicial" : `Modificación ${selectedVersion - 1} (v${selectedVersion})`}</p>
+                    <div className="mb-4 grid gap-3 rounded-xl bg-gray-50 p-4 shadow-inner text-sm sm:grid-cols-3">
+                      <p><strong className="text-gray-900">Neto clasificado:</strong> {netoActual.toFixed(2)} kg</p>
+                      <p><strong className="text-gray-900">Variación:</strong> <span className={variacion > 0 ? "text-amber-700" : variacion < 0 ? "text-sky-700" : "text-emerald-700"}>{variacion > 0 ? "+" : ""}{variacion.toFixed(2)} kg</span></p>
+                      <p><strong className="text-gray-900">Modificaciones:</strong> {procesoMap.get(Number(selectedLote.id)) ?? 0}</p>
                     </div>
 
                     <div className="mb-4 sx-table-wrap">
                       <table className="sx-table">
-                        <thead className="bg-slate-50 text-slate-700">
-                          <tr>
-                            <th className="px-2 py-2 text-left">Registro</th>
-                            <th className="px-2 py-2 text-left">Fecha</th>
-                            <th className="px-2 py-2 text-left">Kg vs almacén</th>
-                            <th className="px-2 py-2 text-left">Actor</th>
-                            <th className="px-2 py-2 text-left">Ver detalle</th>
+                        <thead>
+                          <tr className="border-b text-left">
+                            <th className="p-2">Registro</th>
+                            <th className="p-2">Fecha</th>
+                            <th className="p-2">Kg vs almacén</th>
+                            <th className="p-2">Actor</th>
+                            <th className="p-2">Ver detalle</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
+                        <tbody>
                           {versiones.map((version) => {
                             const rows = historialMap.get(version) ?? [];
                             const netoVersion = rows.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0);
@@ -259,17 +283,17 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                                 : auditoriaActorPorVersion.get(version) ?? "No identificado";
 
                             return (
-                              <tr key={version} className={version === selectedVersion ? "bg-blue-50" : ""}>
-                                <td className="px-2 py-2 font-medium">
+                              <tr key={version} className={`border-b align-top ${version === selectedVersion ? "bg-blue-50" : "hover:bg-gray-50 transition"}`}>
+                                <td className="p-2">
                                   {version === 1 ? "Registro inicial" : `Modificación ${version - 1}`}
                                 </td>
-                                <td className="px-2 py-2">{fechaRegistro ? new Date(fechaRegistro).toLocaleString() : "-"}</td>
-                                <td className={`px-2 py-2 ${deltaAlmacen > 0 ? "text-amber-700" : deltaAlmacen < 0 ? "text-sky-700" : "text-emerald-700"}`}>
+                                <td className="p-2">{fechaRegistro ? new Date(fechaRegistro).toLocaleString() : "-"}</td>
+                                <td className={`p-2 ${deltaAlmacen > 0 ? "text-amber-700" : deltaAlmacen < 0 ? "text-sky-700" : "text-emerald-700"}`}>
                                   {deltaAlmacen > 0 ? "+" : ""}
                                   {deltaAlmacen.toFixed(3)} kg
                                 </td>
-                                <td className="px-2 py-2">{actor}</td>
-                                <td className="px-2 py-2">
+                                <td className="p-2">{actor}</td>
+                                <td className="p-2">
                                   <Link
                                     href={`/clasificacion-neta?lote=${selectedLote.id}&rev=${version}`}
                                     className="inline-flex rounded border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50"
@@ -297,25 +321,25 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                         </p>
                         <div className="sx-table-wrap">
                           <table className="sx-table">
-                            <thead className="bg-white text-slate-600">
-                              <tr>
-                                <th className="px-2 py-2 text-left">Categoría</th>
-                                <th className="px-2 py-2 text-left">Peso bruto</th>
-                                <th className="px-2 py-2 text-left">N° jabas</th>
-                                <th className="px-2 py-2 text-left">Peso jabas</th>
-                                <th className="px-2 py-2 text-left">% humedad</th>
-                                <th className="px-2 py-2 text-left">Peso neto</th>
+                            <thead>
+                              <tr className="border-b text-left">
+                                <th className="p-2">Categoría</th>
+                                <th className="p-2">Peso bruto</th>
+                                <th className="p-2">N° jabas</th>
+                                <th className="p-2">Peso jabas</th>
+                                <th className="p-2">% humedad</th>
+                                <th className="p-2">Peso neto</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
+                            <tbody>
                               {rowsVersionVista.map((row) => (
-                                <tr key={row.categoria_id}>
-                                  <td className="px-2 py-2">{categorias.find((c) => Number(c.id) === row.categoria_id)?.nombre ?? row.categoria_id}</td>
-                                  <td className="px-2 py-2">{Number(row.peso_bruto).toFixed(3)}</td>
-                                  <td className="px-2 py-2">{Number(row.numero_jabas)}</td>
-                                  <td className="px-2 py-2">{Number(row.peso_jabas).toFixed(3)}</td>
-                                  <td className="px-2 py-2">{Number(row.porcentaje_humedad).toFixed(2)}</td>
-                                  <td className="px-2 py-2">{Number(row.peso_neto).toFixed(3)}</td>
+                                <tr key={row.categoria_id} className="border-b transition hover:bg-gray-50">
+                                  <td className="p-2">{categorias.find((c) => Number(c.id) === row.categoria_id)?.nombre ?? row.categoria_id}</td>
+                                  <td className="p-2">{Number(row.peso_bruto).toFixed(3)}</td>
+                                  <td className="p-2">{Number(row.numero_jabas)}</td>
+                                  <td className="p-2">{Number(row.peso_jabas).toFixed(3)}</td>
+                                  <td className="p-2">{Number(row.porcentaje_humedad).toFixed(2)}</td>
+                                  <td className="p-2">{Number(row.peso_neto).toFixed(3)}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -338,13 +362,13 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                               type="date"
                               name="fecha_clasificacion"
                               defaultValue={new Date().toISOString().slice(0, 10)}
-                              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                              className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                             />
                           </label>
 
                           <div className="text-xs text-slate-600">
                             Actor
-                            <p className="mt-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm">
+                            <p className="mt-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
                               Se captura automáticamente desde sesión
                             </p>
                             <AutoActorFields />
@@ -354,7 +378,7 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                             Causa variación
                             <select
                               name="causa_variacion"
-                              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                              className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                             >
                               <option value="proceso">Proceso</option>
                               <option value="humedad">Humedad</option>
@@ -385,7 +409,7 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                               name="motivo"
                               required
                               placeholder="Ej: ajuste por tierra y humedad"
-                              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                              className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                             />
                           </label>
                           <label className="text-xs text-slate-600">
@@ -393,7 +417,7 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                             <input
                               name="detalle_causa"
                               placeholder="Detalle opcional"
-                              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                              className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                             />
                           </label>
                         </div>
@@ -403,29 +427,33 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                           <textarea
                             name="observaciones"
                             rows={2}
-                            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                           />
                         </label>
 
-                        <button
-                          type="submit"
-                          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                        >
-                          Guardar reclasificación (todas las categorías)
-                        </button>
+                        <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row">
+                          <button
+                            type="submit"
+                            className="flex-1 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md"
+                          >
+                            Guardar reclasificación (todas las categorías)
+                          </button>
+                          <Link
+                            href="/clasificacion-neta"
+                            className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400"
+                          >
+                            Cancelar
+                          </Link>
+                        </div>
                       </form>
                     )}
                   </>
                 );
               })()}
-            </section>
-          ) : (
-            <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-600">
-              Selecciona un lote en la tabla superior para abrir el formulario de reclasificación.
-            </section>
-          )}
-        </main>
-      </div>
+            </ModuleFormModal>
+          ) : null}
+        </div>
+      </main>
     </div>
   );
 }

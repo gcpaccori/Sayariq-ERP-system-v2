@@ -65,8 +65,6 @@ body {
   letter-spacing: -0.02em;
 }
 
-.google-2027-theme section,
-.google-2027-theme article,
 .google-2027-theme .surface,
 .google-2027-theme .card,
 .google-2027-theme .rounded.border,
@@ -367,24 +365,28 @@ body {
 }
 
 .google-2027-theme .sx-btn-primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 4px rgba(26, 115, 232, 0.2);
 }
 
 .google-2027-theme .sx-btn-primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
+  background: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
+  box-shadow: 0 4px 8px rgba(26, 115, 232, 0.3);
 }
 
 .google-2027-theme .sx-btn-secondary {
-  background: #fff;
-  border-color: var(--g-border-strong);
-  color: #29384d;
+  background: #ffffff !important;
+  border-color: var(--g-border-strong) !important;
+  color: #29384d !important;
+  box-shadow: var(--shadow-sm);
 }
 
 .google-2027-theme .sx-btn-secondary:hover {
-  background: #f7faff;
+  background: #f8fbff !important;
+  border-color: #c5d3e1 !important;
 }
 
 .google-2027-theme .sx-input,
@@ -407,14 +409,14 @@ body {
 }
 
 /* Capa de compatibilidad: unifica clases históricas sin romper JSX existente */
+/* Compatibilidad forzada: unifica botones que usen clases de utilidad azules */
 .google-2027-theme :is(button, a)[class*="bg-\\[\\#1A73E8\\]"],
 .google-2027-theme :is(button, a)[class*="hover:bg-\\[\\#1765CC\\]"],
 .google-2027-theme :is(button, a)[class*="bg-blue-600"] {
   background: var(--primary) !important;
-  border: 1px solid var(--primary) !important;
-  color: #fff !important;
-  border-radius: var(--radius-md);
-  font-weight: 600;
+  border-color: var(--primary) !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
 }
 
 .google-2027-theme :is(button, a)[class*="bg-\\[\\#1A73E8\\]"]:hover,
@@ -516,34 +518,14 @@ body {
   width: min(100%, 96rem);
 }
 
-.google-2027-theme :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"] {
-  border-color: var(--g-border) !important;
+/* Container shape normalization — NO forced borders; border is opt-in per component */
+.google-2027-theme :is(section, article, div)[class*="rounded"][class*="bg-white"] {
   border-radius: var(--radius-md) !important;
   box-shadow: var(--shadow-sm);
   background: #fff !important;
 }
 
-.google-2027-theme :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"]
-  :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"] {
-  border-color: #e7eef8 !important;
-  background: #fbfdff !important;
-  box-shadow: none !important;
-}
-
-.google-2027-theme :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"]
-  :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"]
-  :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"] {
-  border-color: #eef3fa !important;
-  background: #ffffff !important;
-}
-
-.google-2027-theme [class*="mb-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"],
-.google-2027-theme [class*="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"],
-.google-2027-theme [class*="overflow-x-auto rounded-xl border border-gray-200 bg-white"] {
-  border-color: var(--g-border) !important;
-  box-shadow: var(--shadow-sm) !important;
-  border-radius: var(--radius-md) !important;
-}
+/* Removed forced border selectors for specific layout patterns */
 
 .google-2027-theme [style*="radial-gradient("] {
   background-image: none !important;
@@ -585,7 +567,7 @@ body {
 }
 
 @media (max-width: 768px) {
-  .google-2027-theme :is(section, article, div)[class*="rounded"][class*="border"][class*="bg-white"] {
+  .google-2027-theme :is(section, article, div)[class*="rounded"][class*="bg-white"] {
     border-radius: var(--radius-sm) !important;
   }
 
@@ -606,20 +588,17 @@ body {
   --sx-table-row-border: #e5edf8;
 }
 
-/* Cards unificadas: puede variar color/contenido, no la geometría */
-.google-2027-theme :is(div, section, article, aside, details)[class*="rounded-xl"][class*="border"],
-.google-2027-theme :is(div, section, article, aside, details)[class*="rounded-2xl"][class*="border"],
-.google-2027-theme :is(div, section, article, aside, details)[class*="rounded-lg"][class*="border"] {
+/* Cards unificadas: normaliza solo geometría, NO borde forzado */
+.google-2027-theme :is(div, section, article, aside, details)[class*="rounded-xl"],
+.google-2027-theme :is(div, section, article, aside, details)[class*="rounded-2xl"],
+.google-2027-theme :is(div, section, article, aside, details)[class*="rounded-lg"] {
   border-radius: var(--sx-card-radius) !important;
-  border: var(--sx-card-border) !important;
-  box-shadow: var(--sx-card-shadow) !important;
 }
 
-.google-2027-theme :is(div, section, article, aside, details)[class*="bg-gradient-to-br"][class*="border"],
-.google-2027-theme :is(div, section, article, aside, details)[class*="bg-gradient-to-r"][class*="border"] {
+/* Only gradient cards that explicitly had border get shadow, not border */
+.google-2027-theme :is(div, section, article, aside, details)[class*="bg-gradient-to-br"],
+.google-2027-theme :is(div, section, article, aside, details)[class*="bg-gradient-to-r"] {
   border-radius: var(--sx-card-radius) !important;
-  border: var(--sx-card-border) !important;
-  box-shadow: var(--sx-card-shadow) !important;
 }
 
 /* Tablas reutilizables: todos los wrappers convergen a un solo look */
@@ -685,9 +664,10 @@ body {
 }
 
 @media (max-width: 768px) {
-  .google-2027-theme :is(div, section, article, aside, details)[class*="rounded-xl"][class*="border"],
-  .google-2027-theme :is(div, section, article, aside, details)[class*="rounded-2xl"][class*="border"],
-  .google-2027-theme :is(div, section, article, aside, details)[class*="rounded-lg"][class*="border"],
+
+  .google-2027-theme :is(div, section, article, aside, details)[class*="rounded-xl"],
+  .google-2027-theme :is(div, section, article, aside, details)[class*="rounded-2xl"],
+  .google-2027-theme :is(div, section, article, aside, details)[class*="rounded-lg"],
   .google-2027-theme .sx-table-wrap,
   .google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] {
     border-radius: 10px !important;
@@ -699,4 +679,76 @@ body {
   .google-2027-theme :is(div, section)[class*="overflow-x-auto"][class*="rounded"][class*="border"] td {
     padding: 0.58rem 0.72rem !important;
   }
+}
+
+/* ─── Modal animation ─── */
+@keyframes sx-modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ─── KPI card uniform style ─── */
+.sx-kpi-card {
+  border-radius: var(--sx-card-radius, 14px);
+  border: 1px solid var(--g-border, #d9e2ef);
+  padding: 1rem;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgb(16 24 40 / 6%));
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.sx-kpi-card:hover {
+  box-shadow: var(--shadow-md, 0 8px 24px rgb(16 24 40 / 8%));
+  border-color: #becfe3;
+}
+
+.sx-kpi-card .sx-kpi-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5a687f;
+}
+
+.sx-kpi-card .sx-kpi-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-top: 0.5rem;
+  line-height: 1.2;
+}
+
+.sx-kpi-card .sx-kpi-icon {
+  font-size: 2rem;
+  opacity: 0.3;
+}
+
+/* ─── Alert uniform styles ─── */
+.sx-alert-success {
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: #166534;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1rem;
+}
+
+.sx-alert-error {
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1rem;
 }

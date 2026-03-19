@@ -24,8 +24,8 @@ export default async function KardexPrintPage({ searchParams }: { searchParams: 
   return (
     <main className="p-6">
       <div className="mb-4 flex gap-2 print:hidden">
-        <span className="rounded border px-3 py-1">Usa Ctrl/Cmd + P para imprimir o guardar PDF</span>
-        <Link href="/kardex" className="rounded border px-3 py-1">Volver</Link>
+        <span className="sx-btn sx-btn-secondary">Usa Ctrl/Cmd + P para imprimir o guardar PDF</span>
+        <Link href="/kardex" className="sx-btn sx-btn-secondary">Volver</Link>
       </div>
       <h1 className="mb-3 text-xl font-semibold">Kardex ({tab})</h1>
       <p className="mb-3 text-sm">Filtros fecha: {search.desde ?? "-"} a {search.hasta ?? "-"}</p>

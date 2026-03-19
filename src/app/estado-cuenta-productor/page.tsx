@@ -2,15 +2,7 @@ import Link from "next/link";
 import { Wallet, TrendingUp, DollarSign, Calendar } from "lucide-react";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  Header,
-  KPICard,
-  Section,
-  AccordionItem,
-  CompactTable,
-  DataCard,
-  Tabs,
-} from "@/components/EstadoCuentaComponents";
+import { Header } from "@/components/EstadoCuentaComponents";
 import ModuleNavigation from "@/components/module-navigation";
 
 type SearchParams = {
@@ -225,11 +217,11 @@ export default async function EstadoCuentaProductorPage({
               productoresValidos={[]}
               productorSeleccionadoId={0}
             />
-          <div className="mt-6 rounded-2xl border border-[#E5E7EB] bg-white p-6 text-center">
-            <p className="font-semibold text-[#202124]">No hay productores</p>
-            <p className="text-sm text-[#5F6368] mt-2">Crea personas con rol productor en el módulo de Gestión.</p>
+            <div className="mt-6 rounded-xl bg-gray-50 p-6 text-center shadow-inner">
+              <p className="font-semibold text-gray-900">No hay productores</p>
+              <p className="text-sm text-gray-500 mt-2">Crea personas con rol productor en el módulo de Gestión.</p>
+            </div>
           </div>
-        </div>
         </main>
       </div>
     );
@@ -303,23 +295,23 @@ export default async function EstadoCuentaProductorPage({
   const [clasifRes, asignacionesRes, liquidacionDetRes] = await Promise.all([
     loteIds.length > 0
       ? supabase
-          .from("vw_lote_clasificacion_vigente")
-          .select("lote_id,categoria_id,codigo_clasificacion,peso_neto")
-          .in("lote_id", loteIds)
+        .from("vw_lote_clasificacion_vigente")
+        .select("lote_id,categoria_id,codigo_clasificacion,peso_neto")
+        .in("lote_id", loteIds)
       : Promise.resolve({ data: [] }),
     loteIds.length > 0
       ? supabase
-          .from("pedido_asignaciones")
-          .select(
-            "id,lote_id,pedido_id,categoria_id,codigo_division,kg_asignados,precio_kg,subtotal,fecha_asignacion"
-          )
-          .in("lote_id", loteIds)
+        .from("pedido_asignaciones")
+        .select(
+          "id,lote_id,pedido_id,categoria_id,codigo_division,kg_asignados,precio_kg,subtotal,fecha_asignacion"
+        )
+        .in("lote_id", loteIds)
       : Promise.resolve({ data: [] }),
     liquidacionIds.length > 0
       ? supabase
-          .from("liquidacion_detalle")
-          .select("liquidacion_id,categoria_id,peso_neto,precio_kg,subtotal")
-          .in("liquidacion_id", liquidacionIds)
+        .from("liquidacion_detalle")
+        .select("liquidacion_id,categoria_id,peso_neto,precio_kg,subtotal")
+        .in("liquidacion_id", liquidacionIds)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -368,13 +360,8 @@ export default async function EstadoCuentaProductorPage({
     const clasifLote = clasificaciones.filter((row) => Number(row.lote_id) === Number(lote.id));
     const asignacionesLote = asignaciones.filter((row) => Number(row.lote_id) === Number(lote.id));
 
-    const kgClasificado = round2(
-      clasifLote.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0)
-    );
-
-    const kgAsignado = round2(
-      asignacionesLote.reduce((acc, row) => acc + Number(row.kg_asignados ?? 0), 0)
-    );
+    const kgClasificado = round2(clasifLote.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0));
+    const kgAsignado = round2(asignacionesLote.reduce((acc, row) => acc + Number(row.kg_asignados ?? 0), 0));
 
     let kgLiquidado = 0;
     for (const row of clasifLote) {
@@ -397,49 +384,25 @@ export default async function EstadoCuentaProductorPage({
       kgPendienteLiquidar,
       kgSobranteSinAsignar,
       estadoCuenta,
-      detalleCategorias: clasifLote.map((row) => {
-        const key = `${row.lote_id}-${row.categoria_id}`;
-        return {
-          categoria: categoriaMap.get(Number(row.categoria_id)) ?? `Cat ${row.categoria_id}`,
-          codigoClasificacion: row.codigo_clasificacion ?? "-",
-          kgClasificado: round2(Number(row.peso_neto ?? 0)),
-          kgAsignado: round2(Number(asignadoKeyMap.get(key) ?? 0)),
-          kgLiquidado: round2(Number(liquidadoKeyMap.get(key) ?? 0)),
-          kgPendiente: round2(
-            Math.max(0, Number(row.peso_neto ?? 0) - Number(liquidadoKeyMap.get(key) ?? 0))
-          ),
-        };
-      }),
     };
   });
 
-  const totalAdelantos = round2(
-    adelantos.reduce((acc, row) => acc + Number(row.monto ?? 0), 0)
-  );
+  const totalAdelantos = round2(adelantos.reduce((acc, row) => acc + Number(row.monto ?? 0), 0));
   const adelantosPendientesMonto = round2(
-    adelantos
-      .filter((row) => row.estado === "pendiente")
-      .reduce((acc, row) => acc + Number(row.monto ?? 0), 0)
+    adelantos.filter((row) => row.estado === "pendiente").reduce((acc, row) => acc + Number(row.monto ?? 0), 0)
   );
 
-  const totalLiquidado = round2(
-    liquidaciones.reduce((acc, row) => acc + Number(row.total_a_pagar ?? 0), 0)
-  );
+  const totalLiquidado = round2(liquidaciones.reduce((acc, row) => acc + Number(row.total_a_pagar ?? 0), 0));
   const saldoLiquidacionesPendiente = round2(
     liquidaciones.reduce(
-      (acc, row) =>
-        acc + Math.max(0, Number(row.total_a_pagar ?? 0) - Number(row.monto_pagado ?? 0)),
+      (acc, row) => acc + Math.max(0, Number(row.total_a_pagar ?? 0) - Number(row.monto_pagado ?? 0)),
       0
     )
   );
 
-  const exposicionProductor = round2(
-    saldoLiquidacionesPendiente + adelantosPendientesMonto
-  );
+  const exposicionProductor = round2(saldoLiquidacionesPendiente + adelantosPendientesMonto);
 
-  const totalPagado = round2(
-    pagosKardex.reduce((acc, row) => acc + Number(row.monto ?? 0), 0)
-  );
+  const totalPagado = round2(pagosKardex.reduce((acc, row) => acc + Number(row.monto ?? 0), 0));
 
   const timelineRows: TimelineRow[] = [
     ...adelantos.map((row) => ({
@@ -452,8 +415,8 @@ export default async function EstadoCuentaProductorPage({
         row.estado === "aplicado"
           ? `Aplicado en LIQ-${row.liquidacion_id ?? "?"}`
           : row.estado === "pendiente"
-          ? "Entregado y aún no descontado en liquidación"
-          : "Cancelado",
+            ? "Entregado, aún no descontado"
+            : "Cancelado",
     })),
     ...liquidaciones.map((row) => ({
       fecha: row.fecha_liquidacion,
@@ -461,7 +424,7 @@ export default async function EstadoCuentaProductorPage({
       referencia: row.numero_liquidacion,
       lote: row.lote_id ? loteMap.get(Number(row.lote_id))?.numero_lote ?? String(row.lote_id) : "-",
       monto: round2(Number(row.total_a_pagar ?? 0)),
-      extra: `Pagado ${currency(Number(row.monto_pagado ?? 0))} | Estado ${row.estado_pago}`,
+      extra: `Pagado ${currency(Number(row.monto_pagado ?? 0))} | ${row.estado_pago}`,
     })),
     ...pagosKardex.map((row) => ({
       fecha: row.fecha,
@@ -484,22 +447,16 @@ export default async function EstadoCuentaProductorPage({
     <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="estado-cuenta-productor" />
       <main className="google-2027-theme w-full flex-1 bg-white">
-        <div className="max-w-7xl mx-auto space-y-4 px-3 py-4 md:px-6 md:py-6 lg:space-y-6 lg:px-8 lg:py-8">
+        <div className="max-w-7xl mx-auto space-y-4 px-3 py-4 md:px-6 md:py-6 lg:space-y-5 lg:px-8 lg:py-6">
           <Header
             title="Módulo 8: Estado de Cuenta de Productor"
-            subtitle={`Productor: ${productorNombre} | Exposición: ${currency(exposicionProductor)}`}
+            subtitle={`${productorNombre} · Exposición: ${currency(exposicionProductor)}`}
             actions={
               <>
-                <Link
-                  href="/liquidaciones"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 sm:w-auto"
-                >
+                <Link href="/liquidaciones" className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100">
                   Ir a Liquidaciones
                 </Link>
-                <Link
-                  href="/"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50 sm:w-auto"
-                >
+                <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50">
                   ← Inicio
                 </Link>
               </>
@@ -507,261 +464,309 @@ export default async function EstadoCuentaProductorPage({
             productoresValidos={productoresValidos}
             productorSeleccionadoId={productorSeleccionadoId}
           />
-        <div className="space-y-4">
-        {/* KPIs Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4">
-          <KPICard label="Adelantos otorgados" value={currency(totalAdelantos)} />
-          <KPICard label="Por descontar" value={currency(adelantosPendientesMonto)} variant={adelantosPendientesMonto > 0 ? 'critical' : 'default'} trend={adelantosPendientesMonto > 0 ? 'down' : 'neutral'} />
-          <KPICard label="Total liquidado" value={currency(totalLiquidado)} trend="up" variant="success" />
-          <KPICard label="Saldo pendiente" value={currency(saldoLiquidacionesPendiente)} variant={saldoLiquidacionesPendiente > 0 ? 'critical' : 'success'} trend={saldoLiquidacionesPendiente > 0 ? 'down' : 'up'} />
-          <KPICard label="Pagado" value={currency(totalPagado)} trend="up" variant="success" />
-          <KPICard label="Exposición total" value={currency(exposicionProductor)} variant={exposicionProductor > 0 ? 'critical' : 'default'} trend={exposicionProductor > 0 ? 'down' : 'up'} />
-        </div>
 
-        {/* Alerta de adelantos */}
-        {adelantosPendientesMonto > 0 && (
-          <div className="rounded-xl border border-[#FCE5CD] bg-[#FEF7E0] p-4">
-            <p className="text-sm text-[#EA8300] font-medium">
-              <strong>⚠ Adelantos pendientes:</strong> S/ {round2(adelantosPendientesMonto)} en adelantos sin descontar. Accede a <Link href="/liquidaciones" className="underline font-bold hover:text-[#D67C00]">Liquidaciones</Link> para procesarlos.
-            </p>
-          </div>
-        )}
-
-        {/* Estado Operativo */}
-        <Section title="Estado Operativo" subtitle="Lotes en proceso y cerrados" icon={<Wallet size={18} />}>
-          {lotesResumen.length === 0 ? (
-            <p className="text-center text-[#5F6368] text-sm py-4">Sin lotes para este productor</p>
-          ) : (
-            <div className="space-y-2">
-              {lotesResumen.map((lote) => (
-                <AccordionItem
-                  key={lote.id}
-                  title={`${lote.numero_lote} · ${lote.producto} · ${lote.kgClasificado}kg`}
-                  defaultOpen={lote.estadoCuenta === 'en_proceso'}
-                >
-                  <div className="grid grid-cols-2 gap-2.5 mb-4">
-                    <DataCard
-                      fields={[
-                        { label: 'Ingreso', value: shortDate(lote.fecha_ingreso) },
-                      ]}
-                      color="blue"
-                    />
-                    <DataCard
-                      fields={[
-                        { label: 'Estado', value: lote.estado },
-                      ]}
-                      color="blue"
-                    />
-                  </div>
-                  <div className="bg-[#F8FBFF] rounded-xl p-3.5 mb-4 border border-[#E5E7EB]">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#5F6368] mb-3">Resumen por Kg</p>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                      <div>
-                        <p className="text-xs text-[#5F6368]">Clasif.</p>
-                        <p className="font-bold text-[#1A73E8] mt-1">{lote.kgClasificado}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-[#5F6368]">Asignado</p>
-                        <p className="font-bold text-[#1A73E8] mt-1">{lote.kgAsignado}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-[#5F6368]">Liquidado</p>
-                        <p className="font-bold text-[#0D652D] mt-1">{lote.kgLiquidado}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-[#5F6368]">Pendiente</p>
-                        <p className="font-bold text-[#D33B27] mt-1">{lote.kgPendienteLiquidar}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-[#5F6368]">Stock libre</p>
-                        <p className="font-bold text-[#202124] mt-1">{lote.kgSobranteSinAsignar}</p>
-                      </div>
-                    </div>
-                  </div>
-                  {lote.detalleCategorias.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-[#5F6368] mb-2">Detalle por categoría:</p>
-                      <CompactTable
-                        headers={['Categoría', 'Clasif', 'Asignado', 'Liquidado', 'Pendiente']}
-                        rows={lote.detalleCategorias.map((c) => [
-                          c.categoria,
-                          `${c.kgClasificado} kg`,
-                          `${c.kgAsignado} kg`,
-                          `${c.kgLiquidado} kg`,
-                          `${c.kgPendiente} kg`,
-                        ])}
-                      />
-                    </div>
-                  )}
-                  {lote.kgPendienteLiquidar > 0.01 && (
-                    <Link
-                      href={`/liquidaciones?lote=${lote.id}`}
-                      className="block mt-4 text-center bg-[#1A73E8] text-white text-sm px-4 py-2.5 rounded-lg hover:bg-[#1765CC] font-semibold transition-colors"
-                    >
-                      Liquidar este lote
-                    </Link>
-                  )}
-                </AccordionItem>
+          <div className="space-y-4">
+            {/* ── KPIs ── */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {[
+                { label: "Adelantos otorgados", value: currency(totalAdelantos), color: "text-slate-800" },
+                { label: "Por descontar", value: currency(adelantosPendientesMonto), color: adelantosPendientesMonto > 0 ? "text-red-600" : "text-slate-800" },
+                { label: "Total liquidado", value: currency(totalLiquidado), color: "text-blue-700" },
+                { label: "Saldo pendiente", value: currency(saldoLiquidacionesPendiente), color: saldoLiquidacionesPendiente > 0 ? "text-red-600" : "text-emerald-600" },
+                { label: "Pagado", value: currency(totalPagado), color: "text-emerald-600" },
+                { label: "Exposición total", value: currency(exposicionProductor), color: exposicionProductor > 0 ? "text-red-600" : "text-emerald-600" },
+              ].map((kpi) => (
+                <div key={kpi.label} className="rounded-xl bg-gray-50 p-3 shadow-inner">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{kpi.label}</p>
+                  <p className={`mt-1 text-base font-bold ${kpi.color}`}>{kpi.value}</p>
+                </div>
               ))}
             </div>
-          )}
-        </Section>
 
-        {/* Trazabilidad */}
-        <Section title="Trazabilidad" subtitle="Clasificación, división y liquidación" icon={<TrendingUp size={18} />}>
-          {clasificaciones.length === 0 ? (
-            <p className="text-center text-[#5F6368] text-sm py-4">Sin clasificaciones</p>
-          ) : (
-            <CompactTable
-              headers={['Lote', 'Categoría', 'Clasif.', 'División', 'Pedidos', 'Kg']}
-              rows={clasificaciones.map((row) => {
-                const key = `${row.lote_id}-${row.categoria_id}`;
-                const asigRelacionadas = asignaciones.filter(
-                  (item) =>
-                    Number(item.lote_id) === Number(row.lote_id) &&
-                    Number(item.categoria_id) === Number(row.categoria_id)
-                );
-                const codDiv = [...new Set(asigRelacionadas.map((i) => i.codigo_division).filter(Boolean))].join(', ') || '-';
-                const pedidos = [...new Set(asigRelacionadas.map((i) => pedidoMap.get(Number(i.pedido_id)) ?? String(i.pedido_id)))].join(', ') || '-';
-                return [
-                  loteMap.get(Number(row.lote_id))?.numero_lote ?? row.lote_id,
-                  categoriaMap.get(Number(row.categoria_id)) ?? row.categoria_id,
-                  row.codigo_clasificacion ?? '-',
-                  codDiv,
-                  pedidos,
-                  `${round2(Number(row.peso_neto ?? 0))} kg`,
-                ];
-              })}
-            />
-          )}
-        </Section>
-
-        {/* Sección de Finanzas */}
-        <Section title="Finanzas" subtitle="Adelantos, liquidaciones y pagos" icon={<DollarSign size={18} />}>
-          <AccordionItem title="Adelantos" badge={String(adelantos.length)} badgeColor={adelantosPendientesMonto > 0 ? 'red' : 'blue'} defaultOpen={adelantosRes.data ? adelantosRes.data.length > 0 : false}>
-            {adelantos.length === 0 ? (
-              <p className="text-center text-[#5F6368] text-sm py-4">Sin adelantos</p>
-            ) : (
-              <div className="space-y-2.5">
-                {adelantos.map((row) => (
-                  <DataCard
-                    key={row.id}
-                    fields={[
-                      { label: 'Fecha', value: shortDate(row.fecha) },
-                      { label: 'Comprobante', value: row.numero_comprobante ?? `-` },
-                      { label: 'Monto', value: currency(Number(row.monto ?? 0)) },
-                      { label: 'Estado', value: adelantoEstadoLabel(row.estado) },
-                      { label: 'Lote', value: row.lote_id ? loteMap.get(Number(row.lote_id))?.numero_lote ?? String(row.lote_id) : '-' },
-                      { label: 'Motivo', value: row.motivo ?? '-' },
-                    ]}
-                    highlight={row.estado === 'pendiente'}
-                  />
-                ))}
+            {/* Alerta */}
+            {adelantosPendientesMonto > 0 && (
+              <div className="rounded-xl bg-amber-50 px-4 py-3 shadow-sm">
+                <p className="text-sm font-medium text-amber-800">
+                  <strong>⚠ Adelantos pendientes:</strong> {currency(adelantosPendientesMonto)} sin descontar.{" "}
+                  <Link href="/liquidaciones" className="font-bold underline hover:text-amber-900">Ir a Liquidaciones</Link>.
+                </p>
               </div>
             )}
-          </AccordionItem>
 
-          <AccordionItem title="Liquidaciones" badge={String(liquidaciones.length)} badgeColor="green" defaultOpen={true}>
-            {liquidaciones.length === 0 ? (
-              <p className="text-center text-[#5F6368] text-sm py-4">Sin liquidaciones</p>
-            ) : (
-              <CompactTable
-                headers={['Fecha', 'Liquidación', 'Lote', 'A pagar', 'Pagado', 'Saldo']}
-                rows={liquidaciones.map((row) => {
-                  const saldo = round2(
-                    Math.max(0, Number(row.total_a_pagar ?? 0) - Number(row.monto_pagado ?? 0))
-                  );
-                  return [
-                    shortDate(row.fecha_liquidacion),
-                    row.numero_liquidacion,
-                    row.lote_id ? loteMap.get(Number(row.lote_id))?.numero_lote ?? row.lote_id : '-',
-                    currency(Number(row.total_a_pagar ?? 0)),
-                    currency(Number(row.monto_pagado ?? 0)),
-                    saldo > 0 ? `${currency(saldo)} 🔴` : currency(saldo),
-                  ];
-                })}
-              />
-            )}
-          </AccordionItem>
+            {/* ── Lotes ── */}
+            <section className="rounded-xl bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-slate-100 px-4 py-3 flex items-center gap-2">
+                <Wallet size={16} className="text-slate-500" />
+                <h2 className="text-sm font-bold text-gray-900">Lotes del Productor</h2>
+                <span className="ml-auto text-xs text-slate-400">{lotesResumen.length} lotes</span>
+              </div>
+              {lotesResumen.length === 0 ? (
+                <p className="px-4 py-4 text-sm text-slate-500 text-center">Sin lotes para este productor</p>
+              ) : (
+                <div className="sx-table-wrap">
+                  <table className="sx-table">
+                    <thead>
+                      <tr className="text-left text-xs">
+                        <th className="p-2">Lote</th>
+                        <th className="p-2">Producto</th>
+                        <th className="p-2">Ingreso</th>
+                        <th className="p-2">Estado</th>
+                        <th className="p-2 text-right">Kg clasif.</th>
+                        <th className="p-2 text-right">Kg liquidado</th>
+                        <th className="p-2 text-right">Pendiente</th>
+                        <th className="p-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {lotesResumen.map((lote) => (
+                        <tr key={lote.id} className={lote.estadoCuenta === "en_proceso" ? "bg-blue-50/30" : ""}>
+                          <td className="p-2 font-semibold text-slate-900">{lote.numero_lote}</td>
+                          <td className="p-2 text-slate-500 text-xs">{lote.producto}</td>
+                          <td className="p-2 text-slate-400 text-xs">{shortDate(lote.fecha_ingreso)}</td>
+                          <td className="p-2">
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${lote.estado === "liquidado" ? "bg-emerald-100 text-emerald-700" :
+                                lote.estado === "clasificado" ? "bg-blue-100 text-blue-700" :
+                                  lote.estado === "asignado" ? "bg-purple-100 text-purple-700" :
+                                    "bg-slate-100 text-slate-600"
+                              }`}>{lote.estado}</span>
+                          </td>
+                          <td className="p-2 text-right font-semibold text-slate-800">{lote.kgClasificado}</td>
+                          <td className="p-2 text-right text-emerald-700 font-semibold">{lote.kgLiquidado}</td>
+                          <td className={`p-2 text-right font-bold ${lote.kgPendienteLiquidar > 0.01 ? "text-red-600" : "text-emerald-600"}`}>{lote.kgPendienteLiquidar}</td>
+                          <td className="p-2">
+                            {lote.kgPendienteLiquidar > 0.01 && (
+                              <Link href={`/liquidaciones?lote=${lote.id}`} className="rounded-lg bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700">
+                                Liquidar
+                              </Link>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
 
-          <AccordionItem title="Pagos registrados" badge={String(pagosKardex.length)} badgeColor="blue">
-            {pagosKardex.length === 0 ? (
-              <p className="text-center text-[#5F6368] text-sm py-4">Sin pagos registrados</p>
-            ) : (
-              <CompactTable
-                headers={['Fecha', 'Liquidación', 'Monto', 'Detalle']}
-                rows={pagosKardex.map((row) => [
-                  shortDate(row.fecha),
-                  row.origen_id ? liqMap.get(Number(row.origen_id))?.numero_liquidacion ?? `LIQ-${row.origen_id}` : '-',
-                  currency(Number(row.monto ?? 0)),
-                  row.observaciones ?? row.concepto ?? 'Pago parcial',
-                ])}
-              />
-            )}
-          </AccordionItem>
-        </Section>
-
-        {/* Auditoría */}
-        <Section title="Auditoría" subtitle="Comprobantes internos y línea de tiempo" icon={<Calendar size={18} />}>
-          <Tabs
-            tabs={[
-              {
-                label: 'Comprobantes',
-                content:
-                  comprobantesInternos.length === 0 ? (
-                    <p className="text-center text-[#5F6368] text-sm py-4">Sin comprobantes</p>
-                  ) : (
-                    <CompactTable
-                      headers={['Código', 'Tipo', 'Fecha', 'Monto', 'Receptor']}
-                      rows={comprobantesInternos.map((row) => {
-                        const receptor = [row.receptor_nombre, row.receptor_documento]
-                          .filter(Boolean)
-                          .join(' | ') || '-';
-                        return [
-                          row.codigo_interno,
-                          row.tipo,
-                          shortDate(row.fecha_evento),
-                          currency(Number(row.monto ?? 0)),
-                          receptor,
-                        ];
-                      })}
-                    />
-                  ),
-              },
-              {
-                label: 'Línea de tiempo',
-                content:
-                  timelineRows.length === 0 ? (
-                    <p className="text-center text-[#5F6368] text-sm py-4">Sin movimientos</p>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {timelineRows.map((row, idx) => {
-                        const tipoColor = row.tipo === 'adelanto' ? 'blue' : row.tipo === 'liquidacion' ? 'green' : 'orange';
-                        const typoBgColor = tipoColor === 'blue' ? 'bg-[#E8F0FE] text-[#1A73E8]' : tipoColor === 'green' ? 'bg-[#E6F4EA] text-[#0D652D]' : 'bg-[#FEF7E0] text-[#EA8300]';
+            {/* ── Liquidaciones ── */}
+            <section className="rounded-xl bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-slate-100 px-4 py-3 flex items-center gap-2">
+                <DollarSign size={16} className="text-slate-500" />
+                <h2 className="text-sm font-bold text-gray-900">Liquidaciones</h2>
+                <span className="ml-auto text-xs text-slate-400">{liquidaciones.length} registros</span>
+              </div>
+              {liquidaciones.length === 0 ? (
+                <p className="px-4 py-4 text-sm text-slate-500 text-center">Sin liquidaciones</p>
+              ) : (
+                <div className="sx-table-wrap">
+                  <table className="sx-table">
+                    <thead>
+                      <tr className="text-left text-xs">
+                        <th className="p-2">Fecha</th>
+                        <th className="p-2">Liquidación</th>
+                        <th className="p-2">Lote</th>
+                        <th className="p-2 text-right">A pagar</th>
+                        <th className="p-2 text-right">Pagado</th>
+                        <th className="p-2 text-right">Saldo</th>
+                        <th className="p-2">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {liquidaciones.map((row) => {
+                        const saldo = round2(Math.max(0, Number(row.total_a_pagar ?? 0) - Number(row.monto_pagado ?? 0)));
                         return (
-                          <div key={idx} className="border-l-4 border-[#1A73E8] pl-3 py-3 rounded-r-lg">
-                            <div className="flex justify-between items-start mb-1">
-                              <div>
-                                <p className="text-sm font-bold text-[#202124]">{row.referencia}</p>
-                                <p className="text-xs text-[#5F6368]">{shortDate(row.fecha)}</p>
-                              </div>
-                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${typoBgColor}`}>
-                                {row.tipo.charAt(0).toUpperCase() + row.tipo.slice(1)}
-                              </span>
-                            </div>
-                            <p className="text-base font-bold text-[#202124]">{currency(row.monto)}</p>
-                            <p className="text-xs text-[#5F6368] mt-1">{row.extra}</p>
-                          </div>
+                          <tr key={row.id}>
+                            <td className="p-2 text-xs text-slate-400">{shortDate(row.fecha_liquidacion)}</td>
+                            <td className="p-2 font-semibold text-slate-800">{row.numero_liquidacion}</td>
+                            <td className="p-2 text-slate-500 text-xs">{row.lote_id ? loteMap.get(Number(row.lote_id))?.numero_lote ?? "-" : "-"}</td>
+                            <td className="p-2 text-right font-semibold text-slate-800">{currency(Number(row.total_a_pagar ?? 0))}</td>
+                            <td className="p-2 text-right text-emerald-700">{currency(Number(row.monto_pagado ?? 0))}</td>
+                            <td className={`p-2 text-right font-bold ${saldo > 0 ? "text-red-600" : "text-emerald-600"}`}>{currency(saldo)}</td>
+                            <td className="p-2">
+                              <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${row.estado_pago === "pagado" ? "bg-emerald-100 text-emerald-700" :
+                                  row.estado_pago === "parcial" ? "bg-amber-100 text-amber-700" :
+                                    "bg-red-100 text-red-700"
+                                }`}>{row.estado_pago}</span>
+                            </td>
+                          </tr>
                         );
                       })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {/* ── Adelantos ── */}
+            <section className="rounded-xl bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-slate-100 px-4 py-3 flex items-center gap-2">
+                <TrendingUp size={16} className="text-slate-500" />
+                <h2 className="text-sm font-bold text-gray-900">Adelantos</h2>
+                <span className="ml-auto text-xs text-slate-400">{adelantos.length} registros</span>
+              </div>
+              {adelantos.length === 0 ? (
+                <p className="px-4 py-4 text-sm text-slate-500 text-center">Sin adelantos</p>
+              ) : (
+                <div className="sx-table-wrap">
+                  <table className="sx-table">
+                    <thead>
+                      <tr className="text-left text-xs">
+                        <th className="p-2">Fecha</th>
+                        <th className="p-2">Comprobante</th>
+                        <th className="p-2">Lote</th>
+                        <th className="p-2 text-right">Monto</th>
+                        <th className="p-2">Estado</th>
+                        <th className="p-2">Motivo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {adelantos.map((row) => (
+                        <tr key={row.id} className={row.estado === "pendiente" ? "bg-amber-50/40" : ""}>
+                          <td className="p-2 text-xs text-slate-400">{shortDate(row.fecha)}</td>
+                          <td className="p-2 text-slate-600 text-xs">{row.numero_comprobante ?? "-"}</td>
+                          <td className="p-2 text-slate-500 text-xs">{row.lote_id ? loteMap.get(Number(row.lote_id))?.numero_lote ?? "-" : "-"}</td>
+                          <td className="p-2 text-right font-bold text-slate-800">{currency(Number(row.monto ?? 0))}</td>
+                          <td className="p-2">
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${row.estado === "aplicado" ? "bg-emerald-100 text-emerald-700" :
+                                row.estado === "pendiente" ? "bg-amber-100 text-amber-700" :
+                                  "bg-slate-100 text-slate-600"
+                              }`}>{adelantoEstadoLabel(row.estado)}</span>
+                          </td>
+                          <td className="p-2 text-xs text-slate-400">{row.motivo ?? "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {/* ── Trazabilidad ── */}
+            <section className="rounded-xl bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <h2 className="text-sm font-bold text-gray-900">Trazabilidad por Categoría</h2>
+                <p className="text-xs text-slate-400">Clasificación, división y pedidos por lote</p>
+              </div>
+              {clasificaciones.length === 0 ? (
+                <p className="px-4 py-4 text-sm text-slate-500 text-center">Sin clasificaciones</p>
+              ) : (
+                <div className="sx-table-wrap">
+                  <table className="sx-table">
+                    <thead>
+                      <tr className="text-left text-xs">
+                        <th className="p-2">Lote</th>
+                        <th className="p-2">Categoría</th>
+                        <th className="p-2">Cód. clasif.</th>
+                        <th className="p-2">División</th>
+                        <th className="p-2">Pedidos</th>
+                        <th className="p-2 text-right">Kg neto</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {clasificaciones.map((row, idx) => {
+                        const asigRelacionadas = asignaciones.filter(
+                          (item) => Number(item.lote_id) === Number(row.lote_id) && Number(item.categoria_id) === Number(row.categoria_id)
+                        );
+                        const codDiv = [...new Set(asigRelacionadas.map((i) => i.codigo_division).filter(Boolean))].join(", ") || "-";
+                        const pedidosStr = [...new Set(asigRelacionadas.map((i) => pedidoMap.get(Number(i.pedido_id)) ?? String(i.pedido_id)))].join(", ") || "-";
+                        return (
+                          <tr key={idx}>
+                            <td className="p-2 font-semibold text-slate-800">{loteMap.get(Number(row.lote_id))?.numero_lote ?? row.lote_id}</td>
+                            <td className="p-2 text-slate-700">{categoriaMap.get(Number(row.categoria_id)) ?? row.categoria_id}</td>
+                            <td className="p-2 text-slate-400 text-xs">{row.codigo_clasificacion ?? "-"}</td>
+                            <td className="p-2 text-slate-400 text-xs">{codDiv}</td>
+                            <td className="p-2 text-slate-400 text-xs">{pedidosStr}</td>
+                            <td className="p-2 text-right font-semibold text-slate-800">{round2(Number(row.peso_neto ?? 0))} kg</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {/* ── Auditoría (colapsable al final) ── */}
+            <section className="rounded-xl bg-white shadow-sm overflow-hidden">
+              <details>
+                <summary className="cursor-pointer px-4 py-3 flex items-center gap-2 list-none hover:bg-slate-50 transition-colors select-none">
+                  <Calendar size={16} className="text-slate-400 flex-shrink-0" />
+                  <div className="flex-1">
+                    <span className="text-sm font-bold text-gray-900">Línea de Tiempo &amp; Comprobantes</span>
+                    <span className="ml-2 text-xs text-slate-400">{timelineRows.length} eventos, {comprobantesInternos.length} comprobantes · expandir</span>
+                  </div>
+                  <span className="text-slate-300 text-xs select-none">▼</span>
+                </summary>
+                <div className="border-t border-slate-100 p-4 space-y-5">
+                  {comprobantesInternos.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Comprobantes internos</p>
+                      <div className="sx-table-wrap">
+                        <table className="sx-table">
+                          <thead>
+                            <tr className="text-left text-xs">
+                              <th className="p-2">Código</th>
+                              <th className="p-2">Tipo</th>
+                              <th className="p-2">Fecha</th>
+                              <th className="p-2 text-right">Monto</th>
+                              <th className="p-2">Receptor</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {comprobantesInternos.map((row) => (
+                              <tr key={row.id}>
+                                <td className="p-2 font-semibold text-slate-800">{row.codigo_interno}</td>
+                                <td className="p-2 text-slate-500 text-xs">{row.tipo}</td>
+                                <td className="p-2 text-xs text-slate-400">{shortDate(row.fecha_evento)}</td>
+                                <td className="p-2 text-right font-semibold">{currency(Number(row.monto ?? 0))}</td>
+                                <td className="p-2 text-xs text-slate-400">{[row.receptor_nombre, row.receptor_documento].filter(Boolean).join(" | ") || "-"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  ),
-              },
-            ]}
-          />
-        </Section>
+                  )}
+                  {timelineRows.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Cronología</p>
+                      <div className="space-y-2">
+                        {timelineRows.map((row, idx) => {
+                          const colors = {
+                            adelanto: "border-blue-400 bg-blue-50",
+                            liquidacion: "border-emerald-400 bg-emerald-50",
+                            pago: "border-amber-400 bg-amber-50",
+                          };
+                          const badges = {
+                            adelanto: "bg-blue-100 text-blue-700",
+                            liquidacion: "bg-emerald-100 text-emerald-700",
+                            pago: "bg-amber-100 text-amber-700",
+                          };
+                          return (
+                            <div key={idx} className={`border-l-4 pl-3 py-2 rounded-r-lg ${colors[row.tipo]}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <p className="text-sm font-bold text-slate-900">
+                                    {row.referencia}{row.lote !== "-" ? ` · ${row.lote}` : ""}
+                                  </p>
+                                  <p className="text-xs text-slate-400">{shortDate(row.fecha)} · {row.extra}</p>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-sm font-bold text-slate-900">{currency(row.monto)}</p>
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badges[row.tipo]}`}>{row.tipo}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </details>
+            </section>
+          </div>
         </div>
-      </div>
       </main>
     </div>
   );

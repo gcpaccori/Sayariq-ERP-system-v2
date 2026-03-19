@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { StatsCard } from "@/components/rentabilidad-stats-card";
-import { RentabilidadFilters } from "@/components/rentabilidad-filters";
 import { LoteProfitabilityCard } from "@/components/lote-profitability-card";
-
+import { RentabilidadFilters } from "@/components/rentabilidad-filters";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 
@@ -165,25 +163,25 @@ export default async function RentabilidadLotesPage({
       : Promise.resolve({ data: [] }),
     loteIds.length > 0
       ? supabase
-          .from("vw_lote_clasificacion_vigente")
-          .select("lote_id,categoria_id,codigo_clasificacion,peso_neto")
-          .in("lote_id", loteIds)
+        .from("vw_lote_clasificacion_vigente")
+        .select("lote_id,categoria_id,codigo_clasificacion,peso_neto")
+        .in("lote_id", loteIds)
       : Promise.resolve({ data: [] }),
     loteIds.length > 0
       ? supabase
-          .from("pedido_asignaciones")
-          .select("id,lote_id,pedido_id,categoria_id,codigo_division,kg_asignados,precio_kg,subtotal,fecha_asignacion")
-          .in("lote_id", loteIds)
+        .from("pedido_asignaciones")
+        .select("id,lote_id,pedido_id,categoria_id,codigo_division,kg_asignados,precio_kg,subtotal,fecha_asignacion")
+        .in("lote_id", loteIds)
       : Promise.resolve({ data: [] }),
     loteIds.length > 0
       ? supabase
-          .from("liquidaciones")
-          .select(
-            "id,lote_id,numero_liquidacion,fecha_liquidacion,total_bruto,total_descuentos,total_adelantos,total_a_pagar,monto_pagado,estado,estado_pago"
-          )
-          .eq("tipo", "productor")
-          .neq("estado", "anulada")
-          .in("lote_id", loteIds)
+        .from("liquidaciones")
+        .select(
+          "id,lote_id,numero_liquidacion,fecha_liquidacion,total_bruto,total_descuentos,total_adelantos,total_a_pagar,monto_pagado,estado,estado_pago"
+        )
+        .eq("tipo", "productor")
+        .neq("estado", "anulada")
+        .in("lote_id", loteIds)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -224,7 +222,7 @@ export default async function RentabilidadLotesPage({
       const precioVentaProm = kgVendido > 0 ? round2(ventaTotal / kgVendido) : 0;
 
       const divisiones = [...new Set(asignCat.map((row) => row.codigo_division).filter((v): v is string => !!v))];
-      const pedidos = [...new Set(asignCat.map((row) => pedidoMap.get(Number(row.pedido_id)) ?? String(row.pedido_id)))];
+      const pedidosArr = [...new Set(asignCat.map((row) => pedidoMap.get(Number(row.pedido_id)) ?? String(row.pedido_id)))];
 
       let estadoSalida: "no_vendido" | "parcial" | "vendido_total" = "no_vendido";
       if (kgVendido > 0.01 && kgSobrante <= 0.01) estadoSalida = "vendido_total";
@@ -240,7 +238,7 @@ export default async function RentabilidadLotesPage({
         precioVentaProm,
         ventaTotal,
         particiones: divisiones.join(", ") || "-",
-        pedidos: pedidos.join(", ") || "-",
+        pedidos: pedidosArr.join(", ") || "-",
       };
     });
 
@@ -322,204 +320,106 @@ export default async function RentabilidadLotesPage({
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="rentabilidad-lotes" />
-      <main className="google-2027-theme w-full flex-1 px-3 py-4 sm:px-6 sm:py-6">
-        <div className="mx-auto w-full max-w-7xl">
-        {/* Header */}
-        <div className="mb-5 sm:mb-6">
+      <main className="google-2027-theme w-full flex-1 bg-white px-4 py-5 sm:px-6 sm:py-6">
+        <div className="mx-auto w-full max-w-7xl space-y-6">
+
+          {/* ── Header ── */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100">
-              Módulo 9: Rentabilidad
-            </h1>
-            <nav className="flex items-center gap-2 text-xs sm:text-sm flex-wrap">
-              <Link
-                href="/analitica"
-                className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
-              >
-                Ir a Analítica
-              </Link>
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
-              >
-                ← Inicio
-              </Link>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+                Módulo 9: Rentabilidad
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">Ventas, costos y ganancias por lote y producto</p>
+            </div>
+            <nav className="flex items-center gap-2 flex-wrap">
+              <Link href="/analitica" className="sx-btn sx-btn-secondary text-sm">Ir a Analítica</Link>
+              <Link href="/" className="sx-btn sx-btn-secondary text-sm">← Inicio</Link>
             </nav>
           </div>
-          <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-            Análisis de ganancias por lote y producto
-          </p>
-      </div>
 
-      {/* Descripción */}
-      <div className="mb-5 sm:mb-6 p-3 sm:p-4 rounded-lg bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-800">
-        <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-          <strong>¿Qué ves aquí?</strong> Cuánto ganaste por lote y producto, considerando ventas reales por categoría/división,
-          qué parte se vendió o sobró, y cuánto ya pagaste al productor vs lo que falta pagar.
-        </p>
-      </div>
+          {/* ── Filtros ── */}
+          <section className="rounded-xl bg-white p-4 shadow-sm">
+            <RentabilidadFilters
+              lotesOptions={lotesOptions}
+              currentProducto={productoFilter}
+              currentLote={loteFilter}
+            />
+          </section>
 
-      {/* Filtros */}
-      <div className="mb-8">
-        <RentabilidadFilters
-          lotesOptions={lotesOptions}
-          currentProducto={productoFilter}
-          currentLote={loteFilter}
-        />
-      </div>
-
-      {/* KPIs Principales */}
-      <section className="mb-6 sm:mb-8">
-        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 mb-3 sm:mb-4">
-          Resumen Ejecutivo
-        </h2>
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-          <StatsCard
-            title="Ventas totales"
-            value={currency(totalScope.ventasTotales)}
-            subtitle="Valor real según asignaciones"
-            status="success"
-          />
-          <StatsCard
-            title="Costo comprometido"
-            value={currency(totalScope.costoComprometido)}
-            subtitle="Total liquidaciones productor"
-            status="neutral"
-          />
-          <StatsCard
-            title="Pagado real"
-            value={currency(totalScope.pagadoReal)}
-            subtitle="Adelantos + pagos registrados"
-            status="neutral"
-          />
-          <StatsCard
-            title="Ganancia s/ pagado"
-            value={currency(totalScope.gananciaSobrePagado)}
-            subtitle="Ventas menos lo pagado hoy"
-            status={totalScope.gananciaSobrePagado >= 0 ? 'success' : 'danger'}
-          />
-          <StatsCard
-            title="Ganancia s/ comprometido"
-            value={currency(totalScope.gananciaSobreComprometido)}
-            subtitle="Ventas menos costo total"
-            status={totalScope.gananciaSobreComprometido >= 0 ? 'success' : 'danger'}
-          />
-        </div>
-      </section>
-
-      {/* KPIs Volumen */}
-      <section className="mb-6 sm:mb-8">
-        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 mb-3 sm:mb-4">
-          Volumen (kg)
-        </h2>
-        <div className="grid gap-3 sm:gap-4 grid-cols-3">
-          <StatsCard
-            title="Kg clasificados"
-            value={totalScope.kgClasif}
-            subtitle="Con categoría en almacén"
-            status="info"
-          />
-          <StatsCard
-            title="Kg vendidos"
-            value={totalScope.kgVendido}
-            subtitle="En particiones/pedidos"
-            status="success"
-          />
-          <StatsCard
-            title="Kg sobrantes"
-            value={totalScope.kgSobrante}
-            subtitle="No vendidos o parcial"
-            status={totalScope.kgSobrante > 0 ? 'warning' : 'success'}
-          />
-        </div>
-      </section>
-
-      {/* Resumen por Producto */}
-      <section className="mb-6 sm:mb-8">
-        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 mb-2 sm:mb-4">
-          Consolidado por Producto
-        </h2>
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-3 sm:mb-4">
-          Vista agregada de todos los lotes filtrados por producto
-        </p>
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="overflow-x-auto text-xs sm:text-sm">
-            <table className="w-full">
-              <thead className="bg-slate-100 dark:bg-slate-800">
-                <tr className="text-xs sm:text-sm">
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left font-semibold text-slate-900 dark:text-slate-100">Producto</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">#</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Ventas</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Costo</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Pagado</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Saldo</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Gan. pago</th>
-                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-slate-900 dark:text-slate-100">Gan. costo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {productosAgg.map((row) => (
-                  <tr key={row.producto} className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors text-xs sm:text-sm">
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 font-semibold text-slate-900 dark:text-slate-100">{row.producto}</td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-slate-600 dark:text-slate-400">{row.lotes}</td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-slate-900 dark:text-slate-100">{currency(row.ventasTotales)}</td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-slate-600 dark:text-slate-400">{currency(row.costoComprometido)}</td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right text-slate-600 dark:text-slate-400">{currency(row.pagadoReal)}</td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold" style={{ color: row.saldoPorPagar <= 0 ? '#10b981' : '#ef4444' }}>
-                      {currency(row.saldoPorPagar)}
-                    </td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold" style={{ color: row.gananciaSobrePagado >= 0 ? '#10b981' : '#ef4444' }}>
-                      {currency(row.gananciaSobrePagado)}
-                    </td>
-                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold" style={{ color: row.gananciaSobreComprometido >= 0 ? '#10b981' : '#ef4444' }}>
-                      {currency(row.gananciaSobreComprometido)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      {/* Detalles por Lote */}
-      <section>
-        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 mb-2 sm:mb-4">
-          Rentabilidad Detallada por Lote
-        </h2>
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-4 sm:mb-6">
-          Expande cada lote para ver el desglose económico y detalle por categoría
-        </p>
-
-        {loteResumenes.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-6 sm:p-8 text-center">
-            <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm">
-              No hay lotes para mostrar con los filtros seleccionados.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3 sm:space-y-4">
-            {loteResumenes.map((lote) => (
-              <LoteProfitabilityCard
-                key={lote.loteId}
-                numeroLote={lote.numeroLote}
-                producto={lote.producto}
-                productor={lote.productor}
-                fechaIngreso={shortDate(lote.fechaIngreso)}
-                kgClasif={lote.kgClasif}
-                kgVendido={lote.kgVendido}
-                kgSobrante={lote.kgSobrante}
-                ventasTotales={lote.ventasTotales}
-                costoComprometido={lote.costoComprometido}
-                pagadoReal={lote.pagadoReal}
-                saldoPorPagar={lote.saldoPorPagar}
-                gananciaSobrePagado={lote.gananciaSobrePagado}
-                gananciaSobreComprometido={lote.gananciaSobreComprometido}
-                categorias={lote.categorias}
-              />
+          {/* ── KPIs unificados (1 sola fila) ── */}
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+            {[
+              { label: "Lotes", value: String(totalScope.lotes), color: "text-slate-900" },
+              { label: "Ventas", value: currency(totalScope.ventasTotales), color: "text-blue-700" },
+              { label: "Costo total", value: currency(totalScope.costoComprometido), color: "text-slate-700" },
+              { label: "Pagado real", value: currency(totalScope.pagadoReal), color: "text-slate-700" },
+              { label: "Saldo por pagar", value: currency(totalScope.saldoPorPagar), color: totalScope.saldoPorPagar > 0 ? "text-red-600" : "text-emerald-600" },
+              { label: "Ganancia", value: currency(totalScope.gananciaSobrePagado), color: totalScope.gananciaSobrePagado >= 0 ? "text-emerald-600" : "text-red-600" },
+              { label: "Kg sobrante", value: String(totalScope.kgSobrante), color: totalScope.kgSobrante > 0 ? "text-amber-600" : "text-emerald-600" },
+            ].map((kpi) => (
+              <div key={kpi.label} className="rounded-xl bg-gray-50 p-3 shadow-inner">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{kpi.label}</p>
+                <p className={`mt-1 text-base font-bold ${kpi.color}`}>{kpi.value}</p>
+              </div>
             ))}
-          </div>
-        )}
-      </section>
+          </section>
+
+          {/* ── Consolidado por Producto (2 tarjetas lado a lado) ── */}
+          <section className="grid gap-4 sm:grid-cols-2">
+            {productosAgg.map((row) => (
+              <div key={row.producto} className="rounded-xl bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="font-bold text-gray-900">{row.producto}</h3>
+                  <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700">{row.lotes} lotes</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div><p className="text-xs text-slate-500">Ventas</p><p className="font-bold text-blue-700">{currency(row.ventasTotales)}</p></div>
+                  <div><p className="text-xs text-slate-500">Costo</p><p className="font-semibold text-slate-700">{currency(row.costoComprometido)}</p></div>
+                  <div><p className="text-xs text-slate-500">Pagado</p><p className="font-semibold text-slate-700">{currency(row.pagadoReal)}</p></div>
+                  <div><p className="text-xs text-slate-500">Saldo</p><p className={`font-bold ${row.saldoPorPagar > 0 ? "text-red-600" : "text-emerald-600"}`}>{currency(row.saldoPorPagar)}</p></div>
+                  <div><p className="text-xs text-slate-500">Ganancia</p><p className={`font-bold ${row.gananciaSobrePagado >= 0 ? "text-emerald-600" : "text-red-600"}`}>{currency(row.gananciaSobrePagado)}</p></div>
+                  <div><p className="text-xs text-slate-500">Kg clasif.</p><p className="font-semibold text-slate-700">{row.kgClasif} kg</p></div>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {/* ── Detalle por lote (tabla compacta) ── */}
+          <section className="rounded-xl bg-white shadow-sm overflow-hidden">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <h2 className="text-base font-bold text-gray-900">Rentabilidad por Lote</h2>
+              <p className="mt-0.5 text-xs text-slate-500">Expande cada lote para ver el desglose por categoría</p>
+            </div>
+
+            {loteResumenes.length === 0 ? (
+              <div className="p-6 text-center text-sm text-slate-500">
+                No hay lotes para mostrar con los filtros seleccionados.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {loteResumenes.map((lote) => (
+                  <LoteProfitabilityCard
+                    key={lote.loteId}
+                    numeroLote={lote.numeroLote}
+                    producto={lote.producto}
+                    productor={lote.productor}
+                    fechaIngreso={shortDate(lote.fechaIngreso)}
+                    kgClasif={lote.kgClasif}
+                    kgVendido={lote.kgVendido}
+                    kgSobrante={lote.kgSobrante}
+                    ventasTotales={lote.ventasTotales}
+                    costoComprometido={lote.costoComprometido}
+                    pagadoReal={lote.pagadoReal}
+                    saldoPorPagar={lote.saldoPorPagar}
+                    gananciaSobrePagado={lote.gananciaSobrePagado}
+                    gananciaSobreComprometido={lote.gananciaSobreComprometido}
+                    categorias={lote.categorias}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
         </div>
       </main>
     </div>

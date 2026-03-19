@@ -15,7 +15,7 @@ import { PagoLiquidacionForm } from "@/components/pago-liquidacion-form";
 import OperationsSwitcher from "@/components/operations-switcher";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
-import FormToggleSection from "@/components/form-toggle-section";
+import ModuleFormModal from "@/components/module-form-modal";
 import PersonSearchField from "@/components/person-search-field";
 
 type SearchParams = {
@@ -213,9 +213,9 @@ async function getLotesLiquidables() {
   const { data: liqDet } =
     liqIds.length > 0
       ? await supabase
-          .from("liquidacion_detalle")
-          .select("liquidacion_id,categoria_id,peso_neto")
-          .in("liquidacion_id", liqIds)
+        .from("liquidacion_detalle")
+        .select("liquidacion_id,categoria_id,peso_neto")
+        .in("liquidacion_id", liqIds)
       : { data: [] as Array<{ liquidacion_id: number; categoria_id: number; peso_neto: number }> };
 
   const liquidados = new Map<string, number>();
@@ -285,9 +285,9 @@ async function getPedidosLiquidables() {
   const { data: liqDet } =
     liqIds.length > 0
       ? await supabase
-          .from("liquidacion_detalle")
-          .select("liquidacion_id,categoria_id,peso_neto")
-          .in("liquidacion_id", liqIds)
+        .from("liquidacion_detalle")
+        .select("liquidacion_id,categoria_id,peso_neto")
+        .in("liquidacion_id", liqIds)
       : { data: [] as Array<{ liquidacion_id: number; categoria_id: number; peso_neto: number }> };
 
   const liquidadoMap = new Map<string, number>();
@@ -374,9 +374,9 @@ async function getSelectedLoteData(loteId: number) {
   const { data: liqDet } =
     liqIds.length > 0
       ? await supabase
-          .from("liquidacion_detalle")
-          .select("categoria_id,peso_neto")
-          .in("liquidacion_id", liqIds)
+        .from("liquidacion_detalle")
+        .select("categoria_id,peso_neto")
+        .in("liquidacion_id", liqIds)
       : { data: [] as Array<{ categoria_id: number; peso_neto: number }> };
 
   const liquidadosMap = new Map<number, number>();
@@ -460,9 +460,9 @@ async function getSelectedPedidoData(pedidoId: number) {
   const { data: liqDet } =
     liqIds.length > 0
       ? await supabase
-          .from("liquidacion_detalle")
-          .select("categoria_id,peso_neto")
-          .in("liquidacion_id", liqIds)
+        .from("liquidacion_detalle")
+        .select("categoria_id,peso_neto")
+        .in("liquidacion_id", liqIds)
       : { data: [] as Array<{ categoria_id: number; peso_neto: number }> };
 
   const liquidadoMap = new Map<number, number>();
@@ -507,17 +507,17 @@ export default async function LiquidacionesPage({
   const [compAdelantosRes, compLiquidacionesRes] = await Promise.all([
     adelantoIds.length > 0
       ? supabase
-          .from("comprobantes_internos")
-          .select("id,tipo,codigo_interno,entidad_origen,entidad_origen_id")
-          .eq("entidad_origen", "adelantos")
-          .in("entidad_origen_id", adelantoIds)
+        .from("comprobantes_internos")
+        .select("id,tipo,codigo_interno,entidad_origen,entidad_origen_id")
+        .eq("entidad_origen", "adelantos")
+        .in("entidad_origen_id", adelantoIds)
       : Promise.resolve({ data: [] }),
     liquidacionIds.length > 0
       ? supabase
-          .from("comprobantes_internos")
-          .select("id,tipo,codigo_interno,entidad_origen,entidad_origen_id")
-          .eq("entidad_origen", "liquidaciones")
-          .in("entidad_origen_id", liquidacionIds)
+        .from("comprobantes_internos")
+        .select("id,tipo,codigo_interno,entidad_origen,entidad_origen_id")
+        .eq("entidad_origen", "liquidaciones")
+        .in("entidad_origen_id", liquidacionIds)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -534,22 +534,22 @@ export default async function LiquidacionesPage({
 
   const [fotosAdelantosRes, fotosLiquidacionesRes] = await Promise.all([
     adelantoIds.length > 0
-        ? supabase
-          .from("evidencias_fotos")
-          .select("entidad_id,ruta_thumb,ruta_imagen,created_at")
-          .eq("contexto", "adelanto")
-          .eq("entidad_origen", "adelantos")
-          .in("entidad_id", adelantoIds)
-          .order("created_at", { ascending: false })
+      ? supabase
+        .from("evidencias_fotos")
+        .select("entidad_id,ruta_thumb,ruta_imagen,created_at")
+        .eq("contexto", "adelanto")
+        .eq("entidad_origen", "adelantos")
+        .in("entidad_id", adelantoIds)
+        .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     liquidacionIds.length > 0
-        ? supabase
-          .from("evidencias_fotos")
-          .select("entidad_id,ruta_thumb,ruta_imagen,created_at")
-          .eq("contexto", "liquidacion")
-          .eq("entidad_origen", "liquidaciones")
-          .in("entidad_id", liquidacionIds)
-          .order("created_at", { ascending: false })
+      ? supabase
+        .from("evidencias_fotos")
+        .select("entidad_id,ruta_thumb,ruta_imagen,created_at")
+        .eq("contexto", "liquidacion")
+        .eq("entidad_origen", "liquidaciones")
+        .in("entidad_id", liquidacionIds)
+        .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -643,731 +643,712 @@ export default async function LiquidacionesPage({
       <ModuleNavigation currentModule="liquidaciones" />
       <main className="google-2027-theme min-w-0 flex-1 p-6">
         <div className="mx-auto w-full max-w-7xl">
-      <LiquidacionesShell
-        initialTab="resumen"
-        kpis={{
-          totalLiquidaciones,
-          productoresPendientes: productorPendientes.length,
-          totalPorPagar: totalPorPagarProductor,
-          totalPagos: totalPagosRegistrados,
-        }}
-      />
-      
-      
-
-      <section className="mb-4 rounded border p-4">
-        <p className="text-sm">
-          Este módulo concentra compromisos con productores y cobranzas a clientes. Las cards separan lo
-          pendiente por pagar vs por cobrar, y los adelantos quedan como monto por descontar hasta que se
-          apliquen en una liquidación.
-        </p>
-      </section>
-
-      {search.ok ? (
-        <p className="mb-4 rounded border border-green-600 p-2 text-sm">{search.ok}</p>
-      ) : null}
-      {search.error ? (
-        <p className="mb-4 rounded border border-red-600 p-2 text-sm">{search.error}</p>
-      ) : null}
-
-      <section id="tab-resumen" className="mb-6">
-        <div className="sm:col-span-5 mt-4">
-          <LiquidacionesResumenTable
-            liquidaciones={liquidaciones}
-            fotoMap={Object.fromEntries([...fotoLiquidacionMap])}
-            personaMap={Object.fromEntries([...personaMap])}
-            compLiquidacionMap={Object.fromEntries([...compLiquidacionMap])}
-            loteMap={Object.fromEntries([...loteMap])}
-            pedidoMap={Object.fromEntries([...pedidoMap])}
+          <LiquidacionesShell
+            initialTab="resumen"
+            kpis={{
+              totalLiquidaciones,
+              productoresPendientes: productorPendientes.length,
+              totalPorPagar: totalPorPagarProductor,
+              totalPagos: totalPagosRegistrados,
+            }}
           />
-        </div>
-      </section>
 
-      <section id="tab-operaciones" className="mb-6" style={{ display: 'none' }}>
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-6">
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">Operaciones</h2>
-            <p className="text-sm text-gray-600">Selecciona una sola acción para trabajar con foco y evitar errores de registro.</p>
-          </div>
 
-          <OperationsSwitcher
-            adelantoContent={(
-              <FormToggleSection
-                title="Registrar adelanto"
-                description="Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor."
-                defaultOpen
-              >
 
-                <form action={createAdelantoAction} className="grid gap-4">
-                  <section className="rounded-xl border border-gray-100 p-3 md:p-4">
-                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 1: Selección</h4>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <PersonSearchField
-                        name="productor_id"
-                        label="Productor"
-                        people={productores}
-                        required
-                        placeholder="Buscar productor por nombre o DNI"
-                      />
-
-                      <label className="grid gap-1">
-                        <span className="text-sm">Lote (opcional)</span>
-                        <select name="lote_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-                          <option value="">Sin lote específico</option>
-                          {lotesLiquidables.map((row) => (
-                            <option key={row.id} value={String(row.id)}>
-                              {row.numero_lote}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                  </section>
-
-                  <section className="rounded-xl border border-gray-100 p-3 md:p-4">
-                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 2: Monto y fecha</h4>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="grid gap-1">
-                        <span className="text-sm">Monto *</span>
-                        <input name="monto" type="number" min="0" step="0.01" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" required />
-                      </label>
-
-                      <label className="grid gap-1">
-                        <span className="text-sm">Fecha *</span>
-                        <input
-                          name="fecha"
-                          type="date"
-                          defaultValue={new Date().toISOString().slice(0, 10)}
-                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                        />
-                      </label>
-                    </div>
-                  </section>
-
-                  <section className="rounded-xl border border-gray-100 p-3 md:p-4">
-                    <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 3: Motivo</h4>
-                    <label className="grid gap-1">
-                      <span className="text-sm">Motivo (observaciones)</span>
-                      <textarea name="motivo" className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[80px]" placeholder="Motivo del adelanto (opcional)" />
-                    </label>
-                  </section>
-
-                  <details className="rounded-xl border border-gray-100 p-3 md:p-4">
-                    <summary className="cursor-pointer text-sm font-semibold text-gray-700">Paso 4 (opcional): Comprobante interno</summary>
-                    <div className="mt-3">
-                      <ComprobanteInternoFields />
-                    </div>
-                  </details>
-
-                  <details className="rounded-xl border border-gray-100 p-3 md:p-4">
-                    <summary className="cursor-pointer text-sm font-semibold text-gray-700">Paso 5 (opcional): Evidencia</summary>
-                    <label className="mt-3 grid gap-1">
-                      <span className="text-sm">Foto evidencia (opcional)</span>
-                      <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-                      <span className="text-xs text-gray-500">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
-                    </label>
-                  </details>
-
-                  <div className="mt-2 flex justify-end rounded-xl border-t border-gray-200 pt-3">
-                    <button type="submit" className="inline-flex items-center gap-2.5 rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC]">
-                      Registrar adelanto
-                    </button>
-                  </div>
-                </form>
-              </FormToggleSection>
-            )}
-            pagoContent={(
-              <div className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
-                <PagoLiquidacionForm
-                  liquidaciones={liquidaciones}
-                  pagosLiquidacion={pagos}
-                  adelantosProductor={adelantos}
-                  personaMap={personaMap}
-                  loteMap={loteMap}
-                  pedidoMap={pedidoMap}
-                />
-              </div>
-            )}
-          />
-        </div>
-      </section>
-
-      <section id="tab-liquidar" className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" style={{display: 'none'}}>
-        <h2 className="mb-3 text-lg font-semibold">Liquidación de productor</h2>
-        <p className="mb-3 text-sm">
-          Selecciona un lote para liquidar solo lo vendido pendiente (el lote puede partirse y liquidarse varias veces).
-        </p>
-
-        <p className="mb-2 text-xs">Qué muestra esta tabla: lotes habilitados para liquidación de productor.</p>
-        <div className="mb-3 sx-table-wrap">
-          <table className="sx-table">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Lote</th>
-                <th className="p-2">Productor</th>
-                <th className="p-2">Producto</th>
-                <th className="p-2">Estado</th>
-                <th className="p-2">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lotesLiquidables.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-3 text-center">
-                    No hay lotes pendientes de liquidar.
-                  </td>
-                </tr>
-              ) : null}
-
-              {lotesLiquidables.map((row) => (
-                <tr key={row.id} className="border-b">
-                  <td className="p-2">{row.numero_lote}</td>
-                  <td className="p-2">{personaMap.get(row.productor_id) ?? row.productor_id}</td>
-                  <td className="p-2">{row.producto}</td>
-                  <td className="p-2">{row.estado}</td>
-                  <td className="p-2">
-                    <Link href={`/liquidaciones?lote=${row.id}`} className="rounded border px-2 py-1">
-                      Liquidar
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {selectedLoteData ? (
-          <FormToggleSection title="Formulario de liquidación de productor" description="Completa datos, descuentos y evidencias antes de confirmar." defaultOpen>
-          <form action={createLiquidacionProductorAction} className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <input type="hidden" name="lote_id" value={String(selectedLoteData.lote.id)} />
-
+          <section className="sx-alert-info mb-4">
             <p className="text-sm">
-              Lote: <strong>{selectedLoteData.lote.numero_lote}</strong> | Productor: <strong>{personaMap.get(selectedLoteData.lote.productor_id) ?? selectedLoteData.lote.productor_id}</strong>
+              Este módulo concentra compromisos con productores y cobranzas a clientes. Las cards separan lo
+              pendiente por pagar vs por cobrar, y los adelantos quedan como monto por descontar hasta que se
+              apliquen en una liquidación.
             </p>
+          </section>
 
-            {selectedLoteData.liquidacionSinClasificacion ? (
-              <div className="rounded-xl border border-gray-200 p-3">
-                <p className="mb-2 text-sm">
-                  Lote sin clasificar: esta liquidación se hará por <strong>monto directo</strong> (sin detalle por calidad).
-                </p>
-                <label className="grid gap-1 sm:max-w-xs">
-                  <span className="text-sm">Monto directo a liquidar *</span>
-                  <input
-                    name="monto_directo"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="rounded border px-2 py-1"
-                    required
-                  />
-                </label>
+          {search.ok ? (
+            <p className="sx-alert-success mb-4">{search.ok}</p>
+          ) : null}
+          {search.error ? (
+            <p className="sx-alert-error mb-4">{search.error}</p>
+          ) : null}
+
+          <section id="tab-resumen" className="mb-6">
+            <div className="sm:col-span-5 mt-4">
+              <LiquidacionesResumenTable
+                liquidaciones={liquidaciones}
+                fotoMap={Object.fromEntries([...fotoLiquidacionMap])}
+                personaMap={Object.fromEntries([...personaMap])}
+                compLiquidacionMap={Object.fromEntries([...compLiquidacionMap])}
+                loteMap={Object.fromEntries([...loteMap])}
+                pedidoMap={Object.fromEntries([...pedidoMap])}
+              />
+            </div>
+          </section>
+
+          <section id="tab-operaciones" className="mb-6" style={{ display: 'none' }}>
+            <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-6">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Operaciones</h2>
+                <p className="text-sm text-gray-600">Selecciona una sola acción para trabajar con foco y evitar errores de registro.</p>
               </div>
-            ) : (
-              <>
-                <p className="text-xs">Qué muestra esta tabla: detalle por categoría de kg vendidos, ya liquidados y pendientes por liquidar.</p>
-                <div className="sx-table-wrap">
-                  <table className="sx-table">
-                    <thead>
-                      <tr className="border-b text-left">
-                        <th className="p-2">Código clasif.</th>
-                        <th className="p-2">Categoría</th>
-                        <th className="p-2">Kg vendidos</th>
-                        <th className="p-2">Kg ya liquidados</th>
-                        <th className="p-2">Kg pendientes liquidar</th>
-                        <th className="p-2">Precio/kg *</th>
-                        <th className="p-2">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedLoteData.clasificaciones.map((row) => (
-                        <tr key={row.categoria_id} className="border-b">
-                          <td className="p-2">{row.codigo_clasificacion ?? "-"}</td>
-                          <td className="p-2">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
-                          <td className="p-2">{row.kg_vendidos}</td>
-                          <td className="p-2">{row.kg_liquidados}</td>
-                          <td className="p-2">{row.kg_pendientes_liquidar}</td>
-                          <td className="p-2">
+
+              <OperationsSwitcher
+                adelantoContent={(
+                  <ModuleFormModal
+                    buttonLabel="Registrar Adelanto"
+                    title="Registrar Adelanto"
+                    description="Cada adelanto genera comprobante único automático para compartir copia entre empresa y productor."
+                    maxWidth="3xl"
+                  >
+                    <form action={createAdelantoAction} className="grid gap-4">
+                      <section className="rounded-xl border border-gray-100 p-3 md:p-4">
+                        <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 1: Selección</h4>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <PersonSearchField
+                            name="productor_id"
+                            label="Productor"
+                            people={productores}
+                            required
+                            placeholder="Buscar productor por nombre o DNI"
+                          />
+
+                          <label className="grid gap-1">
+                            <span className="text-sm">Lote (opcional)</span>
+                            <select name="lote_id" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                              <option value="">Sin lote específico</option>
+                              {lotesLiquidables.map((row) => (
+                                <option key={row.id} value={String(row.id)}>
+                                  {row.numero_lote}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                      </section>
+
+                      <section className="rounded-xl border border-gray-100 p-3 md:p-4">
+                        <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 2: Monto y fecha</h4>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="grid gap-1">
+                            <span className="text-sm">Monto *</span>
+                            <input name="monto" type="number" min="0" step="0.01" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" required />
+                          </label>
+
+                          <label className="grid gap-1">
+                            <span className="text-sm">Fecha *</span>
                             <input
-                              name={`precio_kg_${row.categoria_id}`}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="w-28 rounded border px-2 py-1"
-                              required
+                              name="fecha"
+                              type="date"
+                              defaultValue={new Date().toISOString().slice(0, 10)}
+                              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
                             />
-                          </td>
-                          <td className="p-2">auto</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
+                          </label>
+                        </div>
+                      </section>
 
-            <div className="grid gap-3 sm:grid-cols-4">
-              <label className="grid gap-1">
-                <span className="text-sm">Fecha liquidación *</span>
-                <input
-                  name="fecha_liquidacion"
-                  type="date"
-                  defaultValue={new Date().toISOString().slice(0, 10)}
-                  className="rounded border px-2 py-1"
-                  required
-                />
-              </label>
+                      <section className="rounded-xl border border-gray-100 p-3 md:p-4">
+                        <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-600">Paso 3: Motivo</h4>
+                        <label className="grid gap-1">
+                          <span className="text-sm">Motivo (observaciones)</span>
+                          <textarea name="motivo" className="rounded-lg border border-gray-300 px-3 py-2 text-sm min-h-[80px]" placeholder="Motivo del adelanto (opcional)" />
+                        </label>
+                      </section>
 
-              <label className="grid gap-1">
-                <span className="text-sm">Tipo comprobante</span>
-                <select name="tipo_comprobante" defaultValue="ninguno" className="rounded border px-2 py-1">
-                  <option value="ninguno">ninguno</option>
-                  <option value="factura">factura</option>
-                  <option value="boleta">boleta</option>
-                  <option value="recibo">recibo</option>
-                  <option value="nota_credito">nota_credito</option>
-                </select>
-              </label>
+                      <details className="rounded-xl border border-gray-100 p-3 md:p-4">
+                        <summary className="cursor-pointer text-sm font-semibold text-gray-700">Paso 4 (opcional): Comprobante interno</summary>
+                        <div className="mt-3">
+                          <ComprobanteInternoFields />
+                        </div>
+                      </details>
 
-              <label className="grid gap-1">
-                <span className="text-sm">Forma pago</span>
-                <select name="forma_pago" defaultValue="" className="rounded border px-2 py-1">
-                  <option value="">(sin definir)</option>
-                  <option value="efectivo">efectivo</option>
-                  <option value="transferencia">transferencia</option>
-                  <option value="cheque">cheque</option>
-                  <option value="mixto">mixto</option>
-                </select>
-              </label>
+                      <details className="rounded-xl border border-gray-100 p-3 md:p-4">
+                        <summary className="cursor-pointer text-sm font-semibold text-gray-700">Paso 5 (opcional): Evidencia</summary>
+                        <label className="mt-3 grid gap-1">
+                          <span className="text-sm">Foto evidencia (opcional)</span>
+                          <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                          <span className="text-xs text-gray-500">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
+                        </label>
+                      </details>
 
-              <label className="grid gap-1">
-                <span className="text-sm">Costo flete</span>
-                <input name="costo_flete" type="number" step="0.01" min="0" className="rounded border px-2 py-1" />
-              </label>
-
-              <label className="grid gap-1">
-                <span className="text-sm">Costo cosecha</span>
-                <input name="costo_cosecha" type="number" step="0.01" min="0" className="rounded border px-2 py-1" />
-              </label>
-
-              <label className="grid gap-1">
-                <span className="text-sm">Costo maquila</span>
-                <input name="costo_maquila" type="number" step="0.01" min="0" className="rounded border px-2 py-1" />
-              </label>
-
-              <label className="grid gap-1">
-                <span className="text-sm">Descuento jabas</span>
-                <input name="descuento_jabas" type="number" step="0.01" min="0" className="rounded border px-2 py-1" />
-              </label>
-
-              <label className="grid gap-1">
-                <span className="text-sm">Otros descuentos</span>
-                <input name="otros_descuentos" type="number" step="0.01" min="0" className="rounded border px-2 py-1" />
-              </label>
+                      <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row">
+                        <button type="submit" className="flex-1 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md">
+                          Registrar adelanto
+                        </button>
+                      </div>
+                    </form>
+                  </ModuleFormModal>
+                )}
+                pagoContent={(
+                  <div className="rounded-xl border border-gray-200 bg-white p-4 md:p-5">
+                    <PagoLiquidacionForm
+                      liquidaciones={liquidaciones}
+                      pagosLiquidacion={pagos}
+                      adelantosProductor={adelantos}
+                      personaMap={personaMap}
+                      loteMap={loteMap}
+                      pedidoMap={pedidoMap}
+                    />
+                  </div>
+                )}
+              />
             </div>
+          </section>
 
-            <fieldset className="rounded border p-3">
-              <legend className="px-1 text-sm">Adelantos a descontar (opcionales)</legend>
-              <label className="mb-2 flex items-center gap-2 text-sm">
-                <input type="checkbox" name="aplicar_adelantos_auto" value="1" defaultChecked />
-                Aplicar automáticamente adelantos pendientes (si no marcas manualmente)
-              </label>
-              <p className="mb-2 text-xs">
-                Si el adelanto excede el neto de la liquidación, el excedente queda como saldo pendiente de adelanto.
-              </p>
-              <div className="grid gap-2">
-                {selectedLoteData.adelantosPendientes.length === 0 ? (
-                  <p className="text-sm">No hay adelantos pendientes para este productor/lote.</p>
-                ) : null}
-
-                {selectedLoteData.adelantosPendientes.map((adelanto) => (
-                  <label key={adelanto.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="adelantos" value={String(adelanto.id)} />
-                    {adelanto.fecha} | {adelanto.numero_comprobante ?? "(sin comp.)"} | S/ {adelanto.monto} | {adelanto.motivo ?? "Sin motivo"}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <label className="grid gap-1">
-              <span className="text-sm">Observaciones</span>
-              <textarea name="observaciones" className="min-h-20 rounded border px-2 py-1" />
-            </label>
-
-            <ComprobanteInternoFields />
-
-            <label className="grid gap-1 sm:max-w-md">
-              <span className="text-sm">Foto evidencia de liquidación (opcional)</span>
-              <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
-              <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
-            </label>
-
-            <div className="flex gap-2">
-              <button type="submit" className="rounded-lg bg-[#1A73E8] px-3 py-2 font-medium text-white hover:bg-[#1765CC]">
-                Crear liquidación productor
-              </button>
-              <Link href="/liquidaciones" className="rounded-lg border border-gray-300 px-3 py-2 text-gray-700 hover:bg-gray-50">
-                Cancelar
-              </Link>
-            </div>
-          </form>
-          </FormToggleSection>
-        ) : null}
-      </section>
-
-      <section id="tab-control" className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" style={{display: 'none'}}>
-        <h2 className="mb-2 text-lg font-semibold">Control</h2>
-        <p className="mb-3 text-sm">Tablas completas con filtros, paginación y export (visual básico).</p>
-
-        <section className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-2 text-lg font-semibold">Resumen de pagos</h2>
-          <p className="mb-3 text-sm">
-            Pagos registrados: <strong>{pagos.length}</strong> | Total importe: <strong>S/ {totalPagosRegistrados}</strong>
-          </p>
-
-          <p className="text-xs">Qué muestra esta tabla: historial de pagos parciales por liquidación.</p>
-          <div className="sx-table-wrap">
-            <table className="sx-table">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Fecha</th>
-                  <th className="p-2">Liquidación</th>
-                  <th className="p-2">Comp. interno</th>
-                  <th className="p-2">Persona</th>
-                  <th className="p-2">Lote</th>
-                  <th className="p-2">Monto</th>
-                  <th className="p-2">Forma</th>
-                  <th className="p-2">Nro. comp.</th>
-                  <th className="p-2">Obs.</th>
-                  <th className="p-2">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagos.length === 0 ? (
-                  <tr>
-                    <td colSpan={11} className="p-3 text-center">
-                      Sin pagos registrados.
-                    </td>
-                  </tr>
-                ) : null}
-
-                {pagos.map((row) => (
-                  <tr key={row.id} className="border-b">
-                    <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
-                    <td className="p-2">{liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id}</td>
-                    <td className="p-2">{compLiquidacionMap.get(row.liquidacion_id) ?? "-"}</td>
-                    <td className="p-2">{personaMap.get(liquidacionPersonaMap.get(row.liquidacion_id) ?? 0) ?? "-"}</td>
-                    <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
-                    <td className="p-2">{row.monto}</td>
-                    <td className="p-2">{row.forma_pago ?? "-"}</td>
-                    <td className="p-2">{row.numero_comprobante ?? "-"}</td>
-                    <td className="p-2">{row.observaciones ?? "-"}</td>
-                    <td className="p-2">
-                      <Link
-                        href={`/liquidaciones/comprobante?tipo=pago&data=${encodeURIComponent(
-                          JSON.stringify({
-                            codigo: row.numero_comprobante ?? `PAGO-${row.id}` ,
-                            liquidacion: liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id,
-                            comp_interno: compLiquidacionMap.get(row.liquidacion_id) ?? "-",
-                            persona: personaMap.get(liquidacionPersonaMap.get(row.liquidacion_id) ?? 0) ?? "-",
-                            lote: row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-",
-                            fecha: row.fecha,
-                            monto: row.monto,
-                            forma_pago: row.forma_pago ?? "-",
-                            numero_comprobante: row.numero_comprobante ?? "-",
-                            observaciones: row.observaciones ?? "-",
-                          }),
-                        )}`}
-                        target="_blank"
-                        className="inline-flex rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                      >
-                        Imprimir
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-2 text-lg font-semibold">Resumen de adelantos</h2>
-          <p className="mb-3 text-sm">
-            Por descontar en liquidación: <strong>{adelantosPendientes.length}</strong> | Monto por descontar: <strong>S/ {totalAdelantosPorDescontar}</strong>
-          </p>
-
-          <p className="text-xs">Qué muestra esta tabla: adelantos entregados, su estado y en qué liquidación se aplicaron.</p>
-          <div className="sx-table-wrap">
-            <table className="sx-table">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="p-2">Foto</th>
-                  <th className="p-2">Fecha</th>
-                  <th className="p-2">Comprobante</th>
-                  <th className="p-2">Comp. interno</th>
-                  <th className="p-2">Productor</th>
-                  <th className="p-2">Lote</th>
-                  <th className="p-2">Monto</th>
-                  <th className="p-2">Motivo</th>
-                  <th className="p-2">Estado</th>
-                  <th className="p-2">Liquidación</th>
-                  <th className="p-2">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {adelantos.length === 0 ? (
-                  <tr>
-                    <td colSpan={11} className="p-3 text-center">
-                      Sin adelantos.
-                    </td>
-                  </tr>
-                ) : null}
-
-                {adelantos.map((row) => (
-                  <tr key={row.id} className="border-b">
-                    <td className="p-2">
-                      {(() => {
-                        const fo = getFotoObject(fotoAdelantoMap, Number(row.id));
-                        if (!fo) return <span className="text-xs text-gray-500">-</span>;
-                        const thumb = fo.thumb;
-                        const image = fo.image;
-                        return image ? (
-                          <a href={image} target="_blank" rel="noopener noreferrer" title="Ver imagen">
-                            <Image src={thumb ?? image} alt={`Adelanto ${row.id}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
-                          </a>
-                        ) : thumb ? (
-                          <Image src={thumb} alt={`Adelanto ${row.id}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
-                        ) : (
-                          <span className="text-xs text-gray-500">-</span>
-                        );
-                      })()}
-                    </td>
-                    <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
-                    <td className="p-2">{row.numero_comprobante ?? "-"}</td>
-                    <td className="p-2">{compAdelantoMap.get(Number(row.id)) ?? "-"}</td>
-                    <td className="p-2">{personaMap.get(row.productor_id) ?? row.productor_id}</td>
-                    <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
-                    <td className="p-2">{row.monto}</td>
-                    <td className="p-2">{row.motivo ?? "-"}</td>
-                    <td className="p-2">{row.estado}</td>
-                    <td className="p-2">{row.liquidacion_id ? liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id : "-"}</td>
-                    <td className="p-2">
-                      <Link
-                        href={`/liquidaciones/comprobante?tipo=adelanto&data=${encodeURIComponent(
-                          JSON.stringify({
-                            codigo: compAdelantoMap.get(Number(row.id)) ?? row.numero_comprobante ?? `ADEL-${row.id}` ,
-                            productor: personaMap.get(row.productor_id) ?? row.productor_id,
-                            lote: row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-",
-                            fecha: row.fecha,
-                            monto: row.monto,
-                            numero_comprobante: row.numero_comprobante ?? "-",
-                            comp_interno: compAdelantoMap.get(Number(row.id)) ?? "-",
-                            motivo: row.motivo ?? "-",
-                            estado: row.estado,
-                            liquidacion: row.liquidacion_id ? liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id : "-",
-                          }),
-                        )}`}
-                        target="_blank"
-                        className="inline-flex rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                      >
-                        Imprimir
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <h2 className="mb-3 text-lg font-semibold">Liquidación de cliente</h2>
-        <p className="mb-3 text-sm">
-          Selecciona un pedido para liquidar su saldo pendiente (si fue partido, se liquida por cortes).
-        </p>
-
-        <p className="mb-2 text-xs">Qué muestra esta tabla: pedidos habilitados para liquidación de cliente.</p>
-        <div className="mb-3 sx-table-wrap">
-          <table className="sx-table">
-            <thead>
-              <tr className="border-b text-left">
-                <th className="p-2">Pedido</th>
-                <th className="p-2">Cliente</th>
-                <th className="p-2">Producto</th>
-                <th className="p-2">Estado</th>
-                <th className="p-2">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pedidosLiquidables.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-3 text-center">
-                    No hay pedidos con asignaciones para liquidar.
-                  </td>
-                </tr>
-              ) : null}
-
-              {pedidosLiquidables.map((row) => (
-                <tr key={row.id} className="border-b">
-                  <td className="p-2">{row.numero_pedido}</td>
-                  <td className="p-2">{personaMap.get(row.cliente_id) ?? row.cliente_id}</td>
-                  <td className="p-2">{row.producto}</td>
-                  <td className="p-2">{row.estado}</td>
-                  <td className="p-2">
-                    <Link href={`/liquidaciones?pedido=${row.id}`} className="rounded border px-2 py-1">
-                      Liquidar
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {selectedPedidoData ? (
-          <FormToggleSection title="Formulario de liquidación de cliente" description="Registra el cierre comercial del pedido con evidencia y comprobante." defaultOpen>
-          <form action={createLiquidacionClienteAction} className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <input type="hidden" name="pedido_id" value={String(selectedPedidoData.pedido.id)} />
-
-            <p className="text-sm">
-              Pedido: <strong>{selectedPedidoData.pedido.numero_pedido}</strong> | Cliente: <strong>{personaMap.get(selectedPedidoData.pedido.cliente_id) ?? selectedPedidoData.pedido.cliente_id}</strong>
+          <section id="tab-liquidar" className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" style={{ display: 'none' }}>
+            <h2 className="mb-3 text-lg font-semibold">Liquidación de productor</h2>
+            <p className="mb-3 text-sm">
+              Selecciona un lote para liquidar solo lo vendido pendiente (el lote puede partirse y liquidarse varias veces).
             </p>
 
-            <p className="text-xs">Qué muestra esta tabla: saldo pendiente por categoría del pedido seleccionado.</p>
-            <div className="sx-table-wrap">
+            <p className="mb-2 text-xs">Qué muestra esta tabla: lotes habilitados para liquidación de productor.</p>
+            <div className="mb-3 sx-table-wrap">
               <table className="sx-table">
                 <thead>
                   <tr className="border-b text-left">
-                    <th className="p-2">Categoría</th>
-                    <th className="p-2">Kg pendientes</th>
-                    <th className="p-2">Precio/kg</th>
-                    <th className="p-2">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedPedidoData.resumenCategorias.map((row) => (
-                    <tr key={row.categoria_id} className="border-b">
-                      <td className="p-2">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
-                      <td className="p-2">{row.kg_asignados}</td>
-                      <td className="p-2">
-                        <input
-                          name={`precio_kg_categoria_${row.categoria_id}`}
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          defaultValue={String(row.precio_sugerido)}
-                          className="w-28 rounded border px-2 py-1"
-                          required
-                        />
-                      </td>
-                      <td className="p-2">auto</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <h3 className="mb-2 mt-3 text-sm font-semibold">Divisiones (códigos de corte del pedido)</h3>
-            <p className="text-xs">Qué muestra esta tabla: cortes/divisiones que explican origen de kg y precio de la liquidación.</p>
-            <div className="sx-table-wrap">
-              <table className="sx-table">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="p-2">Código división</th>
-                    <th className="p-2">Fecha</th>
                     <th className="p-2">Lote</th>
-                    <th className="p-2">Categoría</th>
-                    <th className="p-2">Kg</th>
-                    <th className="p-2">Precio/kg</th>
+                    <th className="p-2">Productor</th>
+                    <th className="p-2">Producto</th>
+                    <th className="p-2">Estado</th>
+                    <th className="sticky right-0 bg-white p-2 text-center shadow-[-4px_0_8px_rgba(0,0,0,0.05)] z-10">Acción</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedPedidoData.divisiones.length === 0 ? (
+                  {lotesLiquidables.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-3 text-center">
-                        Sin divisiones registradas.
+                      <td colSpan={5} className="p-3 text-center">
+                        No hay lotes pendientes de liquidar.
                       </td>
                     </tr>
                   ) : null}
 
-                  {selectedPedidoData.divisiones.map((row) => (
-                    <tr key={row.id} className="border-b">
-                      <td className="p-2">{row.codigo_division ?? "-"}</td>
-                      <td className="p-2">{row.fecha_asignacion}</td>
-                      <td className="p-2">{loteMap.get(row.lote_id) ?? row.lote_id}</td>
-                      <td className="p-2">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
-                      <td className="p-2">{row.kg_asignados}</td>
-                      <td className="p-2">{row.precio_kg}</td>
+                  {lotesLiquidables.map((row) => (
+                    <tr key={row.id} className="group border-b hover:bg-gray-50">
+                      <td className="p-2">{row.numero_lote}</td>
+                      <td className="p-2">{personaMap.get(row.productor_id) ?? row.productor_id}</td>
+                      <td className="p-2">{row.producto}</td>
+                      <td className="p-2">{row.estado}</td>
+                      <td className="sticky right-0 bg-white p-2 text-center shadow-[-4px_0_8px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-gray-50 z-10">
+                        <Link href={`/liquidaciones?lote=${row.id}`} className="sx-btn sx-btn-secondary">
+                          Liquidar
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="grid gap-1">
-                <span className="text-sm">Fecha liquidación *</span>
-                <input
-                  name="fecha_liquidacion"
-                  type="date"
-                  defaultValue={new Date().toISOString().slice(0, 10)}
-                  className="rounded border px-2 py-1"
-                  required
-                />
-              </label>
+            {selectedLoteData ? (
+              <ModuleFormModal
+                isOpen={true}
+                closeHref="/liquidaciones"
+                title={`Liquidar Lote ${selectedLoteData.lote.numero_lote}`}
+                description={`Productor: ${personaMap.get(selectedLoteData.lote.productor_id) ?? selectedLoteData.lote.productor_id}`}
+                maxWidth="5xl"
+              >
+                <form action={createLiquidacionProductorAction} className="grid gap-4">
+                  <input type="hidden" name="lote_id" value={String(selectedLoteData.lote.id)} />
 
-              <label className="grid gap-1">
-                <span className="text-sm">Tipo comprobante</span>
-                <select name="tipo_comprobante" defaultValue="ninguno" className="rounded border px-2 py-1">
-                  <option value="ninguno">ninguno</option>
-                  <option value="factura">factura</option>
-                  <option value="boleta">boleta</option>
-                  <option value="recibo">recibo</option>
-                  <option value="nota_credito">nota_credito</option>
-                </select>
-              </label>
+                  {selectedLoteData.liquidacionSinClasificacion ? (
+                    <div className="rounded-xl border border-gray-200 p-3">
+                      <p className="mb-2 text-sm">
+                        Lote sin clasificar: esta liquidación se hará por <strong>monto directo</strong> (sin detalle por calidad).
+                      </p>
+                      <label className="grid gap-1 sm:max-w-xs">
+                        <span className="text-sm font-semibold text-gray-900">Monto directo a liquidar *</span>
+                        <input
+                          name="monto_directo"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                          required
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-gray-600">Detalle por categoría de kg vendidos, ya liquidados y pendientes por liquidar.</p>
+                      <div className="sx-table-wrap">
+                        <table className="sx-table">
+                          <thead>
+                            <tr className="border-b border-gray-200 bg-gray-50">
+                              <th className="px-4 py-3 text-left font-semibold text-gray-700">Cód. clasif.</th>
+                              <th className="px-4 py-3 text-left font-semibold text-gray-700">Categoría</th>
+                              <th className="px-4 py-3 text-left font-semibold text-gray-700">Kg vendidos</th>
+                              <th className="px-4 py-3 text-left font-semibold text-gray-700">Kg liquidados</th>
+                              <th className="px-4 py-3 text-left font-semibold text-gray-700">Kg pendientes</th>
+                              <th className="px-4 py-3 text-left font-semibold text-gray-700">Precio/kg *</th>
+                              <th className="px-4 py-3 text-left font-semibold text-gray-700">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {selectedLoteData.clasificaciones.map((row) => (
+                              <tr key={row.categoria_id} className="transition duration-200 hover:bg-gray-50">
+                                <td className="px-4 py-3">{row.codigo_clasificacion ?? "-"}</td>
+                                <td className="px-4 py-3">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
+                                <td className="px-4 py-3">{row.kg_vendidos}</td>
+                                <td className="px-4 py-3">{row.kg_liquidados}</td>
+                                <td className="px-4 py-3 font-medium">{row.kg_pendientes_liquidar}</td>
+                                <td className="px-4 py-3">
+                                  <input
+                                    name={`precio_kg_${row.categoria_id}`}
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                                    required
+                                  />
+                                </td>
+                                <td className="px-4 py-3 text-gray-500">auto</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
 
-              <label className="grid gap-1">
-                <span className="text-sm">Forma pago</span>
-                <select name="forma_pago" defaultValue="" className="rounded border px-2 py-1">
-                  <option value="">(sin definir)</option>
-                  <option value="efectivo">efectivo</option>
-                  <option value="transferencia">transferencia</option>
-                  <option value="cheque">cheque</option>
-                  <option value="mixto">mixto</option>
-                </select>
-              </label>
+                  <div className="grid gap-4 sm:grid-cols-4">
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Fecha liquidación *</span>
+                      <input name="fecha_liquidacion" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required />
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Tipo comprobante</span>
+                      <select name="tipo_comprobante" defaultValue="ninguno" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
+                        <option value="ninguno">ninguno</option>
+                        <option value="factura">factura</option>
+                        <option value="boleta">boleta</option>
+                        <option value="recibo">recibo</option>
+                        <option value="nota_credito">nota_credito</option>
+                      </select>
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Forma pago</span>
+                      <select name="forma_pago" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
+                        <option value="">(sin definir)</option>
+                        <option value="efectivo">efectivo</option>
+                        <option value="transferencia">transferencia</option>
+                        <option value="cheque">cheque</option>
+                        <option value="mixto">mixto</option>
+                      </select>
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Costo flete</span>
+                      <input name="costo_flete" type="number" step="0.01" min="0" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Costo cosecha</span>
+                      <input name="costo_cosecha" type="number" step="0.01" min="0" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Costo maquila</span>
+                      <input name="costo_maquila" type="number" step="0.01" min="0" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Descuento jabas</span>
+                      <input name="descuento_jabas" type="number" step="0.01" min="0" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Otros descuentos</span>
+                      <input name="otros_descuentos" type="number" step="0.01" min="0" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                    </label>
+                  </div>
+
+                  <fieldset className="rounded-xl border border-gray-200 p-4">
+                    <legend className="px-2 text-sm font-semibold text-gray-900">Adelantos a descontar (opcionales)</legend>
+                    <label className="mb-2 flex items-center gap-2 text-sm">
+                      <input type="checkbox" name="aplicar_adelantos_auto" value="1" defaultChecked />
+                      Aplicar automáticamente adelantos pendientes (si no marcas manualmente)
+                    </label>
+                    <p className="mb-2 text-xs text-gray-600">
+                      Si el adelanto excede el neto de la liquidación, el excedente queda como saldo pendiente de adelanto.
+                    </p>
+                    <div className="grid gap-2">
+                      {selectedLoteData.adelantosPendientes.length === 0 ? (
+                        <p className="text-sm text-gray-500">No hay adelantos pendientes para este productor/lote.</p>
+                      ) : null}
+
+                      {selectedLoteData.adelantosPendientes.map((adelanto) => (
+                        <label key={adelanto.id} className="flex items-center gap-2 text-sm">
+                          <input type="checkbox" name="adelantos" value={String(adelanto.id)} />
+                          {adelanto.fecha} | {adelanto.numero_comprobante ?? "(sin comp.)"} | S/ {adelanto.monto} | {adelanto.motivo ?? "Sin motivo"}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <label className="grid gap-1.5">
+                    <span className="text-sm font-semibold text-gray-900">Observaciones</span>
+                    <textarea name="observaciones" className="min-h-20 rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                  </label>
+
+                  <ComprobanteInternoFields />
+
+                  <label className="grid gap-1.5 sm:max-w-md">
+                    <span className="text-sm font-semibold text-gray-900">Foto evidencia (opcional)</span>
+                    <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium file:mr-3 file:bg-gray-100 file:border-0 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-gray-700 hover:file:bg-gray-200" />
+                    <span className="text-xs text-gray-600">Se optimiza a máximo 1080px. Formatos: JPEG, PNG, WebP.</span>
+                  </label>
+
+                  <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row">
+                    <button type="submit" className="flex-1 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md">
+                      Crear liquidación productor
+                    </button>
+                    <Link href="/liquidaciones" className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400">
+                      Cancelar
+                    </Link>
+                  </div>
+                </form>
+              </ModuleFormModal>
+            ) : null}
+          </section>
+
+          <section id="tab-control" className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" style={{ display: 'none' }}>
+            <h2 className="mb-2 text-lg font-semibold">Control</h2>
+            <p className="mb-3 text-sm">Tablas completas con filtros, paginación y export (visual básico).</p>
+
+            <section className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-2 text-lg font-semibold">Resumen de pagos</h2>
+              <p className="mb-3 text-sm">
+                Pagos registrados: <strong>{pagos.length}</strong> | Total importe: <strong>S/ {totalPagosRegistrados}</strong>
+              </p>
+
+              <p className="text-xs">Qué muestra esta tabla: historial de pagos parciales por liquidación.</p>
+              <div className="sx-table-wrap">
+                <table className="sx-table">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="p-2">Fecha</th>
+                      <th className="p-2">Liquidación</th>
+                      <th className="p-2">Comp. interno</th>
+                      <th className="p-2">Persona</th>
+                      <th className="p-2">Lote</th>
+                      <th className="p-2">Monto</th>
+                      <th className="p-2">Forma</th>
+                      <th className="p-2">Nro. comp.</th>
+                      <th className="p-2">Obs.</th>
+                      <th className="p-2">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagos.length === 0 ? (
+                      <tr>
+                        <td colSpan={11} className="p-3 text-center">
+                          Sin pagos registrados.
+                        </td>
+                      </tr>
+                    ) : null}
+
+                    {pagos.map((row) => (
+                      <tr key={row.id} className="border-b">
+                        <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
+                        <td className="p-2">{liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id}</td>
+                        <td className="p-2">{compLiquidacionMap.get(row.liquidacion_id) ?? "-"}</td>
+                        <td className="p-2">{personaMap.get(liquidacionPersonaMap.get(row.liquidacion_id) ?? 0) ?? "-"}</td>
+                        <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
+                        <td className="p-2">{row.monto}</td>
+                        <td className="p-2">{row.forma_pago ?? "-"}</td>
+                        <td className="p-2">{row.numero_comprobante ?? "-"}</td>
+                        <td className="p-2">{row.observaciones ?? "-"}</td>
+                        <td className="p-2">
+                          <Link
+                            href={`/liquidaciones/comprobante?tipo=pago&data=${encodeURIComponent(
+                              JSON.stringify({
+                                codigo: row.numero_comprobante ?? `PAGO-${row.id}`,
+                                liquidacion: liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id,
+                                comp_interno: compLiquidacionMap.get(row.liquidacion_id) ?? "-",
+                                persona: personaMap.get(liquidacionPersonaMap.get(row.liquidacion_id) ?? 0) ?? "-",
+                                lote: row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-",
+                                fecha: row.fecha,
+                                monto: row.monto,
+                                forma_pago: row.forma_pago ?? "-",
+                                numero_comprobante: row.numero_comprobante ?? "-",
+                                observaciones: row.observaciones ?? "-",
+                              }),
+                            )}`}
+                            target="_blank"
+                            className="inline-flex rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                          >
+                            Imprimir
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-2 text-lg font-semibold">Resumen de adelantos</h2>
+              <p className="mb-3 text-sm">
+                Por descontar en liquidación: <strong>{adelantosPendientes.length}</strong> | Monto por descontar: <strong>S/ {totalAdelantosPorDescontar}</strong>
+              </p>
+
+              <p className="text-xs">Qué muestra esta tabla: adelantos entregados, su estado y en qué liquidación se aplicaron.</p>
+              <div className="sx-table-wrap">
+                <table className="sx-table">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="p-2">Foto</th>
+                      <th className="p-2">Fecha</th>
+                      <th className="p-2">Comprobante</th>
+                      <th className="p-2">Comp. interno</th>
+                      <th className="p-2">Productor</th>
+                      <th className="p-2">Lote</th>
+                      <th className="p-2">Monto</th>
+                      <th className="p-2">Motivo</th>
+                      <th className="p-2">Estado</th>
+                      <th className="p-2">Liquidación</th>
+                      <th className="sticky right-0 bg-white p-2 text-center shadow-[-4px_0_8px_rgba(0,0,0,0.05)] z-10">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adelantos.length === 0 ? (
+                      <tr>
+                        <td colSpan={11} className="p-3 text-center">
+                          Sin adelantos.
+                        </td>
+                      </tr>
+                    ) : null}
+
+                    {adelantos.map((row) => (
+                      <tr key={row.id} className="group border-b hover:bg-gray-50">
+                        <td className="p-2">
+                          {(() => {
+                            const fo = getFotoObject(fotoAdelantoMap, Number(row.id));
+                            if (!fo) return <span className="text-xs text-gray-500">-</span>;
+                            const thumb = fo.thumb;
+                            const image = fo.image;
+                            return image ? (
+                              <a href={image} target="_blank" rel="noopener noreferrer" title="Ver imagen">
+                                <Image src={thumb ?? image} alt={`Adelanto ${row.id}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
+                              </a>
+                            ) : thumb ? (
+                              <Image src={thumb} alt={`Adelanto ${row.id}`} width={44} height={44} className="h-11 w-11 rounded object-cover" />
+                            ) : (
+                              <span className="text-xs text-gray-500">-</span>
+                            );
+                          })()}
+                        </td>
+                        <td className="p-2">{shortDate(row.fecha)} {row.created_at ? new Date(row.created_at).toLocaleTimeString() : ""}</td>
+                        <td className="p-2">{row.numero_comprobante ?? "-"}</td>
+                        <td className="p-2">{compAdelantoMap.get(Number(row.id)) ?? "-"}</td>
+                        <td className="p-2">{personaMap.get(row.productor_id) ?? row.productor_id}</td>
+                        <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
+                        <td className="p-2">{row.monto}</td>
+                        <td className="p-2">{row.motivo ?? "-"}</td>
+                        <td className="p-2">{row.estado}</td>
+                        <td className="p-2">{row.liquidacion_id ? liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id : "-"}</td>
+                        <td className="sticky right-0 bg-white p-2 text-center shadow-[-4px_0_8px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-gray-50 z-10">
+                          <Link
+                            href={`/liquidaciones/comprobante?tipo=adelanto&data=${encodeURIComponent(
+                              JSON.stringify({
+                                codigo: compAdelantoMap.get(Number(row.id)) ?? row.numero_comprobante ?? `ADEL-${row.id}`,
+                                productor: personaMap.get(row.productor_id) ?? row.productor_id,
+                                lote: row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-",
+                                fecha: row.fecha,
+                                monto: row.monto,
+                                numero_comprobante: row.numero_comprobante ?? "-",
+                                comp_interno: compAdelantoMap.get(Number(row.id)) ?? "-",
+                                motivo: row.motivo ?? "-",
+                                estado: row.estado,
+                                liquidacion: row.liquidacion_id ? liquidacionMap.get(row.liquidacion_id) ?? row.liquidacion_id : "-",
+                              }),
+                            )}`}
+                            target="_blank"
+                            className="inline-flex rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                          >
+                            Imprimir
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <h2 className="mb-3 text-lg font-semibold">Liquidación de cliente</h2>
+            <p className="mb-3 text-sm">
+              Selecciona un pedido para liquidar su saldo pendiente (si fue partido, se liquida por cortes).
+            </p>
+
+            <p className="mb-2 text-xs">Qué muestra esta tabla: pedidos habilitados para liquidación de cliente.</p>
+            <div className="mb-3 sx-table-wrap">
+              <table className="sx-table">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="p-2">Pedido</th>
+                    <th className="p-2">Cliente</th>
+                    <th className="p-2">Producto</th>
+                    <th className="p-2">Estado</th>
+                    <th className="sticky right-0 bg-white p-2 text-center shadow-[-4px_0_8px_rgba(0,0,0,0.05)] z-10">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pedidosLiquidables.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-3 text-center">
+                        No hay pedidos con asignaciones para liquidar.
+                      </td>
+                    </tr>
+                  ) : null}
+
+                  {pedidosLiquidables.map((row) => (
+                    <tr key={row.id} className="group border-b hover:bg-gray-50">
+                      <td className="p-2">{row.numero_pedido}</td>
+                      <td className="p-2">{personaMap.get(row.cliente_id) ?? row.cliente_id}</td>
+                      <td className="p-2">{row.producto}</td>
+                      <td className="p-2">{row.estado}</td>
+                      <td className="sticky right-0 bg-white p-2 text-center shadow-[-4px_0_8px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-gray-50 z-10">
+                        <Link href={`/liquidaciones?pedido=${row.id}`} className="sx-btn sx-btn-secondary">
+                          Liquidar
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            <label className="grid gap-1">
-              <span className="text-sm">Observaciones</span>
-              <textarea name="observaciones" className="min-h-20 rounded border px-2 py-1" />
-            </label>
+            {selectedPedidoData ? (
+              <ModuleFormModal
+                isOpen={true}
+                closeHref="/liquidaciones"
+                title={`Liquidar Pedido ${selectedPedidoData.pedido.numero_pedido}`}
+                description={`Cliente: ${personaMap.get(selectedPedidoData.pedido.cliente_id) ?? selectedPedidoData.pedido.cliente_id}`}
+                maxWidth="5xl"
+              >
+                <form action={createLiquidacionClienteAction} className="grid gap-4">
+                  <input type="hidden" name="pedido_id" value={String(selectedPedidoData.pedido.id)} />
 
-            <ComprobanteInternoFields />
+                  <div className="sx-table-wrap">
+                    <table className="sx-table">
+                      <thead>
+                        <tr className="border-b border-gray-200 bg-gray-50">
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Categoría</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Kg pendientes</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Precio/kg</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedPedidoData.resumenCategorias.map((row) => (
+                          <tr key={row.categoria_id} className="transition duration-200 hover:bg-gray-50">
+                            <td className="px-4 py-3">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
+                            <td className="px-4 py-3 font-medium">{row.kg_asignados}</td>
+                            <td className="px-4 py-3">
+                              <input
+                                name={`precio_kg_categoria_${row.categoria_id}`}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                defaultValue={String(row.precio_sugerido)}
+                                className="w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                                required
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-gray-500">auto</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-            <label className="grid gap-1 sm:max-w-md">
-              <span className="text-sm">Foto evidencia de liquidación (opcional)</span>
-              <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded border px-2 py-1" />
-              <span className="text-xs">Se optimiza automáticamente a máximo 1080px y se genera miniatura.</span>
-            </label>
+                  <h3 className="mb-2 mt-3 text-sm font-semibold text-gray-900">Divisiones (códigos de corte del pedido)</h3>
+                  <div className="sx-table-wrap">
+                    <table className="sx-table">
+                      <thead>
+                        <tr className="border-b border-gray-200 bg-gray-50">
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Código división</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Fecha</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Lote</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Categoría</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Kg</th>
+                          <th className="px-4 py-3 text-left font-semibold text-gray-700">Precio/kg</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedPedidoData.divisiones.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                              Sin divisiones registradas.
+                            </td>
+                          </tr>
+                        ) : null}
 
-            <div className="flex gap-2">
-              <button type="submit" className="rounded-lg bg-[#1A73E8] px-3 py-2 font-medium text-white hover:bg-[#1765CC]">
-                Crear liquidación cliente
-              </button>
-              <Link href="/liquidaciones" className="rounded-lg border border-gray-300 px-3 py-2 text-gray-700 hover:bg-gray-50">
-                Cancelar
-              </Link>
-            </div>
-          </form>
-          </FormToggleSection>
-        ) : null}
-      </section>
+                        {selectedPedidoData.divisiones.map((row) => (
+                          <tr key={row.id} className="transition duration-200 hover:bg-gray-50">
+                            <td className="px-4 py-3">{row.codigo_division ?? "-"}</td>
+                            <td className="px-4 py-3">{row.fecha_asignacion}</td>
+                            <td className="px-4 py-3">{loteMap.get(row.lote_id) ?? row.lote_id}</td>
+                            <td className="px-4 py-3">{categoriaMap.get(row.categoria_id) ?? row.categoria_id}</td>
+                            <td className="px-4 py-3 font-medium">{row.kg_asignados}</td>
+                            <td className="px-4 py-3">{row.precio_kg}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-      
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Fecha liquidación *</span>
+                      <input name="fecha_liquidacion" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required />
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Tipo comprobante</span>
+                      <select name="tipo_comprobante" defaultValue="ninguno" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
+                        <option value="ninguno">ninguno</option>
+                        <option value="factura">factura</option>
+                        <option value="boleta">boleta</option>
+                        <option value="recibo">recibo</option>
+                        <option value="nota_credito">nota_credito</option>
+                      </select>
+                    </label>
+                    <label className="grid gap-1.5">
+                      <span className="text-sm font-semibold text-gray-900">Forma pago</span>
+                      <select name="forma_pago" defaultValue="" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
+                        <option value="">(sin definir)</option>
+                        <option value="efectivo">efectivo</option>
+                        <option value="transferencia">transferencia</option>
+                        <option value="cheque">cheque</option>
+                        <option value="mixto">mixto</option>
+                      </select>
+                    </label>
+                  </div>
 
-      
-      
+                  <label className="grid gap-1.5">
+                    <span className="text-sm font-semibold text-gray-900">Observaciones</span>
+                    <textarea name="observaciones" className="min-h-20 rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                  </label>
+
+                  <ComprobanteInternoFields />
+
+                  <label className="grid gap-1.5 sm:max-w-md">
+                    <span className="text-sm font-semibold text-gray-900">Foto evidencia (opcional)</span>
+                    <input type="file" name="foto_evidencia" accept="image/jpeg,image/png,image/webp" className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium file:mr-3 file:bg-gray-100 file:border-0 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-gray-700 hover:file:bg-gray-200" />
+                    <span className="text-xs text-gray-600">Se optimiza a máximo 1080px. Formatos: JPEG, PNG, WebP.</span>
+                  </label>
+
+                  <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row">
+                    <button type="submit" className="flex-1 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md">
+                      Crear liquidación cliente
+                    </button>
+                    <Link href="/liquidaciones" className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400">
+                      Cancelar
+                    </Link>
+                  </div>
+                </form>
+              </ModuleFormModal>
+            ) : null}
+          </section>
+
+
+
+
+
         </div>
       </main>
     </div>

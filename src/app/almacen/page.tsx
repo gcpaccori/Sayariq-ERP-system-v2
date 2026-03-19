@@ -5,18 +5,18 @@ import { clasificarLoteAction, createLoteAction, updateLoteAction } from "./acti
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
-import FormToggleSection from "@/components/form-toggle-section";
+
 import PersonSearchField from "@/components/person-search-field";
 
 type SearchParams = {
   q?: string;
   estado?:
-    | "todos"
-    | "sin_clasificar"
-    | "clasificado"
-    | "asignado"
-    | "liquidado"
-    | "cancelado";
+  | "todos"
+  | "sin_clasificar"
+  | "clasificado"
+  | "asignado"
+  | "liquidado"
+  | "cancelado";
   productor?: string;
   desde?: string;
   hasta?: string;
@@ -55,11 +55,11 @@ type Lote = {
   chofer: string | null;
   placa_vehiculo: string | null;
   estado:
-    | "sin_clasificar"
-    | "clasificado"
-    | "asignado"
-    | "liquidado"
-    | "cancelado";
+  | "sin_clasificar"
+  | "clasificado"
+  | "asignado"
+  | "liquidado"
+  | "cancelado";
   observaciones: string | null;
 };
 
@@ -292,9 +292,9 @@ async function getAsignacionesByLote(loteId: number) {
   const { data: pedidos } =
     pedidoIds.length > 0
       ? await supabase
-          .from("pedidos")
-          .select("id,numero_pedido,cliente_id,precio_kg,estado")
-          .in("id", pedidoIds)
+        .from("pedidos")
+        .select("id,numero_pedido,cliente_id,precio_kg,estado")
+        .in("id", pedidoIds)
       : { data: [] as PedidoRow[] };
 
   const clienteIds = [
@@ -303,9 +303,9 @@ async function getAsignacionesByLote(loteId: number) {
   const { data: clientes } =
     clienteIds.length > 0
       ? await supabase
-          .from("personas")
-          .select("id,nombre_completo")
-          .in("id", clienteIds)
+        .from("personas")
+        .select("id,nombre_completo")
+        .in("id", clienteIds)
       : { data: [] as PersonaRow[] };
 
   const pedidoMap = new Map<number, PedidoRow>();
@@ -387,10 +387,10 @@ export default async function AlmacenPage({
   const asignacionesDetalle = loteVerDetalle
     ? await getAsignacionesByLote(loteVerDetalle.id)
     : {
-        asignaciones: [] as AsignacionLoteRow[],
-        pedidoMap: new Map<number, PedidoRow>(),
-        clienteMap: new Map<number, string>(),
-      };
+      asignaciones: [] as AsignacionLoteRow[],
+      pedidoMap: new Map<number, PedidoRow>(),
+      clienteMap: new Map<number, string>(),
+    };
   const categoriaMap = new Map(
     categorias.map((categoria) => [categoria.id, categoria.nombre]),
   );
@@ -401,7 +401,7 @@ export default async function AlmacenPage({
     asignadoPorCategoria.set(
       categoriaId,
       (asignadoPorCategoria.get(categoriaId) ?? 0) +
-        Number(row.kg_asignados ?? 0),
+      Number(row.kg_asignados ?? 0),
     );
   }
 
@@ -429,17 +429,17 @@ export default async function AlmacenPage({
 
   const detalleDiferencia = loteVerDetalle
     ? Math.round(
-        (Number(loteVerDetalle.peso_bruto_ingreso) - totalBrutoClasificado) *
-          100,
-      ) / 100
+      (Number(loteVerDetalle.peso_bruto_ingreso) - totalBrutoClasificado) *
+      100,
+    ) / 100
     : 0;
 
   const detalleMerma =
     loteVerDetalle && Number(loteVerDetalle.peso_bruto_ingreso) > 0
       ? Math.round(
-          (detalleDiferencia / Number(loteVerDetalle.peso_bruto_ingreso)) *
-            10000,
-        ) / 100
+        (detalleDiferencia / Number(loteVerDetalle.peso_bruto_ingreso)) *
+        10000,
+      ) / 100
       : 0;
 
   return (
@@ -481,7 +481,7 @@ export default async function AlmacenPage({
                       </span>
                       <input
                         name="numero_lote"
-                        className="rounded border px-2 py-1"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                       />
                     </label>
 
@@ -498,7 +498,7 @@ export default async function AlmacenPage({
                       <select
                         name="producto"
                         defaultValue="Jengibre"
-                        className="rounded border px-2 py-1"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                         required
                       >
                         <option value="Jengibre">Jengibre</option>
@@ -511,7 +511,7 @@ export default async function AlmacenPage({
                       <select
                         name="categoria_id"
                         defaultValue=""
-                        className="rounded border px-2 py-1"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                       >
                         <option value="">Sin categoría</option>
                         {categorias.map((categoria) => (
@@ -530,7 +530,7 @@ export default async function AlmacenPage({
                       <input
                         name="fecha_ingreso"
                         type="date"
-                        className="rounded border px-2 py-1"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                         required
                       />
                     </label>
@@ -539,7 +539,7 @@ export default async function AlmacenPage({
                       <span className="text-sm">Guía ingreso</span>
                       <input
                         name="guia_ingreso"
-                        className="rounded border px-2 py-1"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                       />
                     </label>
 
@@ -550,7 +550,7 @@ export default async function AlmacenPage({
                         type="number"
                         step="0.01"
                         min="0"
-                        className="rounded border px-2 py-1"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                         required
                       />
                     </label>
@@ -561,7 +561,7 @@ export default async function AlmacenPage({
                         name="numero_jabas"
                         type="number"
                         min="0"
-                        className="rounded border px-2 py-1"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                       />
                     </label>
 
@@ -569,7 +569,7 @@ export default async function AlmacenPage({
                       <span className="text-sm">Chofer</span>
                       <input
                         name="chofer"
-                        className="rounded border px-2 py-1"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                       />
                     </label>
 
@@ -577,7 +577,7 @@ export default async function AlmacenPage({
                       <span className="text-sm">Placa vehículo</span>
                       <input
                         name="placa_vehiculo"
-                        className="rounded border px-2 py-1"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                       />
                     </label>
 
@@ -585,7 +585,7 @@ export default async function AlmacenPage({
                       <span className="text-sm">Observaciones</span>
                       <textarea
                         name="observaciones"
-                        className="min-h-20 rounded border px-2 py-1"
+                        className="min-h-20 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                       />
                     </label>
 
@@ -597,7 +597,7 @@ export default async function AlmacenPage({
                         type="file"
                         name="foto_lote_ingreso"
                         accept="image/jpeg,image/png,image/webp"
-                        className="rounded border px-2 py-1"
+                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                       />
                       <span className="text-xs">
                         Se optimiza automáticamente a máximo 1080px y se guarda
@@ -609,7 +609,7 @@ export default async function AlmacenPage({
                   <div>
                     <button
                       type="submit"
-                      className="rounded border px-3 py-1 font-medium"
+                      className="sx-btn sx-btn-primary"
                     >
                       Crear lote
                     </button>
@@ -659,7 +659,7 @@ export default async function AlmacenPage({
             ].map((card) => (
               <div
                 key={card.label}
-                className={`rounded-xl border border-gray-200 bg-gradient-to-br ${card.color} p-4 shadow-sm transition duration-300 hover:shadow-md hover:border-gray-300`}
+                className={`rounded-xl bg-gradient-to-br ${card.color} p-4 shadow-sm transition duration-300 hover:shadow-md`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -677,30 +677,30 @@ export default async function AlmacenPage({
           </section>
 
           {search.ok ? (
-            <p className="mb-4 rounded border border-green-600 p-2 text-sm">
-              {search.ok}
+            <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-medium text-green-800 shadow-sm">
+              ✓ {search.ok}
             </p>
           ) : null}
           {search.error || lotesData.errorMessage ? (
-            <p className="mb-4 rounded border border-red-600 p-2 text-sm">
-              {search.error || lotesData.errorMessage}
+            <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-800 shadow-sm">
+              ✕ {search.error || lotesData.errorMessage}
             </p>
           ) : null}
 
-          <section className="mb-4 rounded border p-4">
-            <h2 className="mb-3 text-lg font-semibold">Filtros</h2>
+          <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">
+            <h2 className="mb-3 text-lg font-bold tracking-tight text-gray-900">Filtros</h2>
             <form className="grid gap-3 sm:grid-cols-5">
               <input
                 name="q"
                 defaultValue={search.q ?? ""}
                 placeholder="Buscar por número de lote"
-                className="rounded border px-2 py-1 sm:col-span-2"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20 sm:col-span-2"
               />
 
               <select
                 name="estado"
                 defaultValue={search.estado ?? "todos"}
-                className="rounded border px-2 py-1"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
               >
                 <option value="todos">Todos los estados</option>
                 <option value="sin_clasificar">sin_clasificar</option>
@@ -713,7 +713,7 @@ export default async function AlmacenPage({
               <select
                 name="productor"
                 defaultValue={search.productor ?? ""}
-                className="rounded border px-2 py-1"
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
               >
                 <option value="">Todos los productores</option>
                 {productores.map((productor) => (
@@ -730,7 +730,7 @@ export default async function AlmacenPage({
                     name="desde"
                     type="date"
                     defaultValue={search.desde ?? ""}
-                    className="rounded border px-2 py-1"
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                   />
                 </label>
                 <label className="grid gap-1">
@@ -739,13 +739,13 @@ export default async function AlmacenPage({
                     name="hasta"
                     type="date"
                     defaultValue={search.hasta ?? ""}
-                    className="rounded border px-2 py-1"
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                   />
                 </label>
               </div>
 
               <div className="sm:col-span-5">
-                <button className="rounded border px-3 py-1">
+                <button className="sx-btn sx-btn-primary">
                   Aplicar filtros
                 </button>
               </div>
@@ -754,10 +754,12 @@ export default async function AlmacenPage({
 
           {loteAClasificar ? (
             <section className="mb-6">
-              <FormToggleSection
+              <ModuleFormModal
+                isOpen={true}
+                closeHref="/almacen"
                 title={`Clasificar lote ${loteAClasificar.numero_lote}`}
                 description="Captura de clasificación por categorías sin perder trazabilidad."
-                defaultOpen
+                maxWidth="5xl"
               >
                 <p className="mb-3 text-sm text-gray-700">
                   Peso ingreso: {loteAClasificar.peso_bruto_ingreso} kg. Solo se
@@ -820,7 +822,7 @@ export default async function AlmacenPage({
                                 type="number"
                                 min="0"
                                 name={`numero_jabas_${categoria.id}`}
-                                className="w-24 rounded border px-2 py-1"
+                                className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                               />
                             </td>
                             <td className="p-2">
@@ -829,7 +831,7 @@ export default async function AlmacenPage({
                                 min="0"
                                 step="0.01"
                                 name={`peso_jabas_${categoria.id}`}
-                                className="w-28 rounded border px-2 py-1"
+                                className="w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                               />
                             </td>
                             <td className="p-2">
@@ -838,13 +840,13 @@ export default async function AlmacenPage({
                                 min="0"
                                 step="0.01"
                                 name={`porcentaje_humedad_${categoria.id}`}
-                                className="w-24 rounded border px-2 py-1"
+                                className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                               />
                             </td>
                             <td className="p-2">
                               <input
                                 name={`observaciones_${categoria.id}`}
-                                className="w-48 rounded border px-2 py-1"
+                                className="w-48 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                               />
                             </td>
                           </tr>
@@ -876,7 +878,7 @@ export default async function AlmacenPage({
                       type="file"
                       name="foto_lote_clasificacion"
                       accept="image/jpeg,image/png,image/webp"
-                      className="rounded border px-2 py-1"
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                     />
                     <span className="text-xs">
                       Se optimiza automáticamente a máximo 1080px y se guarda
@@ -884,27 +886,24 @@ export default async function AlmacenPage({
                     </span>
                   </label>
                 </form>
-              </FormToggleSection>
+              </ModuleFormModal>
             </section>
           ) : null}
 
           {loteEditar ? (
-            <section className="mb-6 rounded border border-blue-200 bg-blue-50 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-blue-900">
-                  Editar lote {loteEditar.numero_lote}
-                </p>
-                <Link href="/almacen" className="rounded border border-blue-300 bg-white px-2 py-1 text-xs">
-                  Cerrar
-                </Link>
-              </div>
-
+            <ModuleFormModal
+              isOpen={true}
+              closeHref="/almacen"
+              title={`Editar lote ${loteEditar.numero_lote}`}
+              description="Modifica los datos del lote y guarda los cambios."
+              maxWidth="4xl"
+            >
               <form action={updateLoteAction} className="grid gap-3">
                 <input type="hidden" name="lote_id" value={loteEditar.id} />
                 <div className="grid gap-3 sm:grid-cols-3">
                   <label className="grid gap-1">
                     <span className="text-sm">Productor *</span>
-                    <select name="productor_id" defaultValue={String(loteEditar.productor_id)} className="rounded border px-2 py-1" required>
+                    <select name="productor_id" defaultValue={String(loteEditar.productor_id)} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required>
                       {productores.map((productor) => (
                         <option key={productor.id} value={String(productor.id)}>
                           {productor.nombre_completo}
@@ -915,7 +914,7 @@ export default async function AlmacenPage({
 
                   <label className="grid gap-1">
                     <span className="text-sm">Producto *</span>
-                    <select name="producto" defaultValue={loteEditar.producto} className="rounded border px-2 py-1" required>
+                    <select name="producto" defaultValue={loteEditar.producto} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required>
                       <option value="Jengibre">Jengibre</option>
                       <option value="Curcuma">Curcuma</option>
                     </select>
@@ -923,7 +922,7 @@ export default async function AlmacenPage({
 
                   <label className="grid gap-1">
                     <span className="text-sm">Categoría</span>
-                    <select name="categoria_id" defaultValue={loteEditar.categoria_id ? String(loteEditar.categoria_id) : ""} className="rounded border px-2 py-1">
+                    <select name="categoria_id" defaultValue={loteEditar.categoria_id ? String(loteEditar.categoria_id) : ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
                       <option value="">Sin categoría</option>
                       {categorias.map((categoria) => (
                         <option key={categoria.id} value={String(categoria.id)}>{categoria.nombre}</option>
@@ -933,62 +932,58 @@ export default async function AlmacenPage({
 
                   <label className="grid gap-1">
                     <span className="text-sm">Fecha ingreso *</span>
-                    <input name="fecha_ingreso" type="date" defaultValue={loteEditar.fecha_ingreso} className="rounded border px-2 py-1" required />
+                    <input name="fecha_ingreso" type="date" defaultValue={loteEditar.fecha_ingreso} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required />
                   </label>
 
                   <label className="grid gap-1">
                     <span className="text-sm">Guía ingreso</span>
-                    <input name="guia_ingreso" defaultValue={loteEditar.guia_ingreso ?? ""} className="rounded border px-2 py-1" />
+                    <input name="guia_ingreso" defaultValue={loteEditar.guia_ingreso ?? ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
                   </label>
 
                   <label className="grid gap-1">
                     <span className="text-sm">Peso bruto ingreso (kg) *</span>
-                    <input name="peso_bruto_ingreso" type="number" step="0.01" min="0" defaultValue={loteEditar.peso_bruto_ingreso} className="rounded border px-2 py-1" required />
+                    <input name="peso_bruto_ingreso" type="number" step="0.01" min="0" defaultValue={loteEditar.peso_bruto_ingreso} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required />
                   </label>
 
                   <label className="grid gap-1">
                     <span className="text-sm">Número jabas</span>
-                    <input name="numero_jabas" type="number" min="0" defaultValue={loteEditar.numero_jabas ?? 0} className="rounded border px-2 py-1" />
+                    <input name="numero_jabas" type="number" min="0" defaultValue={loteEditar.numero_jabas ?? 0} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
                   </label>
 
                   <label className="grid gap-1">
                     <span className="text-sm">Chofer</span>
-                    <input name="chofer" defaultValue={loteEditar.chofer ?? ""} className="rounded border px-2 py-1" />
+                    <input name="chofer" defaultValue={loteEditar.chofer ?? ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
                   </label>
 
                   <label className="grid gap-1">
                     <span className="text-sm">Placa vehículo</span>
-                    <input name="placa_vehiculo" defaultValue={loteEditar.placa_vehiculo ?? ""} className="rounded border px-2 py-1" />
+                    <input name="placa_vehiculo" defaultValue={loteEditar.placa_vehiculo ?? ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
                   </label>
 
                   <label className="grid gap-1 sm:col-span-3">
                     <span className="text-sm">Observaciones</span>
-                    <textarea name="observaciones" defaultValue={loteEditar.observaciones ?? ""} className="rounded border px-2 py-1" />
+                    <textarea name="observaciones" defaultValue={loteEditar.observaciones ?? ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
                   </label>
                 </div>
 
                 <div>
-                  <button type="submit" className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white">
+                  <button type="submit" className="sx-btn sx-btn-primary">
                     Guardar cambios lote
                   </button>
                 </div>
               </form>
-            </section>
+            </ModuleFormModal>
           ) : null}
 
           {loteVerDetalle ? (
-            <section className="mb-6 rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-              <h2 className="mb-2 text-lg font-semibold">
-                Detalle clasificación: {loteVerDetalle.numero_lote}
-              </h2>
-              <p className="mb-2 text-sm text-gray-700">
-                Total bruto clasificado:{" "}
-                {Math.round(totalBrutoClasificado * 100) / 100} kg | Total neto
-                clasificado: {Math.round(totalNetoClasificado * 100) / 100} kg
-              </p>
-              <p className="mb-3 text-sm text-gray-700">
-                Diferencia: {detalleDiferencia} kg | Merma: {detalleMerma}%
-              </p>
+            <ModuleFormModal
+              isOpen={true}
+              closeHref="/almacen"
+              title={`Detalle clasificación: ${loteVerDetalle.numero_lote}`}
+              description={`Total bruto: ${Math.round(totalBrutoClasificado * 100) / 100} kg | Total neto: ${Math.round(totalNetoClasificado * 100) / 100} kg | Diferencia: ${detalleDiferencia} kg | Merma: ${detalleMerma}%`}
+              maxWidth="5xl"
+            >
+
               {fotoClasificacionDetalle ? (
                 <div className="mb-3">
                   <p className="mb-1 text-xs text-gray-500">
@@ -1121,8 +1116,8 @@ export default async function AlmacenPage({
                       );
                       const cliente = pedido
                         ? asignacionesDetalle.clienteMap.get(
-                            Number(pedido.cliente_id),
-                          )
+                          Number(pedido.cliente_id),
+                        )
                         : "-";
                       return (
                         <tr key={row.id} className="border-b">
@@ -1149,10 +1144,10 @@ export default async function AlmacenPage({
                   </tbody>
                 </table>
               </div>
-            </section>
+            </ModuleFormModal>
           ) : null}
 
-          <section className="rounded border p-4">
+          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <p className="mb-2 text-xs">
               Qué muestra esta tabla: listado general de lotes con estado
               operativo y accesos a acciones.
@@ -1218,20 +1213,20 @@ export default async function AlmacenPage({
                           {lote.estado === "sin_clasificar" ? (
                             <Link
                               href={`/almacen?clasificar=${lote.id}`}
-                              className="rounded border px-2 py-1"
+                              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                             >
                               Clasificar
                             </Link>
                           ) : null}
                           <Link
                             href={`/almacen?ver=${lote.id}`}
-                            className="rounded border px-2 py-1"
+                            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                           >
                             Ver detalle
                           </Link>
                           <Link
                             href={`/almacen?editar=${lote.id}`}
-                            className="rounded border px-2 py-1"
+                            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                           >
                             Editar
                           </Link>

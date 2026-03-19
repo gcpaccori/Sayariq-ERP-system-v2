@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
-import FormToggleSection from "@/components/form-toggle-section";
+import ModuleFormModal from "@/components/module-form-modal";
 
 type SearchParams = {
   mode?: "mensual" | "anual";
@@ -196,15 +196,15 @@ export default async function AnaliticaPage({
   const [detClienteRes, detProductorRes] = await Promise.all([
     liqClienteIds.length > 0
       ? supabase
-          .from("liquidacion_detalle")
-          .select("liquidacion_id,categoria_id,peso_neto,precio_kg,subtotal")
-          .in("liquidacion_id", liqClienteIds)
+        .from("liquidacion_detalle")
+        .select("liquidacion_id,categoria_id,peso_neto,precio_kg,subtotal")
+        .in("liquidacion_id", liqClienteIds)
       : Promise.resolve({ data: [] }),
     liqProductorIds.length > 0
       ? supabase
-          .from("liquidacion_detalle")
-          .select("liquidacion_id,categoria_id,peso_neto,precio_kg,subtotal")
-          .in("liquidacion_id", liqProductorIds)
+        .from("liquidacion_detalle")
+        .select("liquidacion_id,categoria_id,peso_neto,precio_kg,subtotal")
+        .in("liquidacion_id", liqProductorIds)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -284,19 +284,19 @@ export default async function AnaliticaPage({
   const temporalSeries =
     mode === "anual"
       ? Array.from({ length: 12 }, (_, index) => ({
-          key: String(index + 1),
-          label: monthNames[index],
-          ventas: 0,
-          costos: 0,
-          adelantos: 0,
-        }))
+        key: String(index + 1),
+        label: monthNames[index],
+        ventas: 0,
+        costos: 0,
+        adelantos: 0,
+      }))
       : Array.from({ length: daysInMonth }, (_, index) => ({
-          key: String(index + 1),
-          label: `Día ${index + 1}`,
-          ventas: 0,
-          costos: 0,
-          adelantos: 0,
-        }));
+        key: String(index + 1),
+        label: `Día ${index + 1}`,
+        ventas: 0,
+        costos: 0,
+        adelantos: 0,
+      }));
 
   for (const row of liqClientes) {
     const date = new Date(row.fecha_liquidacion);
@@ -337,16 +337,16 @@ export default async function AnaliticaPage({
   const temporalChartPoints =
     mode === "mensual"
       ? Array.from({ length: Math.ceil(daysInMonth / 7) }, (_, index) => {
-          const from = index * 7;
-          const segment = temporalSeriesRounded.slice(from, from + 7);
-          return {
-            key: `w-${index + 1}`,
-            label: `Semana ${index + 1}`,
-            ventas: round2(segment.reduce((acc, row) => acc + row.ventas, 0)),
-            costos: round2(segment.reduce((acc, row) => acc + row.costos, 0)),
-            adelantos: round2(segment.reduce((acc, row) => acc + row.adelantos, 0)),
-          };
-        })
+        const from = index * 7;
+        const segment = temporalSeriesRounded.slice(from, from + 7);
+        return {
+          key: `w-${index + 1}`,
+          label: `Semana ${index + 1}`,
+          ventas: round2(segment.reduce((acc, row) => acc + row.ventas, 0)),
+          costos: round2(segment.reduce((acc, row) => acc + row.costos, 0)),
+          adelantos: round2(segment.reduce((acc, row) => acc + row.adelantos, 0)),
+        };
+      })
       : temporalSeriesRounded;
 
   const maxTemporalChart = Math.max(
@@ -405,183 +405,188 @@ export default async function AnaliticaPage({
       <ModuleNavigation currentModule="analitica" />
       <main className="google-2027-theme w-full flex-1 p-6">
         <div className="mx-auto w-full max-w-7xl">
-        <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <h1 className="text-2xl font-semibold">Módulo 7: Analítica Estratégica</h1>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
-          >
-            ← Inicio
-          </Link>
-      </div>
+          <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Módulo 7: Analítica Estratégica</h1>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
+            >
+              ← Inicio
+            </Link>
+          </div>
 
-      <section className="mb-4 rounded border p-4">
-        <p className="mb-3 text-sm">
-          Este panel resume rentabilidad, caja, riesgo financiero y trazabilidad comercial del periodo seleccionado.
-        </p>
-        <p className="mb-3 text-xs">
-          Las cards iniciales muestran indicadores clave del periodo y el saldo histórico pendiente; los bloques
-          siguientes explican tendencia temporal, categorías y trazabilidad por lote.
-        </p>
-        <FormToggleSection title="Filtros de analítica" description="Configura el periodo a analizar y actualiza las métricas.">
-        <form className="flex flex-wrap items-end gap-3">
-          <label className="grid gap-1">
-            <span className="text-sm">Modo</span>
-            <select name="mode" defaultValue={mode} className="rounded border px-2 py-1">
-              <option value="mensual">Mensual</option>
-              <option value="anual">Anual</option>
-            </select>
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm">Mes de análisis</span>
-            <input type="month" name="ym" defaultValue={ym} className="rounded border px-2 py-1" />
-          </label>
-          <label className="grid gap-1">
-            <span className="text-sm">Año de análisis</span>
-            <input type="number" name="year" min="2000" max="2100" defaultValue={String(selectedYear)} className="w-28 rounded border px-2 py-1" />
-          </label>
-          <button className="rounded border px-3 py-1">Aplicar</button>
-        </form>
-        </FormToggleSection>
-        <p className="mt-2 text-xs">Periodo activo: <strong>{periodLabel}</strong></p>
-      </section>
+          <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="mb-3 text-sm text-gray-700">
+              Este panel resume rentabilidad, caja, riesgo financiero y trazabilidad comercial del periodo seleccionado.
+            </p>
+            <p className="mb-3 text-xs text-gray-500">
+              Las cards iniciales muestran indicadores clave del periodo y el saldo histórico pendiente; los bloques
+              siguientes explican tendencia temporal, categorías y trazabilidad por lote.
+            </p>
+            <ModuleFormModal
+              buttonLabel="Filtros de analítica"
+              title="Filtros de analítica"
+              description="Configura el periodo a analizar y actualiza las métricas."
+              maxWidth="lg"
+            >
+              <form className="flex flex-wrap items-end gap-3">
+                <label className="grid gap-1">
+                  <span className="text-sm">Modo</span>
+                  <select name="mode" defaultValue={mode} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20">
+                    <option value="mensual">Mensual</option>
+                    <option value="anual">Anual</option>
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-sm">Mes de análisis</span>
+                  <input type="month" name="ym" defaultValue={ym} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-sm">Año de análisis</span>
+                  <input type="number" name="year" min="2000" max="2100" defaultValue={String(selectedYear)} className="w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
+                </label>
+                <button className="sx-btn sx-btn-primary">Aplicar</button>
+              </form>
+            </ModuleFormModal>
+            <p className="mt-2 text-xs text-gray-500">Periodo activo: <strong>{periodLabel}</strong></p>
+          </section>
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-4 lg:grid-cols-8">
-        <div className="rounded border p-3"><p className="text-xs">Ventas ({periodShort})</p><p className="text-lg font-bold">{currency(ventasPeriodo)}</p><p className="text-[11px]">Total facturado a clientes en el periodo.</p></div>
-        <div className="rounded border p-3"><p className="text-xs">Costo productor ({periodShort})</p><p className="text-lg font-bold">{currency(costoComprasPeriodo)}</p><p className="text-[11px]">Compromisos por compra/liquidación a productor.</p></div>
-        <div className="rounded border p-3"><p className="text-xs">Margen bruto ({periodShort})</p><p className="text-lg font-bold">{currency(margenBrutoPeriodo)}</p><p className="text-[11px]">Ventas menos costo de productor.</p></div>
-        <div className="rounded border p-3"><p className="text-xs">Adelantos ({periodShort})</p><p className="text-lg font-bold">{currency(adelantosPeriodoMonto)}</p><p className="text-[11px]">Dinero adelantado a productores en el periodo.</p></div>
-        <div className="rounded border p-3"><p className="text-xs">Ingresos caja ({periodShort})</p><p className="text-lg font-bold">{currency(ingresosCajaPeriodo)}</p><p className="text-[11px]">Entradas de dinero registradas en kardex.</p></div>
-        <div className="rounded border p-3"><p className="text-xs">Egresos caja ({periodShort})</p><p className="text-lg font-bold">{currency(egresosCajaPeriodo)}</p><p className="text-[11px]">Salidas de dinero registradas en kardex.</p></div>
-        <div className="rounded border p-3"><p className="text-xs">Flujo neto caja</p><p className="text-lg font-bold">{currency(flujoNetoCajaPeriodo)}</p><p className="text-[11px]">Ingresos menos egresos del periodo.</p></div>
-        <div className="rounded border p-3"><p className="text-xs">Adelantos por descontar</p><p className="text-lg font-bold">{currency(adelantosPendientesMonto)}</p><p className="text-[11px]">Saldo histórico de adelantos aún no aplicados.</p></div>
-      </section>
+          <section className="mb-6 grid gap-3 sm:grid-cols-4 lg:grid-cols-8">
+            <div className="rounded-xl bg-gradient-to-br from-white to-gray-100 p-4 shadow-sm"><p className="text-xs">Ventas ({periodShort})</p><p className="text-lg font-bold">{currency(ventasPeriodo)}</p><p className="text-[11px]">Total facturado a clientes en el periodo.</p></div>
+            <div className="rounded-xl bg-gradient-to-br from-white to-gray-100 p-4 shadow-sm"><p className="text-xs">Costo productor ({periodShort})</p><p className="text-lg font-bold">{currency(costoComprasPeriodo)}</p><p className="text-[11px]">Compromisos por compra/liquidación a productor.</p></div>
+            <div className="rounded-xl bg-gradient-to-br from-white to-gray-100 p-4 shadow-sm"><p className="text-xs">Margen bruto ({periodShort})</p><p className="text-lg font-bold">{currency(margenBrutoPeriodo)}</p><p className="text-[11px]">Ventas menos costo de productor.</p></div>
+            <div className="rounded-xl bg-gradient-to-br from-white to-gray-100 p-4 shadow-sm"><p className="text-xs">Adelantos ({periodShort})</p><p className="text-lg font-bold">{currency(adelantosPeriodoMonto)}</p><p className="text-[11px]">Dinero adelantado a productores en el periodo.</p></div>
+            <div className="rounded-xl bg-gradient-to-br from-white to-gray-100 p-4 shadow-sm"><p className="text-xs">Ingresos caja ({periodShort})</p><p className="text-lg font-bold">{currency(ingresosCajaPeriodo)}</p><p className="text-[11px]">Entradas de dinero registradas en kardex.</p></div>
+            <div className="rounded-xl bg-gradient-to-br from-white to-gray-100 p-4 shadow-sm"><p className="text-xs">Egresos caja ({periodShort})</p><p className="text-lg font-bold">{currency(egresosCajaPeriodo)}</p><p className="text-[11px]">Salidas de dinero registradas en kardex.</p></div>
+            <div className="rounded-xl bg-gradient-to-br from-white to-gray-100 p-4 shadow-sm"><p className="text-xs">Flujo neto caja</p><p className="text-lg font-bold">{currency(flujoNetoCajaPeriodo)}</p><p className="text-[11px]">Ingresos menos egresos del periodo.</p></div>
+            <div className="rounded-xl bg-gradient-to-br from-white to-gray-100 p-4 shadow-sm"><p className="text-xs">Adelantos por descontar</p><p className="text-lg font-bold">{currency(adelantosPendientesMonto)}</p><p className="text-[11px]">Saldo histórico de adelantos aún no aplicados.</p></div>
+          </section>
 
-      <section className="mb-6 grid gap-4 lg:grid-cols-2">
-        <div className="rounded border p-4">
-          <h2 className="mb-2 text-lg font-semibold">Gráfico temporal del periodo</h2>
-          <p className="mb-3 text-sm">
-            Gráfico cartesiano real (eje X: {mode === "anual" ? "meses" : "semanas"}, eje Y: monto S/) para ventas, costos y adelantos.
-          </p>
-          {temporalChartData.length === 0 ? (
-            <div className="rounded border border-dashed p-6 text-center text-sm text-slate-500">Sin datos del periodo.</div>
-          ) : (
-            <>
-              <div className="mb-3 flex flex-wrap gap-3 text-xs">
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-600" />Ventas</span>
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Costos</span>
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-orange-500" />Adelantos</span>
-              </div>
-              <div className="overflow-x-auto">
-                <svg viewBox={`0 0 ${temporalSvg.width} ${temporalSvg.height}`} className="min-w-[760px] w-full rounded border bg-white">
-                  {temporalTicks.map((tick) => (
-                    <g key={`tick-${tick.value}`}>
-                      <line x1={temporalSvg.marginLeft} x2={temporalSvg.width - temporalSvg.marginRight} y1={tick.y} y2={tick.y} stroke="#e5e7eb" strokeDasharray="3 3" />
-                      <text x={temporalSvg.marginLeft - 8} y={tick.y + 4} textAnchor="end" fontSize="11" fill="#6b7280">
-                        {compactCurrency(tick.value)}
-                      </text>
-                    </g>
-                  ))}
+          <section className="mb-6 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-2 text-lg font-semibold">Gráfico temporal del periodo</h2>
+              <p className="mb-3 text-sm">
+                Gráfico cartesiano real (eje X: {mode === "anual" ? "meses" : "semanas"}, eje Y: monto S/) para ventas, costos y adelantos.
+              </p>
+              {temporalChartData.length === 0 ? (
+                <div className="rounded border border-dashed p-6 text-center text-sm text-slate-500">Sin datos del periodo.</div>
+              ) : (
+                <>
+                  <div className="mb-3 flex flex-wrap gap-3 text-xs">
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-600" />Ventas</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Costos</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-orange-500" />Adelantos</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <svg viewBox={`0 0 ${temporalSvg.width} ${temporalSvg.height}`} className="min-w-[760px] w-full rounded border bg-white">
+                      {temporalTicks.map((tick) => (
+                        <g key={`tick-${tick.value}`}>
+                          <line x1={temporalSvg.marginLeft} x2={temporalSvg.width - temporalSvg.marginRight} y1={tick.y} y2={tick.y} stroke="#e5e7eb" strokeDasharray="3 3" />
+                          <text x={temporalSvg.marginLeft - 8} y={tick.y + 4} textAnchor="end" fontSize="11" fill="#6b7280">
+                            {compactCurrency(tick.value)}
+                          </text>
+                        </g>
+                      ))}
 
-                  <line x1={temporalSvg.marginLeft} x2={temporalSvg.marginLeft} y1={temporalSvg.marginTop} y2={temporalSvg.height - temporalSvg.marginBottom} stroke="#94a3b8" />
-                  <line x1={temporalSvg.marginLeft} x2={temporalSvg.width - temporalSvg.marginRight} y1={temporalSvg.height - temporalSvg.marginBottom} y2={temporalSvg.height - temporalSvg.marginBottom} stroke="#94a3b8" />
+                      <line x1={temporalSvg.marginLeft} x2={temporalSvg.marginLeft} y1={temporalSvg.marginTop} y2={temporalSvg.height - temporalSvg.marginBottom} stroke="#94a3b8" />
+                      <line x1={temporalSvg.marginLeft} x2={temporalSvg.width - temporalSvg.marginRight} y1={temporalSvg.height - temporalSvg.marginBottom} y2={temporalSvg.height - temporalSvg.marginBottom} stroke="#94a3b8" />
 
-                  <path d={buildLinePath(temporalChartData.map((row) => row.ventas))} fill="none" stroke="#16a34a" strokeWidth="2.5" />
-                  <path d={buildLinePath(temporalChartData.map((row) => row.costos))} fill="none" stroke="#dc2626" strokeWidth="2.5" />
-                  <path d={buildLinePath(temporalChartData.map((row) => row.adelantos))} fill="none" stroke="#f97316" strokeWidth="2.5" />
+                      <path d={buildLinePath(temporalChartData.map((row) => row.ventas))} fill="none" stroke="#16a34a" strokeWidth="2.5" />
+                      <path d={buildLinePath(temporalChartData.map((row) => row.costos))} fill="none" stroke="#dc2626" strokeWidth="2.5" />
+                      <path d={buildLinePath(temporalChartData.map((row) => row.adelantos))} fill="none" stroke="#f97316" strokeWidth="2.5" />
 
-                  {temporalChartData.map((row, idx) => (
-                    <g key={row.key}>
-                      <circle cx={temporalX(idx)} cy={temporalY(row.ventas)} r="3.2" fill="#16a34a" />
-                      <circle cx={temporalX(idx)} cy={temporalY(row.costos)} r="3.2" fill="#dc2626" />
-                      <circle cx={temporalX(idx)} cy={temporalY(row.adelantos)} r="3.2" fill="#f97316" />
-                      <text x={temporalX(idx)} y={temporalSvg.height - temporalSvg.marginBottom + 16} textAnchor="middle" fontSize="10" fill="#64748b">
-                        {row.label}
-                      </text>
-                    </g>
-                  ))}
-                </svg>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="rounded border p-4">
-          <h2 className="mb-2 text-lg font-semibold">Gráfico por categoría</h2>
-          <p className="mb-3 text-sm">Gráfico cartesiano de barras (X: categorías, Y: monto S/) con top categorías por aporte económico.</p>
-          {categoriasTop.length === 0 ? (
-            <div className="rounded border border-dashed p-6 text-center text-sm text-slate-500">
-              Sin liquidaciones detalladas para el periodo seleccionado.
+                      {temporalChartData.map((row, idx) => (
+                        <g key={row.key}>
+                          <circle cx={temporalX(idx)} cy={temporalY(row.ventas)} r="3.2" fill="#16a34a" />
+                          <circle cx={temporalX(idx)} cy={temporalY(row.costos)} r="3.2" fill="#dc2626" />
+                          <circle cx={temporalX(idx)} cy={temporalY(row.adelantos)} r="3.2" fill="#f97316" />
+                          <text x={temporalX(idx)} y={temporalSvg.height - temporalSvg.marginBottom + 16} textAnchor="middle" fontSize="10" fill="#64748b">
+                            {row.label}
+                          </text>
+                        </g>
+                      ))}
+                    </svg>
+                  </div>
+                </>
+              )}
             </div>
-          ) : (
-            <>
-              <div className="mb-3 flex flex-wrap gap-3 text-xs">
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-600" />Ventas</span>
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Costos</span>
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-600" />Margen</span>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-2 text-lg font-semibold">Gráfico por categoría</h2>
+              <p className="mb-3 text-sm">Gráfico cartesiano de barras (X: categorías, Y: monto S/) con top categorías por aporte económico.</p>
+              {categoriasTop.length === 0 ? (
+                <div className="rounded border border-dashed p-6 text-center text-sm text-slate-500">
+                  Sin liquidaciones detalladas para el periodo seleccionado.
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3 flex flex-wrap gap-3 text-xs">
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-600" />Ventas</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Costos</span>
+                    <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-600" />Margen</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <svg viewBox={`0 0 ${categoriaSvg.width} ${categoriaSvg.height}`} className="min-w-[760px] w-full rounded border bg-white">
+                      {Array.from({ length: 5 }, (_, idx) => {
+                        const value = round2((maxCategoria / 4) * idx);
+                        const y = categoriaY(value);
+                        return (
+                          <g key={`ctick-${value}`}>
+                            <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.width - categoriaSvg.marginRight} y1={y} y2={y} stroke="#e5e7eb" strokeDasharray="3 3" />
+                            <text x={categoriaSvg.marginLeft - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#6b7280">
+                              {compactCurrency(value)}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.marginLeft} y1={categoriaSvg.marginTop} y2={categoriaSvg.height - categoriaSvg.marginBottom} stroke="#94a3b8" />
+                      <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.width - categoriaSvg.marginRight} y1={categoriaSvg.height - categoriaSvg.marginBottom} y2={categoriaSvg.height - categoriaSvg.marginBottom} stroke="#94a3b8" />
+
+                      {categoriasTop.map((row, idx) => {
+                        const groupX = categoriaX(idx);
+                        const baseY = categoriaSvg.height - categoriaSvg.marginBottom;
+                        const ventasHeight = Math.max(2, (Math.abs(row.ventas) / maxCategoria) * categoriaPlotHeight);
+                        const costosHeight = Math.max(2, (Math.abs(row.costos) / maxCategoria) * categoriaPlotHeight);
+                        const margenHeight = Math.max(2, (Math.abs(row.margen) / maxCategoria) * categoriaPlotHeight);
+                        return (
+                          <g key={row.categoriaId}>
+                            <rect x={groupX + categoriaBarWidth * 0.3} y={baseY - ventasHeight} width={categoriaBarWidth} height={ventasHeight} fill="#2563eb" rx="2" />
+                            <rect x={groupX + categoriaBarWidth * 1.5} y={baseY - costosHeight} width={categoriaBarWidth} height={costosHeight} fill="#dc2626" rx="2" />
+                            <rect x={groupX + categoriaBarWidth * 2.7} y={baseY - margenHeight} width={categoriaBarWidth} height={margenHeight} fill="#059669" rx="2" />
+                            <text x={groupX + categoriaGroupWidth / 2} y={baseY + 16} textAnchor="middle" fontSize="10" fill="#64748b">
+                              {row.categoria.length > 12 ? `${row.categoria.slice(0, 12)}…` : row.categoria}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-3 text-lg font-bold tracking-tight text-gray-900">Riesgo financiero actual</h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-gradient-to-br from-red-50 to-white p-4 shadow-sm">
+                <p className="text-sm">Nos deben (CxC clientes)</p>
+                <p className="text-2xl font-bold">{currency(cuentasPorCobrar)}</p>
+                <p className="text-[11px]">Suma de saldos pendientes por cobrar en liquidaciones cliente.</p>
               </div>
-              <div className="overflow-x-auto">
-                <svg viewBox={`0 0 ${categoriaSvg.width} ${categoriaSvg.height}`} className="min-w-[760px] w-full rounded border bg-white">
-                  {Array.from({ length: 5 }, (_, idx) => {
-                    const value = round2((maxCategoria / 4) * idx);
-                    const y = categoriaY(value);
-                    return (
-                      <g key={`ctick-${value}`}>
-                        <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.width - categoriaSvg.marginRight} y1={y} y2={y} stroke="#e5e7eb" strokeDasharray="3 3" />
-                        <text x={categoriaSvg.marginLeft - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#6b7280">
-                          {compactCurrency(value)}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.marginLeft} y1={categoriaSvg.marginTop} y2={categoriaSvg.height - categoriaSvg.marginBottom} stroke="#94a3b8" />
-                  <line x1={categoriaSvg.marginLeft} x2={categoriaSvg.width - categoriaSvg.marginRight} y1={categoriaSvg.height - categoriaSvg.marginBottom} y2={categoriaSvg.height - categoriaSvg.marginBottom} stroke="#94a3b8" />
-
-                  {categoriasTop.map((row, idx) => {
-                    const groupX = categoriaX(idx);
-                    const baseY = categoriaSvg.height - categoriaSvg.marginBottom;
-                    const ventasHeight = Math.max(2, (Math.abs(row.ventas) / maxCategoria) * categoriaPlotHeight);
-                    const costosHeight = Math.max(2, (Math.abs(row.costos) / maxCategoria) * categoriaPlotHeight);
-                    const margenHeight = Math.max(2, (Math.abs(row.margen) / maxCategoria) * categoriaPlotHeight);
-                    return (
-                      <g key={row.categoriaId}>
-                        <rect x={groupX + categoriaBarWidth * 0.3} y={baseY - ventasHeight} width={categoriaBarWidth} height={ventasHeight} fill="#2563eb" rx="2" />
-                        <rect x={groupX + categoriaBarWidth * 1.5} y={baseY - costosHeight} width={categoriaBarWidth} height={costosHeight} fill="#dc2626" rx="2" />
-                        <rect x={groupX + categoriaBarWidth * 2.7} y={baseY - margenHeight} width={categoriaBarWidth} height={margenHeight} fill="#059669" rx="2" />
-                        <text x={groupX + categoriaGroupWidth / 2} y={baseY + 16} textAnchor="middle" fontSize="10" fill="#64748b">
-                          {row.categoria.length > 12 ? `${row.categoria.slice(0, 12)}…` : row.categoria}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
+              <div className="rounded-xl bg-gradient-to-br from-orange-50 to-white p-4 shadow-sm">
+                <p className="text-sm">Debemos pagar (CxP productores)</p>
+                <p className="text-2xl font-bold">{currency(cuentasPorPagar)}</p>
+                <p className="text-[11px]">Suma de saldos pendientes por pagar en liquidaciones productor.</p>
               </div>
-            </>
-          )}
-        </div>
-      </section>
-
-      <section className="rounded border p-4">
-        <h2 className="mb-2 text-lg font-semibold">Riesgo financiero actual</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded border p-3">
-            <p className="text-sm">Nos deben (CxC clientes)</p>
-            <p className="text-2xl font-bold">{currency(cuentasPorCobrar)}</p>
-            <p className="text-[11px]">Suma de saldos pendientes por cobrar en liquidaciones cliente.</p>
-          </div>
-          <div className="rounded border p-3">
-            <p className="text-sm">Debemos pagar (CxP productores)</p>
-            <p className="text-2xl font-bold">{currency(cuentasPorPagar)}</p>
-            <p className="text-[11px]">Suma de saldos pendientes por pagar en liquidaciones productor.</p>
-          </div>
-          <div className="rounded border p-3">
-            <p className="text-sm">Adelantos por descontar</p>
-            <p className="text-2xl font-bold">{currency(adelantosPendientesMonto)}</p>
-            <p className="text-[11px]">Adelantos entregados que aún no se aplican en una liquidación.</p>
-          </div>
-        </div>
-      </section>
+              <div className="rounded-xl bg-gradient-to-br from-yellow-50 to-white p-4 shadow-sm">
+                <p className="text-sm">Adelantos por descontar</p>
+                <p className="text-2xl font-bold">{currency(adelantosPendientesMonto)}</p>
+                <p className="text-[11px]">Adelantos entregados que aún no se aplican en una liquidación.</p>
+              </div>
+            </div>
+          </section>
         </div>
       </main>
     </div>
