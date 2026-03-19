@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Toaster, toast } from "sonner";
 
@@ -91,15 +91,13 @@ function getLoadingMessage(form: HTMLFormElement, submitter: HTMLElement | null)
   return "Procesando formulario...";
 }
 
-export default function FormEventsToastBridge() {
+function FormToastHandler() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const pendingToastIdRef = useRef<ToastId | null>(null);
   const pendingMethodRef = useRef<string | null>(null);
   const pendingTimeoutRef = useRef<number | null>(null);
-  const lastResultToastRef = useRef<{ signature: string; at: number } | null>(
-    null,
-  );
+  const lastResultToastRef = useRef<{ signature: string; at: number } | null>(null);
 
   useEffect(() => {
     const handleSubmit = (event: Event) => {
@@ -209,14 +207,23 @@ export default function FormEventsToastBridge() {
     }
   }, [pathname, searchParams]);
 
+  return null;
+}
+
+export default function FormEventsToastBridge() {
   return (
-    <Toaster
-      richColors
-      closeButton
-      position="top-right"
-      toastOptions={{
-        duration: 3500,
-      }}
-    />
+    <>
+      <Suspense fallback={null}>
+        <FormToastHandler />
+      </Suspense>
+      <Toaster
+        richColors
+        closeButton
+        position="top-right"
+        toastOptions={{
+          duration: 3500,
+        }}
+      />
+    </>
   );
 }
