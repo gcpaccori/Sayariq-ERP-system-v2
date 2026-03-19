@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { type ComponentType, useState } from "react";
+import { type ComponentType, useEffect, useState } from "react";
 import {
   Home,
   LayoutDashboard,
@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import AuthUserPanel from "@/components/auth-user-panel";
 import { canReadModule, type ModuleKey } from "@/lib/auth/permissions";
-import { normalizeRole } from "@/lib/auth/roles";
+import { normalizeRole, type SystemRole } from "@/lib/auth/roles";
 
 interface ModuleNavigationProps {
   currentModule?: string;
@@ -30,7 +30,6 @@ interface ModuleNavigationProps {
 
 const modules: Array<{ href: string; label: string; icon: ComponentType<{ size?: number; className?: string }>; moduleKey?: ModuleKey }> = [
   { href: "/", label: "Inicio", icon: Home },
-  { href: "/seguridad-acceso", label: "Módulo 11 · Seguridad de Acceso", icon: ShieldCheck, moduleKey: "seguridad-acceso" },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, moduleKey: "dashboard" },
   { href: "/personas", label: "Módulo 1 · Personas", icon: Users, moduleKey: "personas" },
   { href: "/almacen", label: "Módulo 2 · Almacén", icon: Warehouse, moduleKey: "almacen" },
@@ -42,9 +41,10 @@ const modules: Array<{ href: string; label: string; icon: ComponentType<{ size?:
   { href: "/estado-cuenta-productor", label: "Módulo 8 · Estado Productor", icon: Wallet, moduleKey: "estado-cuenta-productor" },
   { href: "/rentabilidad-lotes", label: "Módulo 9 · Rentabilidad", icon: TrendingUp, moduleKey: "rentabilidad-lotes" },
   { href: "/clasificacion-neta", label: "Módulo 10 · Clasificación Neta", icon: ClipboardCheck, moduleKey: "clasificacion-neta" },
+  { href: "/seguridad-acceso", label: "Módulo 11 · Seguridad de Acceso", icon: ShieldCheck, moduleKey: "seguridad-acceso" },
 ];
 
-function getRoleFromCookie() {
+function getRoleFromCookie(): SystemRole {
   if (typeof document === "undefined") {
     return "visualizador";
   }
@@ -60,7 +60,11 @@ function getRoleFromCookie() {
 export default function ModuleNavigation({ currentModule }: ModuleNavigationProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
-  const role = getRoleFromCookie();
+  const [role, setRole] = useState<SystemRole>("visualizador");
+
+  useEffect(() => {
+    setRole(getRoleFromCookie());
+  }, []);
 
   const visibleModules = modules.filter((module) => {
     if (!module.moduleKey) {
