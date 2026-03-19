@@ -86,14 +86,15 @@ export default function LandingQuienesSomos() {
             ))}
           </div>
 
-          {/* Imagen Equipo */}
-          <div className="relative h-96 sm:h-[500px] rounded-3xl overflow-hidden shadow-2xl">
+          {/* Imagen de equipo sin recorte: mantiene proporción original */}
+          <div className="rounded-3xl border border-gray-200 bg-[#f9faf9] p-3 shadow-2xl sm:p-4">
             <Image
               src="/docs/persnal.jpg"
               alt="Equipo Sayariq"
-              fill
-              className="object-cover hover:scale-105 transition-transform duration-300"
-              sizes="(max-width: 768px) 100vw, 100vw"
+              width={1200}
+              height={1200}
+              className="h-auto w-full rounded-2xl object-contain"
+              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1200px"
             />
           </div>
         </div>
