@@ -3,7 +3,8 @@ import LandingHero from "@/components/landing-hero";
 import LandingVision from "@/components/landing-vision";
 import LandingMision from "@/components/landing-mision";
 import LandingQuienesSomos from "@/components/landing-quienes-somos";
-import LandingGaleriaProductos from "@/components/landing-galeria-productos";
+import LandingGaleriaCompleta from "@/components/landing-galeria-completa";
+import LandingProductosDestacados from "@/components/landing-productos-destacados";
 import LandingVentajas from "@/components/landing-ventajas";
 import LandingContactoForm from "@/components/landing-contacto-form";
 import LandingFooter from "@/components/landing-footer";
@@ -28,7 +29,8 @@ export default function Home() {
         <LandingVision />
         <LandingMision />
         <LandingQuienesSomos />
-        <LandingGaleriaProductos />
+        <LandingGaleriaCompleta />
+        <LandingProductosDestacados />
         <LandingVentajas />
         <LandingContactoForm />
       </main>
