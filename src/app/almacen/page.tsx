@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { clasificarLoteAction, createLoteAction, updateLoteAction } from "./actions";
+import { createLoteAction, updateLoteAction } from "./actions";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
@@ -20,7 +20,7 @@ type SearchParams = {
   productor?: string;
   desde?: string;
   hasta?: string;
-  clasificar?: string;
+  page?: string;
   editar?: string;
   ver?: string;
   ok?: string;
@@ -185,7 +185,8 @@ async function getLotes(search: SearchParams) {
     return {
       lotes: [] as Lote[],
       productorMap: new Map<number, string>(),
-      fotoIngresoMap: new Map<number, string>(),
+      fotoIngresoThumbMap: new Map<number, string>(),
+      fotoIngresoOriginalMap: new Map<number, string>(),
       errorMessage: error.message,
     };
   }
@@ -208,11 +209,12 @@ async function getLotes(search: SearchParams) {
   }
 
   const loteIds = lotes.map((row) => Number(row.id));
-  const fotoIngresoMap = new Map<number, string>();
+  const fotoIngresoThumbMap = new Map<number, string>();
+  const fotoIngresoOriginalMap = new Map<number, string>();
   if (loteIds.length > 0) {
     const { data: fotosData } = await supabase
       .from("evidencias_fotos")
-      .select("entidad_id,ruta_thumb,created_at")
+      .select("entidad_id,ruta_thumb,ruta_imagen,created_at")
       .eq("contexto", "lote_ingreso")
       .eq("entidad_origen", "lotes")
       .in("entidad_id", loteIds)
@@ -220,8 +222,11 @@ async function getLotes(search: SearchParams) {
 
     for (const row of fotosData ?? []) {
       const loteId = Number(row.entidad_id);
-      if (!fotoIngresoMap.has(loteId) && row.ruta_thumb) {
-        fotoIngresoMap.set(loteId, String(row.ruta_thumb));
+      if (!fotoIngresoThumbMap.has(loteId) && row.ruta_thumb) {
+        fotoIngresoThumbMap.set(loteId, String(row.ruta_thumb));
+      }
+      if (!fotoIngresoOriginalMap.has(loteId) && row.ruta_imagen) {
+        fotoIngresoOriginalMap.set(loteId, String(row.ruta_imagen));
       }
     }
   }
@@ -229,7 +234,8 @@ async function getLotes(search: SearchParams) {
   return {
     lotes,
     productorMap,
-    fotoIngresoMap,
+    fotoIngresoThumbMap,
+    fotoIngresoOriginalMap,
     errorMessage: "",
   };
 }
@@ -329,6 +335,49 @@ function getEstadoLabel(estado: Lote["estado"]) {
   return estado;
 }
 
+function buildAlmacenUrl(params: {
+  q?: string;
+  estado?: string;
+  productor?: string;
+  desde?: string;
+  hasta?: string;
+  page?: number;
+  editar?: number | null;
+  ver?: number | null;
+}) {
+  const searchParams = new URLSearchParams();
+
+  const q = (params.q ?? "").trim();
+  if (q) searchParams.set("q", q);
+
+  const estado = (params.estado ?? "todos").trim();
+  if (estado && estado !== "todos") searchParams.set("estado", estado);
+
+  const productor = (params.productor ?? "").trim();
+  if (productor && productor !== "0") searchParams.set("productor", productor);
+
+  const desde = (params.desde ?? "").trim();
+  if (desde) searchParams.set("desde", desde);
+
+  const hasta = (params.hasta ?? "").trim();
+  if (hasta) searchParams.set("hasta", hasta);
+
+  if ((params.page ?? 1) > 1) {
+    searchParams.set("page", String(params.page));
+  }
+
+  if ((params.editar ?? 0) > 0) {
+    searchParams.set("editar", String(params.editar));
+  }
+
+  if ((params.ver ?? 0) > 0) {
+    searchParams.set("ver", String(params.ver));
+  }
+
+  const query = searchParams.toString();
+  return query ? `/almacen?${query}` : "/almacen";
+}
+
 export default async function AlmacenPage({
   searchParams,
 }: {
@@ -343,15 +392,36 @@ export default async function AlmacenPage({
     getResumenLotes(),
   ]);
 
-  const clasificarId = Number(search.clasificar ?? "0");
   const editarId = Number(search.editar ?? "0");
   const verId = Number(search.ver ?? "0");
 
-  const loteAClasificar =
-    clasificarId > 0
-      ? (lotesData.lotes.find((lote) => Number(lote.id) === clasificarId) ??
-        null)
-      : null;
+  const pageSize = 12;
+  const totalRows = lotesData.lotes.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const parsedPage = Number.parseInt(search.page ?? "1", 10);
+  const currentPage = Number.isFinite(parsedPage)
+    ? Math.min(Math.max(parsedPage, 1), totalPages)
+    : 1;
+  const pageStart = (currentPage - 1) * pageSize;
+  const lotesPage = lotesData.lotes.slice(pageStart, pageStart + pageSize);
+  const fromItem = totalRows === 0 ? 0 : pageStart + 1;
+  const toItem = Math.min(pageStart + pageSize, totalRows);
+
+  const paginationRangeStart = Math.max(1, currentPage - 2);
+  const paginationRangeEnd = Math.min(totalPages, paginationRangeStart + 4);
+  const paginationRange = Array.from(
+    { length: paginationRangeEnd - paginationRangeStart + 1 },
+    (_, index) => paginationRangeStart + index,
+  );
+
+  const listBaseUrl = buildAlmacenUrl({
+    q: search.q,
+    estado: search.estado,
+    productor: search.productor,
+    desde: search.desde,
+    hasta: search.hasta,
+    page: currentPage,
+  });
 
   const loteVerDetalle =
     verId > 0
@@ -364,11 +434,12 @@ export default async function AlmacenPage({
       : null;
 
   let fotoClasificacionDetalle: string | null = null;
+  let fotoClasificacionOriginal: string | null = null;
   if (loteVerDetalle) {
     const supabase = getSupabaseServerClient();
     const { data: fotoClasif } = await supabase
       .from("evidencias_fotos")
-      .select("ruta_thumb")
+      .select("ruta_thumb,ruta_imagen")
       .eq("contexto", "lote_clasificacion")
       .eq("entidad_origen", "lotes")
       .eq("entidad_id", Number(loteVerDetalle.id))
@@ -378,6 +449,9 @@ export default async function AlmacenPage({
 
     fotoClasificacionDetalle = fotoClasif?.ruta_thumb
       ? String(fotoClasif.ruta_thumb)
+      : null;
+    fotoClasificacionOriginal = fotoClasif?.ruta_imagen
+      ? String(fotoClasif.ruta_imagen)
       : null;
   }
 
@@ -405,18 +479,28 @@ export default async function AlmacenPage({
     );
   }
 
-  const resumenComercial = clasificaciones.map((row) => {
-    const asignado = Number(
-      asignadoPorCategoria.get(Number(row.categoria_id)) ?? 0,
+  const clasificadoNetoPorCategoria = new Map<number, number>();
+  for (const row of clasificaciones) {
+    const categoriaId = Number(row.categoria_id);
+    clasificadoNetoPorCategoria.set(
+      categoriaId,
+      (clasificadoNetoPorCategoria.get(categoriaId) ?? 0) +
+      Number(row.peso_neto ?? 0),
     );
-    const sobrante = Math.max(0, Number(row.peso_neto ?? 0) - asignado);
-    return {
-      categoria_id: Number(row.categoria_id),
-      clasificado_neto: Math.round(Number(row.peso_neto ?? 0) * 100) / 100,
-      asignado: Math.round(asignado * 100) / 100,
-      sobrante: Math.round(sobrante * 100) / 100,
-    };
-  });
+  }
+
+  const resumenComercial = Array.from(clasificadoNetoPorCategoria.entries()).map(
+    ([categoria_id, clasificadoNeto]) => {
+      const asignado = Number(asignadoPorCategoria.get(categoria_id) ?? 0);
+      const sobrante = Math.max(0, clasificadoNeto - asignado);
+      return {
+        categoria_id,
+        clasificado_neto: Math.round(clasificadoNeto * 100) / 100,
+        asignado: Math.round(asignado * 100) / 100,
+        sobrante: Math.round(sobrante * 100) / 100,
+      };
+    },
+  );
 
   const totalBrutoClasificado = clasificaciones.reduce(
     (acc, row) => acc + Number(row.peso_bruto ?? 0),
@@ -463,8 +547,8 @@ export default async function AlmacenPage({
                 Módulo 2: Almacén
               </h1>
               <p className="mt-1.5 text-sm font-medium text-gray-600">
-                Aquí controlas el ciclo físico del lote: ingreso, clasificación
-                y avance de estado.
+                Aquí controlas el ciclo físico del lote: ingreso, seguimiento y
+                avance de estado.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -752,148 +836,10 @@ export default async function AlmacenPage({
             </form>
           </section>
 
-          {loteAClasificar ? (
-            <section className="mb-6">
-              <ModuleFormModal
-                isOpen={true}
-                closeHref="/almacen"
-                title={`Clasificar lote ${loteAClasificar.numero_lote}`}
-                description="Captura de clasificación por categorías sin perder trazabilidad."
-                maxWidth="5xl"
-              >
-                <p className="mb-3 text-sm text-gray-700">
-                  Peso ingreso: {loteAClasificar.peso_bruto_ingreso} kg. Solo se
-                  guardan filas con peso bruto mayor a 0.
-                </p>
-
-                <form action={clasificarLoteAction} className="grid gap-3">
-                  <input
-                    type="hidden"
-                    name="lote_id"
-                    value={String(loteAClasificar.id)}
-                  />
-
-                  <label className="grid gap-1 max-w-xs">
-                    <span className="text-sm font-medium text-gray-700">
-                      Fecha clasificación *
-                    </span>
-                    <input
-                      name="fecha_clasificacion"
-                      type="date"
-                      defaultValue={new Date().toISOString().slice(0, 10)}
-                      className="mt-1 block w-full rounded-md border border-gray-200 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                      required
-                    />
-                  </label>
-
-                  <p className="text-xs text-gray-500">
-                    Qué muestra esta tabla: formato de captura por categoría
-                    para registrar la clasificación del lote.
-                  </p>
-                  <div className="sx-table-wrap">
-                    <table className="sx-table">
-                      <thead>
-                        <tr className="border-b text-left">
-                          <th className="p-2">Categoría</th>
-                          <th className="p-2">Peso bruto (kg)</th>
-                          <th className="p-2">N° jabas</th>
-                          <th className="p-2">Peso jabas (kg)</th>
-                          <th className="p-2">% humedad</th>
-                          <th className="p-2">Observaciones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {categorias.map((categoria) => (
-                          <tr key={categoria.id} className="border-b align-top">
-                            <td className="p-2">
-                              {categoria.nombre} ({categoria.codigo})
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                name={`peso_bruto_${categoria.id}`}
-                                className="w-28 rounded-md border border-gray-200 px-3 py-2 text-sm"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                min="0"
-                                name={`numero_jabas_${categoria.id}`}
-                                className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                name={`peso_jabas_${categoria.id}`}
-                                className="w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                name={`porcentaje_humedad_${categoria.id}`}
-                                className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                name={`observaciones_${categoria.id}`}
-                                className="w-48 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700"
-                    >
-                      Guardar clasificación
-                    </button>
-                    <Link
-                      href="/almacen"
-                      className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium shadow-sm hover:bg-gray-50"
-                    >
-                      Cancelar
-                    </Link>
-                  </div>
-
-                  <label className="grid gap-1 sm:max-w-md">
-                    <span className="text-sm">
-                      Foto de clasificación (opcional)
-                    </span>
-                    <input
-                      type="file"
-                      name="foto_lote_clasificacion"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                    />
-                    <span className="text-xs">
-                      Se optimiza automáticamente a máximo 1080px y se guarda
-                      miniatura.
-                    </span>
-                  </label>
-                </form>
-              </ModuleFormModal>
-            </section>
-          ) : null}
-
           {loteEditar ? (
             <ModuleFormModal
               isOpen={true}
-              closeHref="/almacen"
+              closeHref={listBaseUrl}
               title={`Editar lote ${loteEditar.numero_lote}`}
               description="Modifica los datos del lote y guarda los cambios."
               maxWidth="4xl"
@@ -901,16 +847,14 @@ export default async function AlmacenPage({
               <form action={updateLoteAction} className="grid gap-3">
                 <input type="hidden" name="lote_id" value={loteEditar.id} />
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <label className="grid gap-1">
-                    <span className="text-sm">Productor *</span>
-                    <select name="productor_id" defaultValue={String(loteEditar.productor_id)} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required>
-                      {productores.map((productor) => (
-                        <option key={productor.id} value={String(productor.id)}>
-                          {productor.nombre_completo}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <PersonSearchField
+                    name="productor_id"
+                    label="Productor"
+                    people={productores}
+                    defaultId={Number(loteEditar.productor_id)}
+                    required
+                    placeholder="Buscar productor por nombre o DNI"
+                  />
 
                   <label className="grid gap-1">
                     <span className="text-sm">Producto *</span>
@@ -964,6 +908,22 @@ export default async function AlmacenPage({
                     <span className="text-sm">Observaciones</span>
                     <textarea name="observaciones" defaultValue={loteEditar.observaciones ?? ""} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
                   </label>
+
+                  <label className="grid gap-1 sm:col-span-3 sm:max-w-md">
+                    <span className="text-sm">
+                      Reemplazar foto de ingreso (opcional)
+                    </span>
+                    <input
+                      type="file"
+                      name="foto_lote_ingreso"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                    />
+                    <span className="text-xs">
+                      Si adjuntas una imagen, se guardará como nueva evidencia
+                      de ingreso del lote.
+                    </span>
+                  </label>
                 </div>
 
                 <div>
@@ -978,7 +938,7 @@ export default async function AlmacenPage({
           {loteVerDetalle ? (
             <ModuleFormModal
               isOpen={true}
-              closeHref="/almacen"
+              closeHref={listBaseUrl}
               title={`Detalle clasificación: ${loteVerDetalle.numero_lote}`}
               description={`Total bruto: ${Math.round(totalBrutoClasificado * 100) / 100} kg | Total neto: ${Math.round(totalNetoClasificado * 100) / 100} kg | Diferencia: ${detalleDiferencia} kg | Merma: ${detalleMerma}%`}
               maxWidth="5xl"
@@ -989,13 +949,21 @@ export default async function AlmacenPage({
                   <p className="mb-1 text-xs text-gray-500">
                     Miniatura correlacionada: evidencia de clasificación
                   </p>
-                  <Image
-                    src={fotoClasificacionDetalle}
-                    alt={`Clasificación ${loteVerDetalle.numero_lote}`}
-                    width={120}
-                    height={80}
-                    className="rounded border object-cover"
-                  />
+                  <a
+                    href={fotoClasificacionOriginal ?? fotoClasificacionDetalle}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block"
+                  >
+                    <Image
+                      src={fotoClasificacionDetalle}
+                      alt={`Clasificación ${loteVerDetalle.numero_lote}`}
+                      width={120}
+                      height={80}
+                      unoptimized
+                      className="rounded border object-cover"
+                    />
+                  </a>
                 </div>
               ) : null}
 
@@ -1152,6 +1120,9 @@ export default async function AlmacenPage({
               Qué muestra esta tabla: listado general de lotes con estado
               operativo y accesos a acciones.
             </p>
+            <p className="mb-3 text-xs text-slate-500">
+              Mostrando {fromItem}-{toItem} de {totalRows} lote(s)
+            </p>
             <div className="sx-table-wrap">
               <table className="sx-table">
                 <thead>
@@ -1169,7 +1140,7 @@ export default async function AlmacenPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {lotesData.lotes.length === 0 ? (
+                  {totalRows === 0 ? (
                     <tr>
                       <td colSpan={10} className="p-3 text-center">
                         Sin lotes para mostrar.
@@ -1177,17 +1148,29 @@ export default async function AlmacenPage({
                     </tr>
                   ) : null}
 
-                  {lotesData.lotes.map((lote) => (
+                  {lotesPage.map((lote) => (
                     <tr key={lote.id} className="border-b align-top">
                       <td className="p-2">
-                        {lotesData.fotoIngresoMap.get(lote.id) ? (
-                          <Image
-                            src={lotesData.fotoIngresoMap.get(lote.id) ?? ""}
-                            alt={`Ingreso ${lote.numero_lote}`}
-                            width={44}
-                            height={44}
-                            className="h-11 w-11 rounded object-cover"
-                          />
+                        {lotesData.fotoIngresoThumbMap.get(lote.id) ? (
+                          <a
+                            href={
+                              lotesData.fotoIngresoOriginalMap.get(lote.id) ??
+                              lotesData.fotoIngresoThumbMap.get(lote.id) ??
+                              ""
+                            }
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-block"
+                          >
+                            <Image
+                              src={lotesData.fotoIngresoThumbMap.get(lote.id) ?? ""}
+                              alt={`Ingreso ${lote.numero_lote}`}
+                              width={44}
+                              height={44}
+                              unoptimized
+                              className="h-11 w-11 rounded object-cover"
+                            />
+                          </a>
                         ) : (
                           <span className="text-xs text-gray-500">-</span>
                         )}
@@ -1210,22 +1193,30 @@ export default async function AlmacenPage({
                       <td className="p-2">{getEstadoLabel(lote.estado)}</td>
                       <td className="p-2">
                         <div className="flex flex-wrap gap-2">
-                          {lote.estado === "sin_clasificar" ? (
-                            <Link
-                              href={`/almacen?clasificar=${lote.id}`}
-                              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                            >
-                              Clasificar
-                            </Link>
-                          ) : null}
                           <Link
-                            href={`/almacen?ver=${lote.id}`}
+                            href={buildAlmacenUrl({
+                              q: search.q,
+                              estado: search.estado,
+                              productor: search.productor,
+                              desde: search.desde,
+                              hasta: search.hasta,
+                              page: currentPage,
+                              ver: Number(lote.id),
+                            })}
                             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                           >
                             Ver detalle
                           </Link>
                           <Link
-                            href={`/almacen?editar=${lote.id}`}
+                            href={buildAlmacenUrl({
+                              q: search.q,
+                              estado: search.estado,
+                              productor: search.productor,
+                              desde: search.desde,
+                              hasta: search.hasta,
+                              page: currentPage,
+                              editar: Number(lote.id),
+                            })}
                             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
                           >
                             Editar
@@ -1236,6 +1227,60 @@ export default async function AlmacenPage({
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-500">
+                Página {currentPage} de {totalPages}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={buildAlmacenUrl({
+                    q: search.q,
+                    estado: search.estado,
+                    productor: search.productor,
+                    desde: search.desde,
+                    hasta: search.hasta,
+                    page: Math.max(1, currentPage - 1),
+                  })}
+                  className={`sx-btn sx-btn-secondary ${currentPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
+                  aria-disabled={currentPage <= 1}
+                >
+                  Anterior
+                </Link>
+
+                {paginationRange.map((pageNumber) => (
+                  <Link
+                    key={pageNumber}
+                    href={buildAlmacenUrl({
+                      q: search.q,
+                      estado: search.estado,
+                      productor: search.productor,
+                      desde: search.desde,
+                      hasta: search.hasta,
+                      page: pageNumber,
+                    })}
+                    className={pageNumber === currentPage ? "sx-btn sx-btn-primary" : "sx-btn sx-btn-secondary"}
+                  >
+                    {pageNumber}
+                  </Link>
+                ))}
+
+                <Link
+                  href={buildAlmacenUrl({
+                    q: search.q,
+                    estado: search.estado,
+                    productor: search.productor,
+                    desde: search.desde,
+                    hasta: search.hasta,
+                    page: Math.min(totalPages, currentPage + 1),
+                  })}
+                  className={`sx-btn sx-btn-secondary ${currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}`}
+                  aria-disabled={currentPage >= totalPages}
+                >
+                  Siguiente
+                </Link>
+              </div>
             </div>
           </section>
         </div>

@@ -290,6 +290,8 @@ function ProductorSelector({ productoresValidos, productorSeleccionadoId }: Prod
     if (!candidateId) return;
     const params = new URLSearchParams(searchParams);
     params.set('productor', String(candidateId));
+    params.delete('page_clasif');
+    params.delete('page_comp');
     router.push(`?${params.toString()}`);
   };
 

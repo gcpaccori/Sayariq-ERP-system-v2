@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { useState } from "react";
+import { type ComponentType, useState } from "react";
 import {
   Home,
   LayoutDashboard,
@@ -18,31 +18,57 @@ import {
   PanelLeft,
   PanelLeftClose,
   X,
+  ShieldCheck,
 } from "lucide-react";
 import AuthUserPanel from "@/components/auth-user-panel";
+import { canReadModule, type ModuleKey } from "@/lib/auth/permissions";
+import { normalizeRole } from "@/lib/auth/roles";
 
 interface ModuleNavigationProps {
   currentModule?: string;
 }
 
-const modules = [
+const modules: Array<{ href: string; label: string; icon: ComponentType<{ size?: number; className?: string }>; moduleKey?: ModuleKey }> = [
   { href: "/", label: "Inicio", icon: Home },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/personas", label: "Módulo 1 · Personas", icon: Users },
-  { href: "/almacen", label: "Módulo 2 · Almacén", icon: Warehouse },
-  { href: "/pedidos", label: "Módulo 3 · Pedidos", icon: ShoppingCart },
-  { href: "/kardex", label: "Módulo 4 · Kardex", icon: BookOpen },
-  { href: "/liquidaciones", label: "Módulo 5 · Liquidaciones", icon: Receipt },
-  { href: "/cobranzas", label: "Módulo 6 · Cobranzas", icon: HandCoins },
-  { href: "/analitica", label: "Módulo 7 · Analítica", icon: LineChart },
-  { href: "/estado-cuenta-productor", label: "Módulo 8 · Estado Productor", icon: Wallet },
-  { href: "/rentabilidad-lotes", label: "Módulo 9 · Rentabilidad", icon: TrendingUp },
-  { href: "/clasificacion-neta", label: "Módulo 10 · Clasificación Neta", icon: ClipboardCheck },
+  { href: "/seguridad-acceso", label: "Módulo 11 · Seguridad de Acceso", icon: ShieldCheck, moduleKey: "seguridad-acceso" },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, moduleKey: "dashboard" },
+  { href: "/personas", label: "Módulo 1 · Personas", icon: Users, moduleKey: "personas" },
+  { href: "/almacen", label: "Módulo 2 · Almacén", icon: Warehouse, moduleKey: "almacen" },
+  { href: "/pedidos", label: "Módulo 3 · Pedidos", icon: ShoppingCart, moduleKey: "pedidos" },
+  { href: "/kardex", label: "Módulo 4 · Kardex", icon: BookOpen, moduleKey: "kardex" },
+  { href: "/liquidaciones", label: "Módulo 5 · Liquidaciones", icon: Receipt, moduleKey: "liquidaciones" },
+  { href: "/cobranzas", label: "Módulo 6 · Cobranzas", icon: HandCoins, moduleKey: "cobranzas" },
+  { href: "/analitica", label: "Módulo 7 · Analítica", icon: LineChart, moduleKey: "analitica" },
+  { href: "/estado-cuenta-productor", label: "Módulo 8 · Estado Productor", icon: Wallet, moduleKey: "estado-cuenta-productor" },
+  { href: "/rentabilidad-lotes", label: "Módulo 9 · Rentabilidad", icon: TrendingUp, moduleKey: "rentabilidad-lotes" },
+  { href: "/clasificacion-neta", label: "Módulo 10 · Clasificación Neta", icon: ClipboardCheck, moduleKey: "clasificacion-neta" },
 ];
+
+function getRoleFromCookie() {
+  if (typeof document === "undefined") {
+    return "visualizador";
+  }
+
+  const entry = document.cookie
+    .split(";")
+    .map((chunk) => chunk.trim())
+    .find((chunk) => chunk.startsWith("sayariq-role="));
+
+  return normalizeRole(entry?.split("=")[1]);
+}
 
 export default function ModuleNavigation({ currentModule }: ModuleNavigationProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const role = getRoleFromCookie();
+
+  const visibleModules = modules.filter((module) => {
+    if (!module.moduleKey) {
+      return true;
+    }
+
+    return canReadModule(role, module.moduleKey);
+  });
 
   return (
     <>
@@ -86,7 +112,7 @@ export default function ModuleNavigation({ currentModule }: ModuleNavigationProp
               <AuthUserPanel />
               <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Navegación</p>
               <nav className="space-y-1.5">
-                {modules.map((module) => {
+                {visibleModules.map((module) => {
                   const Icon = module.icon;
                   const isActive = currentModule
                     ? module.href.includes(currentModule) || module.href === currentModule
@@ -138,7 +164,7 @@ export default function ModuleNavigation({ currentModule }: ModuleNavigationProp
           </p>
           {!desktopCollapsed ? <AuthUserPanel /> : null}
           <nav className="flex gap-1 overflow-x-auto pb-1 lg:max-h-[calc(100vh-4rem)] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden">
-            {modules.map((module) => {
+            {visibleModules.map((module) => {
               const Icon = module.icon;
               const isActive = currentModule ? module.href.includes(currentModule) || module.href === currentModule : false;
 

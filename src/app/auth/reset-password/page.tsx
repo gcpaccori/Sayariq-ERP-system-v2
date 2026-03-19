@@ -5,6 +5,14 @@ import Link from "next/link";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
+function isStrongPassword(password: string) {
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasSymbol = /[^A-Za-z0-9]/.test(password);
+  return password.length >= 10 && hasUpper && hasLower && hasNumber && hasSymbol;
+}
+
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -53,8 +61,10 @@ export default function ResetPasswordPage() {
     setError(null);
     setMessage(null);
 
-    if (password.length < 8) {
-      setError("La nueva contraseña debe tener al menos 8 caracteres.");
+    if (!isStrongPassword(password)) {
+      setError(
+        "Usa al menos 10 caracteres, incluyendo mayúscula, minúscula, número y símbolo."
+      );
       return;
     }
 
@@ -98,10 +108,13 @@ export default function ResetPasswordPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
-                minLength={8}
+                minLength={10}
                 autoComplete="new-password"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
               />
+              <p className="text-xs text-slate-500">
+                Mínimo 10 caracteres con mayúscula, minúscula, número y símbolo.
+              </p>
             </label>
 
             <label className="block space-y-1">
@@ -111,7 +124,7 @@ export default function ResetPasswordPage() {
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 required
-                minLength={8}
+                minLength={10}
                 autoComplete="new-password"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-500"
               />

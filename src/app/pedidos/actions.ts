@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { ensureWriteAccess } from "@/lib/auth/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type Producto = "Jengibre" | "Curcuma";
@@ -219,6 +220,8 @@ async function recalculateAndUpdatePedidoEstado(pedidoId: number) {
 }
 
 export async function createPedidoAction(formData: FormData) {
+  await ensureWriteAccess("pedidos");
+
   const clienteId = Number(getField(formData, "cliente_id"));
   const producto = getField(formData, "producto") as Producto;
   const categoriaIds = extractCategoriaIds(formData);
@@ -291,6 +294,8 @@ export async function createPedidoAction(formData: FormData) {
 }
 
 export async function updatePedidoAction(formData: FormData) {
+  await ensureWriteAccess("pedidos");
+
   const pedidoId = Number(getField(formData, "pedido_id"));
   const clienteId = Number(getField(formData, "cliente_id"));
   const producto = getField(formData, "producto") as Producto;
@@ -364,6 +369,8 @@ export async function updatePedidoAction(formData: FormData) {
 }
 
 export async function asignarLotePedidoAction(formData: FormData) {
+  await ensureWriteAccess("pedidos");
+
   const pedidoId = Number(getField(formData, "pedido_id"));
   const loteId = Number(getField(formData, "lote_id"));
   const categoriaId = Number(getField(formData, "categoria_id"));
@@ -538,6 +545,8 @@ export async function asignarLotePedidoAction(formData: FormData) {
 }
 
 export async function updateAsignacionPedidoAction(formData: FormData) {
+  await ensureWriteAccess("pedidos");
+
   const asignacionId = Number(getField(formData, "asignacion_id"));
   const kgAsignados = toDecimal(getField(formData, "kg_asignados"));
   const precioKg = toDecimal(getField(formData, "precio_kg"));
@@ -628,6 +637,8 @@ export async function updateAsignacionPedidoAction(formData: FormData) {
 }
 
 export async function deleteAsignacionPedidoAction(formData: FormData) {
+  await ensureWriteAccess("pedidos");
+
   const asignacionId = Number(getField(formData, "asignacion_id"));
   if (!asignacionId || Number.isNaN(asignacionId)) {
     redirectWithMessage("error", "Asignación inválida para quitar.");

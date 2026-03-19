@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { ensureWriteAccess } from "@/lib/auth/server";
 import { saveEvidenciaFoto } from "@/lib/evidencias-fotos";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -77,6 +78,8 @@ function getRolesConstraintMessage(errorMessage: string) {
 }
 
 export async function createPersonaAction(formData: FormData) {
+  await ensureWriteAccess("personas");
+
   const roles = getRoles(formData);
   if (roles.length === 0) {
     redirectWithMessage("error", "Debes seleccionar al menos un rol.");
@@ -135,6 +138,8 @@ export async function createPersonaAction(formData: FormData) {
 }
 
 export async function updatePersonaAction(formData: FormData) {
+  await ensureWriteAccess("personas");
+
   const id = Number(getField(formData, "id"));
   const roles = getRoles(formData);
 
@@ -208,6 +213,8 @@ export async function updatePersonaAction(formData: FormData) {
 }
 
 export async function togglePersonaEstadoAction(formData: FormData) {
+  await ensureWriteAccess("personas");
+
   const id = Number(getField(formData, "id"));
   const estadoActual = getField(formData, "estado_actual");
 

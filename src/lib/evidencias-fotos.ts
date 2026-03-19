@@ -2,13 +2,35 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import sharp from "sharp";
-
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 const MAX_IMAGE_SIDE = 1080;
 const THUMB_SIDE = 320;
 const MAX_FILE_BYTES = 12 * 1024 * 1024;
+
+function importSharpModule() {
+  return import("sharp");
+}
+
+type SharpFactory = Awaited<ReturnType<typeof importSharpModule>>["default"];
+
+let sharpFactoryPromise: Promise<SharpFactory> | null = null;
+
+async function getSharpFactory(): Promise<SharpFactory> {
+  if (!sharpFactoryPromise) {
+    sharpFactoryPromise = importSharpModule()
+      .then((module) => module.default)
+      .catch((error) => {
+        sharpFactoryPromise = null;
+        const detail = error instanceof Error ? error.message : "Error desconocido";
+        throw new Error(
+          `No se pudo cargar el módulo de imágenes (sharp) para linux-x64. Reinstala dependencias y reinicia el servidor. Detalle: ${detail}`,
+        );
+      });
+  }
+
+  return sharpFactoryPromise;
+}
 
 export type ContextoEvidenciaFoto =
   | "persona_perfil"
@@ -64,6 +86,7 @@ export async function saveEvidenciaFoto(input: SaveEvidenciaFotoInput): Promise<
   }
 
   try {
+    const sharp = await getSharpFactory();
     const sourceBuffer = Buffer.from(await input.file.arrayBuffer());
     const imageId = `${Date.now()}-${randomUUID()}`;
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { ensureWriteAccess } from "@/lib/auth/server";
 import { saveEvidenciaFoto } from "@/lib/evidencias-fotos";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -91,6 +92,8 @@ async function buildNumeroLote() {
 }
 
 export async function createLoteAction(formData: FormData) {
+  await ensureWriteAccess("almacen");
+
   const productorId = Number(getField(formData, "productor_id"));
   const producto = getField(formData, "producto") as Producto;
   const categoriaIdRaw = Number(getField(formData, "categoria_id") || "0");
@@ -200,6 +203,8 @@ export async function createLoteAction(formData: FormData) {
 }
 
 export async function updateLoteAction(formData: FormData) {
+  await ensureWriteAccess("almacen");
+
   const loteId = Number(getField(formData, "lote_id"));
   const productorId = Number(getField(formData, "productor_id"));
   const producto = getField(formData, "producto") as Producto;
@@ -259,8 +264,23 @@ export async function updateLoteAction(formData: FormData) {
     redirectWithMessage("error", error.message);
   }
 
+  const fotoIngreso = await saveEvidenciaFoto({
+    file: formData.get("foto_lote_ingreso"),
+    contexto: "lote_ingreso",
+    entidadOrigen: "lotes",
+    entidadId: loteId,
+    loteId,
+    personaId: productorId,
+    observaciones: "Foto ingreso actualizada desde edición de lote",
+  });
+
   revalidatePath("/almacen");
-  redirectWithMessage("ok", `Lote ${loteId} actualizado correctamente.`);
+  const fotoDetalle = fotoIngreso.guardada
+    ? " | Foto de ingreso actualizada"
+    : fotoIngreso.errorMessage
+      ? ` | Foto no guardada (${fotoIngreso.errorMessage})`
+      : "";
+  redirectWithMessage("ok", `Lote ${loteId} actualizado correctamente.${fotoDetalle}`);
 }
 
 async function getLoteSinClasificar(loteId: number): Promise<Lote | null> {
@@ -287,6 +307,8 @@ async function getCategoriasActivas(): Promise<Categoria[]> {
 }
 
 export async function clasificarLoteAction(formData: FormData) {
+  await ensureWriteAccess("almacen");
+
   const loteId = Number(getField(formData, "lote_id"));
   const fechaClasificacion = getField(formData, "fecha_clasificacion");
 

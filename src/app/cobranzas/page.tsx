@@ -12,6 +12,10 @@ import ModuleFormModal from "@/components/module-form-modal";
 
 type SearchParams = {
   pedido?: string;
+  desde?: string;
+  hasta?: string;
+  page_pedidos?: string;
+  page_liquidaciones?: string;
   ok?: string;
   error?: string;
 };
@@ -57,6 +61,74 @@ type PedidoAsignacionRow = {
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function sanitizeDateParam(value?: string) {
+  if (!value) return "";
+  const trimmed = value.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : "";
+}
+
+function sanitizePageParam(value?: string) {
+  const parsed = Number.parseInt(value ?? "1", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function normalizeDateRange(desde?: string, hasta?: string) {
+  const from = sanitizeDateParam(desde);
+  const to = sanitizeDateParam(hasta);
+
+  if (from && to && from > to) {
+    return { desde: to, hasta: from };
+  }
+
+  return { desde: from, hasta: to };
+}
+
+function isWithinDateRange(value: string, desde: string, hasta: string) {
+  if (!desde && !hasta) return true;
+  const dateOnly = String(value ?? "").slice(0, 10);
+  if (!dateOnly) return false;
+  if (desde && dateOnly < desde) return false;
+  if (hasta && dateOnly > hasta) return false;
+  return true;
+}
+
+function buildCobranzasUrl(params: {
+  pedido?: number | null;
+  desde?: string;
+  hasta?: string;
+  pagePedidos?: number;
+  pageLiquidaciones?: number;
+}) {
+  const searchParams = new URLSearchParams();
+
+  const desde = (params.desde ?? "").trim();
+  if (desde) searchParams.set("desde", desde);
+
+  const hasta = (params.hasta ?? "").trim();
+  if (hasta) searchParams.set("hasta", hasta);
+
+  if ((params.pagePedidos ?? 1) > 1) {
+    searchParams.set("page_pedidos", String(params.pagePedidos));
+  }
+
+  if ((params.pageLiquidaciones ?? 1) > 1) {
+    searchParams.set("page_liquidaciones", String(params.pageLiquidaciones));
+  }
+
+  if ((params.pedido ?? 0) > 0) {
+    searchParams.set("pedido", String(params.pedido));
+  }
+
+  const query = searchParams.toString();
+  return query ? `/cobranzas?${query}` : "/cobranzas";
+}
+
+function getPaginationRange(currentPage: number, totalPages: number) {
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(totalPages, start + 4);
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
 async function getClientes() {
@@ -282,6 +354,53 @@ export default async function CobranzasPage({
   const categoriaMap = new Map(categorias.map((row) => [row.id, row.nombre]));
   const pedidoMap = new Map(pedidosLiquidables.map((row) => [row.id, row.numero_pedido]));
 
+  const dateRange = normalizeDateRange(search.desde, search.hasta);
+  const liquidacionesFiltradas = liquidaciones.filter((row) =>
+    isWithinDateRange(row.fecha_liquidacion, dateRange.desde, dateRange.hasta)
+  );
+
+  const pedidosPageSize = 10;
+  const pedidosTotalRows = pedidosLiquidables.length;
+  const pedidosTotalPages = Math.max(1, Math.ceil(pedidosTotalRows / pedidosPageSize));
+  const pedidosCurrentPage = Math.min(
+    sanitizePageParam(search.page_pedidos),
+    pedidosTotalPages
+  );
+  const pedidosStart = (pedidosCurrentPage - 1) * pedidosPageSize;
+  const pedidosPageRows = pedidosLiquidables.slice(pedidosStart, pedidosStart + pedidosPageSize);
+  const pedidosFromItem = pedidosTotalRows === 0 ? 0 : pedidosStart + 1;
+  const pedidosToItem = Math.min(pedidosStart + pedidosPageSize, pedidosTotalRows);
+  const pedidosPaginationRange = getPaginationRange(pedidosCurrentPage, pedidosTotalPages);
+
+  const liquidacionesPageSize = 12;
+  const liquidacionesTotalRows = liquidacionesFiltradas.length;
+  const liquidacionesTotalPages = Math.max(1, Math.ceil(liquidacionesTotalRows / liquidacionesPageSize));
+  const liquidacionesCurrentPage = Math.min(
+    sanitizePageParam(search.page_liquidaciones),
+    liquidacionesTotalPages
+  );
+  const liquidacionesStart = (liquidacionesCurrentPage - 1) * liquidacionesPageSize;
+  const liquidacionesPageRows = liquidacionesFiltradas.slice(
+    liquidacionesStart,
+    liquidacionesStart + liquidacionesPageSize
+  );
+  const liquidacionesFromItem = liquidacionesTotalRows === 0 ? 0 : liquidacionesStart + 1;
+  const liquidacionesToItem = Math.min(
+    liquidacionesStart + liquidacionesPageSize,
+    liquidacionesTotalRows
+  );
+  const liquidacionesPaginationRange = getPaginationRange(
+    liquidacionesCurrentPage,
+    liquidacionesTotalPages
+  );
+
+  const listBaseUrl = buildCobranzasUrl({
+    desde: dateRange.desde,
+    hasta: dateRange.hasta,
+    pagePedidos: pedidosCurrentPage,
+    pageLiquidaciones: liquidacionesCurrentPage,
+  });
+
   const selectedPedidoId = Number(search.pedido ?? "0");
   const selectedPedidoData = selectedPedidoId > 0 ? await getSelectedPedidoData(selectedPedidoId) : null;
 
@@ -398,12 +517,46 @@ export default async function CobranzasPage({
             ))}
           </div>
 
+          <section className="mb-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold text-gray-900">Filtro temporal</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Aplica al historial de liquidaciones. Los indicadores superiores se mantienen globales.
+              </p>
+            </div>
+            <form method="get" className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+              <label className="grid gap-1.5">
+                <span className="text-sm font-semibold text-gray-900">Desde</span>
+                <input
+                  type="date"
+                  name="desde"
+                  defaultValue={dateRange.desde}
+                  className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                />
+              </label>
+              <label className="grid gap-1.5">
+                <span className="text-sm font-semibold text-gray-900">Hasta</span>
+                <input
+                  type="date"
+                  name="hasta"
+                  defaultValue={dateRange.hasta}
+                  className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium outline-none transition duration-200 focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                />
+              </label>
+              <button type="submit" className="sx-btn sx-btn-primary">Filtrar</button>
+              <Link href="/cobranzas" className="sx-btn sx-btn-secondary">Limpiar</Link>
+            </form>
+          </section>
+
           {/* Crear liquidación de cliente */}
           <section className="mb-8 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-gray-900">Crear liquidación de cliente</h2>
               <p className="mt-1 text-sm text-gray-600">
                 Genera comprobante único irrepetible y movimiento de ingreso en kardex.
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                Mostrando {pedidosFromItem}-{pedidosToItem} de {pedidosTotalRows} pedido(s) liquidable(s)
               </p>
             </div>
 
@@ -419,7 +572,7 @@ export default async function CobranzasPage({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {pedidosLiquidables.length === 0 ? (
+                  {pedidosTotalRows === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
                         No hay pedidos disponibles para nueva liquidación cliente.
@@ -427,7 +580,7 @@ export default async function CobranzasPage({
                     </tr>
                   ) : null}
 
-                  {pedidosLiquidables.map((row) => (
+                  {pedidosPageRows.map((row) => (
                     <tr key={row.id} className="transition duration-200 hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-900">{row.numero_pedido}</td>
                       <td className="px-4 py-3">{personaMap.get(row.cliente_id) ?? row.cliente_id}</td>
@@ -436,7 +589,16 @@ export default async function CobranzasPage({
                         <span className="inline-block rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-[#1A73E8]">{row.estado}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Link href={`/cobranzas?pedido=${row.id}`} className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition duration-200 hover:border-[#1A73E8] hover:text-[#1A73E8] hover:bg-blue-50">
+                        <Link
+                          href={buildCobranzasUrl({
+                            pedido: Number(row.id),
+                            desde: dateRange.desde,
+                            hasta: dateRange.hasta,
+                            pagePedidos: pedidosCurrentPage,
+                            pageLiquidaciones: liquidacionesCurrentPage,
+                          })}
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition duration-200 hover:border-[#1A73E8] hover:text-[#1A73E8] hover:bg-blue-50"
+                        >
                           Liquidar
                         </Link>
                       </td>
@@ -445,13 +607,61 @@ export default async function CobranzasPage({
                 </tbody>
               </table>
             </div>
+
+            <div className="mt-4 flex flex-col gap-2 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-500">
+                Página {pedidosCurrentPage} de {pedidosTotalPages}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={buildCobranzasUrl({
+                    desde: dateRange.desde,
+                    hasta: dateRange.hasta,
+                    pagePedidos: Math.max(1, pedidosCurrentPage - 1),
+                    pageLiquidaciones: liquidacionesCurrentPage,
+                  })}
+                  className={`sx-btn sx-btn-secondary ${pedidosCurrentPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
+                  aria-disabled={pedidosCurrentPage <= 1}
+                >
+                  Anterior
+                </Link>
+
+                {pedidosPaginationRange.map((pageNumber) => (
+                  <Link
+                    key={pageNumber}
+                    href={buildCobranzasUrl({
+                      desde: dateRange.desde,
+                      hasta: dateRange.hasta,
+                      pagePedidos: pageNumber,
+                      pageLiquidaciones: liquidacionesCurrentPage,
+                    })}
+                    className={pageNumber === pedidosCurrentPage ? "sx-btn sx-btn-primary" : "sx-btn sx-btn-secondary"}
+                  >
+                    {pageNumber}
+                  </Link>
+                ))}
+
+                <Link
+                  href={buildCobranzasUrl({
+                    desde: dateRange.desde,
+                    hasta: dateRange.hasta,
+                    pagePedidos: Math.min(pedidosTotalPages, pedidosCurrentPage + 1),
+                    pageLiquidaciones: liquidacionesCurrentPage,
+                  })}
+                  className={`sx-btn sx-btn-secondary ${pedidosCurrentPage >= pedidosTotalPages ? "pointer-events-none opacity-50" : ""}`}
+                  aria-disabled={pedidosCurrentPage >= pedidosTotalPages}
+                >
+                  Siguiente
+                </Link>
+              </div>
+            </div>
           </section>
 
           {/* Modal de liquidación cliente — aparece automáticamente si hay pedido seleccionado */}
           {selectedPedidoData ? (
             <ModuleFormModal
               isOpen={true}
-              closeHref="/cobranzas"
+              closeHref={listBaseUrl}
               title={`Liquidar Pedido ${selectedPedidoData.pedido.numero_pedido}`}
               description={`Cliente: ${personaMap.get(selectedPedidoData.pedido.cliente_id) ?? selectedPedidoData.pedido.cliente_id}`}
               maxWidth="4xl"
@@ -544,7 +754,7 @@ export default async function CobranzasPage({
                   <button type="submit" className="flex-1 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md">
                     Crear liquidación cliente
                   </button>
-                  <Link href="/cobranzas" className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400">
+                  <Link href={listBaseUrl} className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400">
                     Cancelar
                   </Link>
                 </div>
@@ -554,6 +764,10 @@ export default async function CobranzasPage({
 
           <section className="rounded border p-4">
             <p className="mb-2 text-xs">Qué muestra esta tabla: historial de liquidaciones cliente con comprobantes y estado de cobro.</p>
+            <p className="mb-3 text-xs text-slate-500">
+              Mostrando {liquidacionesFromItem}-{liquidacionesToItem} de {liquidacionesTotalRows} liquidación(es)
+              {dateRange.desde || dateRange.hasta ? " en el rango seleccionado" : ""}.
+            </p>
             <div className="sx-table-wrap">
               <table className="sx-table">
                 <thead>
@@ -573,15 +787,17 @@ export default async function CobranzasPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {liquidaciones.length === 0 ? (
+                  {liquidacionesTotalRows === 0 ? (
                     <tr>
                       <td colSpan={12} className="p-3 text-center">
-                        Sin liquidaciones de clientes.
+                        {dateRange.desde || dateRange.hasta
+                          ? "Sin liquidaciones de clientes para el rango seleccionado."
+                          : "Sin liquidaciones de clientes."}
                       </td>
                     </tr>
                   ) : null}
 
-                  {liquidaciones.map((row) => (
+                  {liquidacionesPageRows.map((row) => (
                     <tr key={row.id} className="border-b">
                       <td className="p-2">
                         {fotoLiquidacionMap.get(Number(row.id)) ? (
@@ -605,6 +821,54 @@ export default async function CobranzasPage({
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-slate-500">
+                Página {liquidacionesCurrentPage} de {liquidacionesTotalPages}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={buildCobranzasUrl({
+                    desde: dateRange.desde,
+                    hasta: dateRange.hasta,
+                    pagePedidos: pedidosCurrentPage,
+                    pageLiquidaciones: Math.max(1, liquidacionesCurrentPage - 1),
+                  })}
+                  className={`sx-btn sx-btn-secondary ${liquidacionesCurrentPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
+                  aria-disabled={liquidacionesCurrentPage <= 1}
+                >
+                  Anterior
+                </Link>
+
+                {liquidacionesPaginationRange.map((pageNumber) => (
+                  <Link
+                    key={pageNumber}
+                    href={buildCobranzasUrl({
+                      desde: dateRange.desde,
+                      hasta: dateRange.hasta,
+                      pagePedidos: pedidosCurrentPage,
+                      pageLiquidaciones: pageNumber,
+                    })}
+                    className={pageNumber === liquidacionesCurrentPage ? "sx-btn sx-btn-primary" : "sx-btn sx-btn-secondary"}
+                  >
+                    {pageNumber}
+                  </Link>
+                ))}
+
+                <Link
+                  href={buildCobranzasUrl({
+                    desde: dateRange.desde,
+                    hasta: dateRange.hasta,
+                    pagePedidos: pedidosCurrentPage,
+                    pageLiquidaciones: Math.min(liquidacionesTotalPages, liquidacionesCurrentPage + 1),
+                  })}
+                  className={`sx-btn sx-btn-secondary ${liquidacionesCurrentPage >= liquidacionesTotalPages ? "pointer-events-none opacity-50" : ""}`}
+                  aria-disabled={liquidacionesCurrentPage >= liquidacionesTotalPages}
+                >
+                  Siguiente
+                </Link>
+              </div>
             </div>
           </section>
         </div>

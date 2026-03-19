@@ -4,6 +4,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { ensureWriteAccess } from "@/lib/auth/server";
 import { saveEvidenciaFoto } from "@/lib/evidencias-fotos";
 import { createComprobanteInterno } from "@/lib/comprobantes-internos";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -318,6 +319,8 @@ async function getProductoresInvolucradosPorPedido(pedidoId: number) {
 }
 
 export async function createAdelantoAction(formData: FormData) {
+  await ensureWriteAccess("liquidaciones");
+
   const productorId = Number(getField(formData, "productor_id"));
   const loteIdRaw = Number(getField(formData, "lote_id") || "0");
   const loteId = loteIdRaw > 0 ? loteIdRaw : null;
@@ -441,6 +444,8 @@ export async function createAdelantoAction(formData: FormData) {
 }
 
 export async function createLiquidacionProductorAction(formData: FormData) {
+  await ensureWriteAccess("liquidaciones");
+
   const loteId = Number(getField(formData, "lote_id"));
   const fechaLiquidacion = getField(formData, "fecha_liquidacion");
   const montoDirecto = toDecimal(getField(formData, "monto_directo"));
@@ -872,6 +877,8 @@ export async function createLiquidacionProductorAction(formData: FormData) {
 }
 
 export async function createLiquidacionClienteAction(formData: FormData) {
+  await ensureWriteAccess("liquidaciones");
+
   const pedidoId = Number(getField(formData, "pedido_id"));
   const fechaLiquidacion = getField(formData, "fecha_liquidacion");
   const tipoComprobante = getField(formData, "tipo_comprobante") || "ninguno";
@@ -1091,6 +1098,8 @@ export async function createLiquidacionClienteAction(formData: FormData) {
 }
 
 export async function registrarPagoParcialAction(formData: FormData) {
+  await ensureWriteAccess("liquidaciones");
+
   const liquidacionId = Number(getField(formData, "liquidacion_id"));
   const monto = toDecimal(getField(formData, "monto_pagado"));
   const fechaPago = getField(formData, "fecha_pago");
@@ -1182,6 +1191,8 @@ export async function registrarPagoParcialAction(formData: FormData) {
 }
 
 export async function createPagoLiquidacionAction(formData: FormData) {
+  await ensureWriteAccess("liquidaciones");
+
   const liquidacionId = Number(getField(formData, "liquidacion_id"));
   const loteId = Number(getField(formData, "lote_id") || "0");
   const monto = toDecimal(getField(formData, "monto_pago"));

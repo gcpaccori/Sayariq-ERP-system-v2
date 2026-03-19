@@ -5,32 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Provider } from "@supabase/supabase-js";
 
+import { normalizeRole, type SystemRole } from "@/lib/auth/roles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type AuthMode = "login" | "signup";
 
-function setAuthCookies(role: "adm" | "operario") {
+function setAuthCookies(role: SystemRole) {
   const oneDay = 60 * 60 * 24;
   document.cookie = `sayariq-auth=1; path=/; max-age=${oneDay}; samesite=lax`;
   document.cookie = `sayariq-role=${role}; path=/; max-age=${oneDay}; samesite=lax`;
-}
-
-async function enforceAdmRole(userId: string, currentRole: unknown) {
-  if (currentRole === "adm") {
-    return;
-  }
-
-  const response = await fetch("/api/auth/force-adm", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ userId }),
-  });
-
-  if (!response.ok) {
-    throw new Error("No se pudo actualizar el rol a adm");
-  }
 }
 
 const oauthProviders: Array<{ provider: Provider; label: string }> = [
@@ -41,6 +24,14 @@ const oauthProviders: Array<{ provider: Provider; label: string }> = [
   { provider: "discord", label: "Discord" },
 ];
 
+function isStrongPassword(password: string) {
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /\d/.test(password);
+  const hasSymbol = /[^A-Za-z0-9]/.test(password);
+  return password.length >= 10 && hasUpper && hasLower && hasNumber && hasSymbol;
+}
+
 export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>("login");
   const [fullName, setFullName] = useState("");
@@ -50,7 +41,6 @@ export default function LoginPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
-  const [directResetLoading, setDirectResetLoading] = useState(false);
 
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
@@ -66,14 +56,10 @@ export default function LoginPage() {
         return;
       }
 
-      try {
-        await enforceAdmRole(user.id, user.user_metadata?.role);
-        setAuthCookies("adm");
-        router.push("/dashboard");
-        router.refresh();
-      } catch {
-        setError("La sesión existe, pero no pudimos actualizar tu rol.");
-      }
+      const role = normalizeRole(user.user_metadata?.role);
+      setAuthCookies(role);
+      router.push("/dashboard");
+      router.refresh();
     }
 
     void syncSession();
@@ -97,27 +83,31 @@ export default function LoginPage() {
         return;
       }
 
-      try {
-        await enforceAdmRole(data.user.id, data.user.user_metadata?.role);
-        setAuthCookies("adm");
-        router.push("/dashboard");
-        router.refresh();
-      } catch {
-        setError("Ingresaste, pero no se pudo dejar tu rol como adm.");
-      }
+      const role = normalizeRole(data.user.user_metadata?.role);
+      setAuthCookies(role);
+      router.push("/dashboard");
+      router.refresh();
 
       setLoading(false);
       return;
     }
 
+    if (!isStrongPassword(password)) {
+      setError(
+        "La contraseña debe tener al menos 10 caracteres, incluyendo mayúscula, minúscula, número y símbolo."
+      );
+      setLoading(false);
+      return;
+    }
+
     const normalizedName = fullName.trim() || email.split("@")[0];
-    const { data, error: signupError } = await supabase.auth.signUp({
+    const { error: signupError } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
         data: {
-          role: "adm",
+          role: "visualizador",
           full_name: normalizedName,
         },
       },
@@ -129,18 +119,8 @@ export default function LoginPage() {
       return;
     }
 
-    if (data.user?.id) {
-      try {
-        await enforceAdmRole(data.user.id, data.user.user_metadata?.role);
-      } catch {
-        setError("Usuario creado, pero no se pudo fijar rol adm.");
-        setLoading(false);
-        return;
-      }
-    }
-
     setMessage(
-      "Usuario creado. Si tienes confirmación por correo activa, valida tu email antes de entrar."
+      "Usuario creado con rol visualizador. Si tienes confirmación por correo activa, valida tu email antes de entrar."
     );
     setMode("login");
     setLoading(false);
@@ -192,69 +172,6 @@ export default function LoginPage() {
 
     setMessage("Si el correo existe, te enviamos un enlace para restablecer tu contraseña.");
     setRecoveryLoading(false);
-  };
-
-  const handleDirectPasswordReset = async () => {
-    setError(null);
-    setMessage(null);
-
-    if (!normalizedEmail) {
-      setError("Ingresa tu correo.");
-      return;
-    }
-
-    if (!password || password.length < 8) {
-      setError("Escribe una nueva contraseña de al menos 8 caracteres.");
-      return;
-    }
-
-    setDirectResetLoading(true);
-
-    const response = await fetch("/api/auth/reset-direct", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email: email.trim(), newPassword: password }),
-    });
-
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
-
-    if (!response.ok) {
-      setError(payload.error ?? "No se pudo cambiar la contraseña directamente.");
-      setDirectResetLoading(false);
-      return;
-    }
-
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
-
-    if (authError || !data.user?.id) {
-      setMessage("Contraseña actualizada. Ahora entra con tu nueva clave.");
-      setDirectResetLoading(false);
-      return;
-    }
-
-    try {
-      await enforceAdmRole(data.user.id, data.user.user_metadata?.role);
-      setAuthCookies("adm");
-      router.push("/dashboard");
-      router.refresh();
-    } catch {
-      setMessage("Contraseña actualizada. Vuelve a iniciar sesión para continuar.");
-    }
-
-    setDirectResetLoading(false);
-  };
-
-  const handleEmergencyAccess = () => {
-    setError(null);
-    setMessage("Acceso local habilitado para continuar trabajando.");
-    setAuthCookies("adm");
-    router.push("/dashboard");
-    router.refresh();
   };
 
   return (
@@ -346,34 +263,10 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={handleRecoverPassword}
-                  disabled={loading || recoveryLoading || directResetLoading}
+                  disabled={loading || recoveryLoading}
                   className="-mt-1 text-left text-sm font-medium text-emerald-700 hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {recoveryLoading ? "Enviando enlace..." : "¿Olvidaste tu contraseña?"}
-                </button>
-              ) : null}
-
-              {mode === "login" ? (
-                <button
-                  type="button"
-                  onClick={handleDirectPasswordReset}
-                  disabled={loading || recoveryLoading || directResetLoading}
-                  className="-mt-2 text-left text-sm font-medium text-slate-700 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {directResetLoading
-                    ? "Cambiando contraseña..."
-                    : "Restablecer ahora (sin correo)"}
-                </button>
-              ) : null}
-
-              {mode === "login" ? (
-                <button
-                  type="button"
-                  onClick={handleEmergencyAccess}
-                  disabled={loading || recoveryLoading || directResetLoading}
-                  className="-mt-2 text-left text-sm font-medium text-amber-700 hover:text-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Ingresar en modo local (emergencia)
                 </button>
               ) : null}
 

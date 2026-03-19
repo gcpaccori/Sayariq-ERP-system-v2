@@ -4,17 +4,14 @@ import { LogOut, Shield } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { normalizeRole, type SystemRole } from "@/lib/auth/roles";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 interface AuthUser {
   email: string;
   fullName: string;
-  role: "adm" | "operario";
+  role: SystemRole;
   avatarUrl: string | null;
-}
-
-function resolveRole(rawRole: unknown): "adm" | "operario" {
-  return rawRole === "adm" ? "adm" : "operario";
 }
 
 function resolveAvatarUrl(rawAvatar: unknown, rawPicture: unknown): string | null {
@@ -29,7 +26,7 @@ function resolveAvatarUrl(rawAvatar: unknown, rawPicture: unknown): string | nul
   return null;
 }
 
-function setAuthCookies(role: "adm" | "operario") {
+function setAuthCookies(role: SystemRole) {
   const oneDay = 60 * 60 * 24;
   document.cookie = `sayariq-auth=1; path=/; max-age=${oneDay}; samesite=lax`;
   document.cookie = `sayariq-role=${role}; path=/; max-age=${oneDay}; samesite=lax`;
@@ -52,7 +49,7 @@ export default function AuthUserPanel() {
         return;
       }
 
-      const role = resolveRole(authUser.user_metadata?.role);
+      const role = normalizeRole(authUser.user_metadata?.role);
       const fullName =
         authUser.user_metadata?.full_name ||
         authUser.user_metadata?.name ||
@@ -77,7 +74,7 @@ export default function AuthUserPanel() {
         return;
       }
 
-      const role = resolveRole(session.user.user_metadata?.role);
+      const role = normalizeRole(session.user.user_metadata?.role);
       const fullName =
         session.user.user_metadata?.full_name ||
         session.user.user_metadata?.name ||

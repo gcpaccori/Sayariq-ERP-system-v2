@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { ensureWriteAccess } from "@/lib/auth/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type Categoria = { id: number; codigo: string; nombre: string };
@@ -102,6 +103,8 @@ async function resolveEstadoLoteReclasificado(loteId: number, nuevoNetoMap: Map<
 }
 
 export async function editarClasificacionNetaAction(formData: FormData) {
+  await ensureWriteAccess("clasificacion-neta");
+
   const supabase = getSupabaseServerClient();
 
   const loteId = Number(getField(formData, "lote_id"));

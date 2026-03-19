@@ -364,6 +364,10 @@ body {
   cursor: pointer;
 }
 
+.google-2027-theme .sx-btn :is(span, small, strong, svg) {
+  color: inherit !important;
+}
+
 .google-2027-theme .sx-btn-primary {
   background: var(--primary) !important;
   border-color: var(--primary) !important;
@@ -375,6 +379,15 @@ body {
   background: var(--primary-hover) !important;
   border-color: var(--primary-hover) !important;
   box-shadow: 0 4px 8px rgba(26, 115, 232, 0.3);
+}
+
+/* Fallback global: garantiza contraste correcto para botones primarios SX en cualquier contenedor */
+.sx-btn-primary {
+  color: #ffffff !important;
+}
+
+.sx-btn-primary :is(span, small, strong, svg) {
+  color: #ffffff !important;
 }
 
 .google-2027-theme .sx-btn-secondary {

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { ensureWriteAccess } from "@/lib/auth/server";
 import { saveEvidenciaFoto } from "@/lib/evidencias-fotos";
 import { createComprobanteInterno } from "@/lib/comprobantes-internos";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -209,6 +210,8 @@ async function getProductoresInvolucradosPorPedido(pedidoId: number) {
 }
 
 export async function createLiquidacionClienteModulo6Action(formData: FormData) {
+  await ensureWriteAccess("cobranzas");
+
   const pedidoId = Number(getField(formData, "pedido_id"));
   const fechaLiquidacion = getField(formData, "fecha_liquidacion");
   const tipoComprobante = getField(formData, "tipo_comprobante") || "ninguno";
@@ -430,6 +433,8 @@ export async function createLiquidacionClienteModulo6Action(formData: FormData) 
 }
 
 export async function registrarCobroClienteAction(formData: FormData) {
+  await ensureWriteAccess("cobranzas");
+
   const liquidacionId = Number(getField(formData, "liquidacion_id"));
   const montoCobrado = toDecimal(getField(formData, "monto_cobrado"));
   const fechaCobro = getField(formData, "fecha_cobro");

@@ -7,6 +7,10 @@ import ModuleNavigation from "@/components/module-navigation";
 
 type SearchParams = {
   productor?: string;
+  desde?: string;
+  hasta?: string;
+  page_clasif?: string;
+  page_comp?: string;
 };
 
 type Persona = {
@@ -30,6 +34,7 @@ type LoteClasificacion = {
   categoria_id: number;
   codigo_clasificacion: string | null;
   peso_neto: number;
+  fecha_clasificacion: string;
 };
 
 type PedidoAsignacion = {
@@ -158,6 +163,65 @@ function shortDate(input: string) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function sanitizeDateParam(value: string | undefined) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return "";
+  const date = new Date(`${normalized}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  return normalized;
+}
+
+function normalizeDateRange(desde: string, hasta: string) {
+  if (desde && hasta && desde > hasta) {
+    return { desde: hasta, hasta: desde };
+  }
+  return { desde, hasta };
+}
+
+function inDateRange(input: string, desde: string, hasta: string) {
+  if (!desde && !hasta) return true;
+  const value = shortDate(input);
+  if (value === "-") return false;
+  if (desde && value < desde) return false;
+  if (hasta && value > hasta) return false;
+  return true;
+}
+
+function parsePageParam(value: string | undefined, totalPages: number) {
+  const parsed = Number.parseInt(value ?? "1", 10);
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.min(Math.max(parsed, 1), Math.max(totalPages, 1));
+}
+
+function buildPageRange(currentPage: number, totalPages: number) {
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(totalPages, start + 4);
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
+function buildEstadoCuentaProductorUrl(params: {
+  productor: number;
+  desde?: string;
+  hasta?: string;
+  pageClasif?: number;
+  pageComp?: number;
+}) {
+  const searchParams = new URLSearchParams();
+  searchParams.set("productor", String(params.productor));
+
+  const desde = sanitizeDateParam(params.desde);
+  const hasta = sanitizeDateParam(params.hasta);
+  const normalized = normalizeDateRange(desde, hasta);
+
+  if (normalized.desde) searchParams.set("desde", normalized.desde);
+  if (normalized.hasta) searchParams.set("hasta", normalized.hasta);
+  if ((params.pageClasif ?? 1) > 1) searchParams.set("page_clasif", String(params.pageClasif));
+  if ((params.pageComp ?? 1) > 1) searchParams.set("page_comp", String(params.pageComp));
+
+  return `?${searchParams.toString()}`;
+}
+
 function adelantoEstadoLabel(estado: Adelanto["estado"]) {
   if (estado === "pendiente") return "entregado / por descontar";
   if (estado === "aplicado") return "descontado en liquidación";
@@ -226,6 +290,11 @@ export default async function EstadoCuentaProductorPage({
       </div>
     );
   }
+
+  const initialDesde = sanitizeDateParam(search.desde);
+  const initialHasta = sanitizeDateParam(search.hasta);
+  const { desde: filtroDesde, hasta: filtroHasta } = normalizeDateRange(initialDesde, initialHasta);
+  const hasDateFilter = Boolean(filtroDesde || filtroHasta);
 
   const [lotesRes, liquidacionesRes, adelantosRes, kardexPagosRes, compRelacionadosRes, compVentasRes] = await Promise.all([
     supabase
@@ -296,7 +365,7 @@ export default async function EstadoCuentaProductorPage({
     loteIds.length > 0
       ? supabase
         .from("vw_lote_clasificacion_vigente")
-        .select("lote_id,categoria_id,codigo_clasificacion,peso_neto")
+        .select("lote_id,categoria_id,codigo_clasificacion,peso_neto,fecha_clasificacion")
         .in("lote_id", loteIds)
       : Promise.resolve({ data: [] }),
     loteIds.length > 0
@@ -443,6 +512,42 @@ export default async function EstadoCuentaProductorPage({
     productoresValidos.find((row) => row.id === productorSeleccionadoId)?.nombre_completo ??
     `Productor ${productorSeleccionadoId}`;
 
+  const clasificacionesFiltradas = clasificaciones.filter((row) => {
+    const fechaBase = row.fecha_clasificacion || loteMap.get(Number(row.lote_id))?.fecha_ingreso || "";
+    return inDateRange(fechaBase, filtroDesde, filtroHasta);
+  });
+
+  const comprobantesFiltrados = comprobantesInternos.filter((row) =>
+    inDateRange(row.fecha_evento, filtroDesde, filtroHasta)
+  );
+
+  const PAGE_SIZE_CLASIF = 20;
+  const PAGE_SIZE_COMP = 12;
+
+  const totalClasif = clasificacionesFiltradas.length;
+  const totalPagesClasif = Math.max(1, Math.ceil(totalClasif / PAGE_SIZE_CLASIF));
+  const currentPageClasif = parsePageParam(search.page_clasif, totalPagesClasif);
+  const startClasif = (currentPageClasif - 1) * PAGE_SIZE_CLASIF;
+  const rowsClasifPage = clasificacionesFiltradas.slice(startClasif, startClasif + PAGE_SIZE_CLASIF);
+  const fromClasif = totalClasif === 0 ? 0 : startClasif + 1;
+  const toClasif = Math.min(startClasif + PAGE_SIZE_CLASIF, totalClasif);
+  const pagesClasif = buildPageRange(currentPageClasif, totalPagesClasif);
+
+  const totalComp = comprobantesFiltrados.length;
+  const totalPagesComp = Math.max(1, Math.ceil(totalComp / PAGE_SIZE_COMP));
+  const currentPageComp = parsePageParam(search.page_comp, totalPagesComp);
+  const startComp = (currentPageComp - 1) * PAGE_SIZE_COMP;
+  const rowsCompPage = comprobantesFiltrados.slice(startComp, startComp + PAGE_SIZE_COMP);
+  const fromComp = totalComp === 0 ? 0 : startComp + 1;
+  const toComp = Math.min(startComp + PAGE_SIZE_COMP, totalComp);
+  const pagesComp = buildPageRange(currentPageComp, totalPagesComp);
+
+  const clearFiltersHref = buildEstadoCuentaProductorUrl({
+    productor: productorSeleccionadoId,
+    pageClasif: 1,
+    pageComp: 1,
+  });
+
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="estado-cuenta-productor" />
@@ -464,6 +569,41 @@ export default async function EstadoCuentaProductorPage({
             productoresValidos={productoresValidos}
             productorSeleccionadoId={productorSeleccionadoId}
           />
+
+          <section className="rounded-xl bg-white p-4 shadow-sm">
+            <form method="get" className="grid gap-3 md:grid-cols-[auto_auto_auto] md:items-end">
+              <input type="hidden" name="productor" value={String(productorSeleccionadoId)} />
+
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Desde</span>
+                <input
+                  type="date"
+                  name="desde"
+                  defaultValue={filtroDesde}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                />
+              </label>
+
+              <label className="grid gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Hasta</span>
+                <input
+                  type="date"
+                  name="hasta"
+                  defaultValue={filtroHasta}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                />
+              </label>
+
+              <div className="flex gap-2">
+                <button type="submit" className="sx-btn sx-btn-primary">Aplicar rango</button>
+                <Link href={clearFiltersHref} className="sx-btn sx-btn-secondary">Limpiar</Link>
+              </div>
+            </form>
+
+            <p className="mt-2 text-xs text-slate-500">
+              El rango de fechas aplica a Trazabilidad por Categoría y Comprobantes Internos. Los KPIs se muestran en histórico total del productor.
+            </p>
+          </section>
 
           <div className="space-y-4">
             {/* ── KPIs ── */}
@@ -645,44 +785,99 @@ export default async function EstadoCuentaProductorPage({
             <section className="rounded-xl bg-white shadow-sm overflow-hidden">
               <div className="border-b border-slate-100 px-4 py-3">
                 <h2 className="text-sm font-bold text-gray-900">Trazabilidad por Categoría</h2>
-                <p className="text-xs text-slate-400">Clasificación, división y pedidos por lote</p>
+                <p className="text-xs text-slate-400">
+                  Clasificación, división y pedidos por lote · Mostrando {fromClasif}-{toClasif} de {totalClasif}
+                </p>
               </div>
-              {clasificaciones.length === 0 ? (
-                <p className="px-4 py-4 text-sm text-slate-500 text-center">Sin clasificaciones</p>
+              {totalClasif === 0 ? (
+                <p className="px-4 py-4 text-sm text-slate-500 text-center">
+                  {hasDateFilter ? "Sin clasificaciones en el rango seleccionado" : "Sin clasificaciones"}
+                </p>
               ) : (
-                <div className="sx-table-wrap">
-                  <table className="sx-table">
-                    <thead>
-                      <tr className="text-left text-xs">
-                        <th className="p-2">Lote</th>
-                        <th className="p-2">Categoría</th>
-                        <th className="p-2">Cód. clasif.</th>
-                        <th className="p-2">División</th>
-                        <th className="p-2">Pedidos</th>
-                        <th className="p-2 text-right">Kg neto</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {clasificaciones.map((row, idx) => {
-                        const asigRelacionadas = asignaciones.filter(
-                          (item) => Number(item.lote_id) === Number(row.lote_id) && Number(item.categoria_id) === Number(row.categoria_id)
-                        );
-                        const codDiv = [...new Set(asigRelacionadas.map((i) => i.codigo_division).filter(Boolean))].join(", ") || "-";
-                        const pedidosStr = [...new Set(asigRelacionadas.map((i) => pedidoMap.get(Number(i.pedido_id)) ?? String(i.pedido_id)))].join(", ") || "-";
-                        return (
-                          <tr key={idx}>
-                            <td className="p-2 font-semibold text-slate-800">{loteMap.get(Number(row.lote_id))?.numero_lote ?? row.lote_id}</td>
-                            <td className="p-2 text-slate-700">{categoriaMap.get(Number(row.categoria_id)) ?? row.categoria_id}</td>
-                            <td className="p-2 text-slate-400 text-xs">{row.codigo_clasificacion ?? "-"}</td>
-                            <td className="p-2 text-slate-400 text-xs">{codDiv}</td>
-                            <td className="p-2 text-slate-400 text-xs">{pedidosStr}</td>
-                            <td className="p-2 text-right font-semibold text-slate-800">{round2(Number(row.peso_neto ?? 0))} kg</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                <>
+                  <div className="sx-table-wrap">
+                    <table className="sx-table">
+                      <thead>
+                        <tr className="text-left text-xs">
+                          <th className="p-2">Lote</th>
+                          <th className="p-2">Categoría</th>
+                          <th className="p-2">Cód. clasif.</th>
+                          <th className="p-2">División</th>
+                          <th className="p-2">Pedidos</th>
+                          <th className="p-2 text-right">Kg neto</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {rowsClasifPage.map((row, idx) => {
+                          const asigRelacionadas = asignaciones.filter(
+                            (item) => Number(item.lote_id) === Number(row.lote_id) && Number(item.categoria_id) === Number(row.categoria_id)
+                          );
+                          const codDiv = [...new Set(asigRelacionadas.map((i) => i.codigo_division).filter(Boolean))].join(", ") || "-";
+                          const pedidosStr = [...new Set(asigRelacionadas.map((i) => pedidoMap.get(Number(i.pedido_id)) ?? String(i.pedido_id)))].join(", ") || "-";
+                          return (
+                            <tr key={`${row.lote_id}-${row.categoria_id}-${startClasif + idx}`}>
+                              <td className="p-2 font-semibold text-slate-800">{loteMap.get(Number(row.lote_id))?.numero_lote ?? row.lote_id}</td>
+                              <td className="p-2 text-slate-700">{categoriaMap.get(Number(row.categoria_id)) ?? row.categoria_id}</td>
+                              <td className="p-2 text-slate-400 text-xs">{row.codigo_clasificacion ?? "-"}</td>
+                              <td className="p-2 text-slate-400 text-xs">{codDiv}</td>
+                              <td className="p-2 text-slate-400 text-xs">{pedidosStr}</td>
+                              <td className="p-2 text-right font-semibold text-slate-800">{round2(Number(row.peso_neto ?? 0))} kg</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                    <p className="text-xs text-slate-500">Página {currentPageClasif} de {totalPagesClasif}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={buildEstadoCuentaProductorUrl({
+                          productor: productorSeleccionadoId,
+                          desde: filtroDesde,
+                          hasta: filtroHasta,
+                          pageClasif: Math.max(1, currentPageClasif - 1),
+                          pageComp: currentPageComp,
+                        })}
+                        className={`sx-btn sx-btn-secondary ${currentPageClasif <= 1 ? "pointer-events-none opacity-50" : ""}`}
+                        aria-disabled={currentPageClasif <= 1}
+                      >
+                        Anterior
+                      </Link>
+
+                      {pagesClasif.map((pageNumber) => (
+                        <Link
+                          key={`clasif-${pageNumber}`}
+                          href={buildEstadoCuentaProductorUrl({
+                            productor: productorSeleccionadoId,
+                            desde: filtroDesde,
+                            hasta: filtroHasta,
+                            pageClasif: pageNumber,
+                            pageComp: currentPageComp,
+                          })}
+                          className={pageNumber === currentPageClasif ? "sx-btn sx-btn-primary" : "sx-btn sx-btn-secondary"}
+                        >
+                          {pageNumber}
+                        </Link>
+                      ))}
+
+                      <Link
+                        href={buildEstadoCuentaProductorUrl({
+                          productor: productorSeleccionadoId,
+                          desde: filtroDesde,
+                          hasta: filtroHasta,
+                          pageClasif: Math.min(totalPagesClasif, currentPageClasif + 1),
+                          pageComp: currentPageComp,
+                        })}
+                        className={`sx-btn sx-btn-secondary ${currentPageClasif >= totalPagesClasif ? "pointer-events-none opacity-50" : ""}`}
+                        aria-disabled={currentPageClasif >= totalPagesClasif}
+                      >
+                        Siguiente
+                      </Link>
+                    </div>
+                  </div>
+                </>
               )}
             </section>
 
@@ -698,33 +893,91 @@ export default async function EstadoCuentaProductorPage({
                   <span className="text-slate-300 text-xs select-none">▼</span>
                 </summary>
                 <div className="border-t border-slate-100 p-4 space-y-5">
-                  {comprobantesInternos.length > 0 && (
+                  {(comprobantesInternos.length > 0 || hasDateFilter) && (
                     <div>
                       <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">Comprobantes internos</p>
-                      <div className="sx-table-wrap">
-                        <table className="sx-table">
-                          <thead>
-                            <tr className="text-left text-xs">
-                              <th className="p-2">Código</th>
-                              <th className="p-2">Tipo</th>
-                              <th className="p-2">Fecha</th>
-                              <th className="p-2 text-right">Monto</th>
-                              <th className="p-2">Receptor</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {comprobantesInternos.map((row) => (
-                              <tr key={row.id}>
-                                <td className="p-2 font-semibold text-slate-800">{row.codigo_interno}</td>
-                                <td className="p-2 text-slate-500 text-xs">{row.tipo}</td>
-                                <td className="p-2 text-xs text-slate-400">{shortDate(row.fecha_evento)}</td>
-                                <td className="p-2 text-right font-semibold">{currency(Number(row.monto ?? 0))}</td>
-                                <td className="p-2 text-xs text-slate-400">{[row.receptor_nombre, row.receptor_documento].filter(Boolean).join(" | ") || "-"}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      {totalComp === 0 ? (
+                        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                          {hasDateFilter ? "Sin comprobantes en el rango seleccionado" : "Sin comprobantes"}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="mb-2 text-xs text-slate-500">Mostrando {fromComp}-{toComp} de {totalComp}</div>
+                          <div className="sx-table-wrap">
+                            <table className="sx-table">
+                              <thead>
+                                <tr className="text-left text-xs">
+                                  <th className="p-2">Código</th>
+                                  <th className="p-2">Tipo</th>
+                                  <th className="p-2">Fecha</th>
+                                  <th className="p-2 text-right">Monto</th>
+                                  <th className="p-2">Receptor</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {rowsCompPage.map((row) => (
+                                  <tr key={row.id}>
+                                    <td className="p-2 font-semibold text-slate-800">{row.codigo_interno}</td>
+                                    <td className="p-2 text-slate-500 text-xs">{row.tipo}</td>
+                                    <td className="p-2 text-xs text-slate-400">{shortDate(row.fecha_evento)}</td>
+                                    <td className="p-2 text-right font-semibold">{currency(Number(row.monto ?? 0))}</td>
+                                    <td className="p-2 text-xs text-slate-400">{[row.receptor_nombre, row.receptor_documento].filter(Boolean).join(" | ") || "-"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs text-slate-500">Página {currentPageComp} de {totalPagesComp}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Link
+                                href={buildEstadoCuentaProductorUrl({
+                                  productor: productorSeleccionadoId,
+                                  desde: filtroDesde,
+                                  hasta: filtroHasta,
+                                  pageClasif: currentPageClasif,
+                                  pageComp: Math.max(1, currentPageComp - 1),
+                                })}
+                                className={`sx-btn sx-btn-secondary ${currentPageComp <= 1 ? "pointer-events-none opacity-50" : ""}`}
+                                aria-disabled={currentPageComp <= 1}
+                              >
+                                Anterior
+                              </Link>
+
+                              {pagesComp.map((pageNumber) => (
+                                <Link
+                                  key={`comp-${pageNumber}`}
+                                  href={buildEstadoCuentaProductorUrl({
+                                    productor: productorSeleccionadoId,
+                                    desde: filtroDesde,
+                                    hasta: filtroHasta,
+                                    pageClasif: currentPageClasif,
+                                    pageComp: pageNumber,
+                                  })}
+                                  className={pageNumber === currentPageComp ? "sx-btn sx-btn-primary" : "sx-btn sx-btn-secondary"}
+                                >
+                                  {pageNumber}
+                                </Link>
+                              ))}
+
+                              <Link
+                                href={buildEstadoCuentaProductorUrl({
+                                  productor: productorSeleccionadoId,
+                                  desde: filtroDesde,
+                                  hasta: filtroHasta,
+                                  pageClasif: currentPageClasif,
+                                  pageComp: Math.min(totalPagesComp, currentPageComp + 1),
+                                })}
+                                className={`sx-btn sx-btn-secondary ${currentPageComp >= totalPagesComp ? "pointer-events-none opacity-50" : ""}`}
+                                aria-disabled={currentPageComp >= totalPagesComp}
+                              >
+                                Siguiente
+                              </Link>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                   {timelineRows.length > 0 && (

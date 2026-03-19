@@ -8,7 +8,15 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 import { editarClasificacionNetaAction } from "./actions";
 
-type SearchParams = { ok?: string; error?: string; lote?: string; rev?: string };
+type SearchParams = {
+  ok?: string;
+  error?: string;
+  lote?: string;
+  rev?: string;
+  q?: string;
+  estado?: string;
+  page?: string;
+};
 
 type Categoria = { id: number; nombre: string; codigo: string; orden: number };
 
@@ -60,6 +68,37 @@ function round3(value: number) {
   return Math.round(value * 1000) / 1000;
 }
 
+function buildClasificacionNetaUrl(params: {
+  q?: string;
+  estado?: string;
+  page?: number;
+  lote?: number | null;
+  rev?: number;
+}) {
+  const searchParams = new URLSearchParams();
+
+  const q = (params.q ?? "").trim();
+  if (q) searchParams.set("q", q);
+
+  const estado = params.estado ?? "todos";
+  if (estado !== "todos") searchParams.set("estado", estado);
+
+  if ((params.page ?? 1) > 1) {
+    searchParams.set("page", String(params.page));
+  }
+
+  if (params.lote && params.lote > 0) {
+    searchParams.set("lote", String(params.lote));
+  }
+
+  if ((params.rev ?? 0) > 0) {
+    searchParams.set("rev", String(params.rev));
+  }
+
+  const query = searchParams.toString();
+  return query ? `/clasificacion-neta?${query}` : "/clasificacion-neta";
+}
+
 export default async function ClasificacionNetaPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const search = await searchParams;
   const supabase = getSupabaseServerClient();
@@ -94,6 +133,48 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
 
   const productorMap = new Map<number, string>(personas.map((p) => [Number(p.id), p.nombre_completo]));
   const procesoMap = new Map<number, number>(procesos.map((p) => [Number(p.lote_id), Number(p.total_modificaciones ?? 0)]));
+
+  const query = (search.q ?? "").trim();
+  const queryLower = query.toLowerCase();
+  const allowedEstados = new Set(["todos", "sin_clasificar", "clasificado", "asignado"]);
+  const estadoFilter = allowedEstados.has(search.estado ?? "") ? String(search.estado) : "todos";
+
+  const lotesFiltrados = lotes.filter((lote) => {
+    if (estadoFilter !== "todos" && lote.estado !== estadoFilter) {
+      return false;
+    }
+
+    if (!queryLower) {
+      return true;
+    }
+
+    const productor = (productorMap.get(Number(lote.productor_id)) ?? "").toLowerCase();
+    return lote.numero_lote.toLowerCase().includes(queryLower) || productor.includes(queryLower);
+  });
+
+  const pageSize = 12;
+  const totalPages = Math.max(1, Math.ceil(lotesFiltrados.length / pageSize));
+  const pageFromQuery = Number.parseInt(search.page ?? "1", 10);
+  const currentPage = Number.isFinite(pageFromQuery)
+    ? Math.min(Math.max(pageFromQuery, 1), totalPages)
+    : 1;
+  const pageStart = (currentPage - 1) * pageSize;
+  const lotesPage = lotesFiltrados.slice(pageStart, pageStart + pageSize);
+  const fromItem = lotesFiltrados.length === 0 ? 0 : pageStart + 1;
+  const toItem = Math.min(pageStart + pageSize, lotesFiltrados.length);
+
+  const paginationRangeStart = Math.max(1, currentPage - 2);
+  const paginationRangeEnd = Math.min(totalPages, paginationRangeStart + 4);
+  const paginationRange = Array.from(
+    { length: paginationRangeEnd - paginationRangeStart + 1 },
+    (_, index) => paginationRangeStart + index,
+  );
+
+  const listBaseUrl = buildClasificacionNetaUrl({
+    q: query,
+    estado: estadoFilter,
+    page: currentPage,
+  });
 
   const selectedLoteId = Number(search.lote ?? "0") || null;
   const selectedLote = selectedLoteId ? lotes.find((l) => Number(l.id) === selectedLoteId) ?? null : null;
@@ -191,58 +272,132 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
           {search.error ? <p className="mb-6 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-800 shadow-sm">✕ {search.error}</p> : null}
 
           <section className="rounded-xl bg-white p-5 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900">Lotes disponibles</h2>
-            {lotes.length === 0 ? (
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Lotes disponibles</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Mostrando {fromItem}-{toItem} de {lotesFiltrados.length} lote(s)
+                </p>
+              </div>
+
+              <form method="get" className="grid w-full gap-2 md:max-w-2xl md:grid-cols-[1fr_180px_auto_auto]">
+                <input
+                  type="text"
+                  name="q"
+                  defaultValue={query}
+                  placeholder="Buscar por lote o productor"
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                />
+                <select
+                  name="estado"
+                  defaultValue={estadoFilter}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                >
+                  <option value="todos">Todos los estados</option>
+                  <option value="sin_clasificar">Sin clasificar</option>
+                  <option value="clasificado">Clasificado</option>
+                  <option value="asignado">Asignado</option>
+                </select>
+                <button type="submit" className="sx-btn sx-btn-primary">
+                  Filtrar
+                </button>
+                <Link href="/clasificacion-neta" className="sx-btn sx-btn-secondary">
+                  Limpiar
+                </Link>
+              </form>
+            </div>
+
+            {lotesFiltrados.length === 0 ? (
               <p className="text-sm text-slate-500">No hay lotes en estados clasificables.</p>
             ) : (
-              <div className="sx-table-wrap">
-                <table className="sx-table">
-                  <thead>
-                    <tr className="border-b text-left">
-                      <th className="p-2">Lote</th>
-                      <th className="p-2">Productor</th>
-                      <th className="p-2">Ingreso</th>
-                      <th className="p-2">Neto vigente</th>
-                      <th className="p-2">Modificaciones</th>
-                      <th className="p-2">Estado</th>
-                      <th className="p-2">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lotes.map((lote) => {
-                      const rowsLote = vigentes.filter((row) => Number(row.lote_id) === Number(lote.id));
-                      const netoActual = rowsLote.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0);
-                      const isSelected = Number(selectedLote?.id) === Number(lote.id);
+              <>
+                <div className="sx-table-wrap">
+                  <table className="sx-table">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="p-2">Lote</th>
+                        <th className="p-2">Productor</th>
+                        <th className="p-2">Ingreso</th>
+                        <th className="p-2">Neto vigente</th>
+                        <th className="p-2">Modificaciones</th>
+                        <th className="p-2">Estado</th>
+                        <th className="p-2">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lotesPage.map((lote) => {
+                        const rowsLote = vigentes.filter((row) => Number(row.lote_id) === Number(lote.id));
+                        const netoActual = rowsLote.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0);
+                        const isSelected = Number(selectedLote?.id) === Number(lote.id);
 
-                      return (
-                        <tr key={lote.id} className={`border-b align-top ${isSelected ? "bg-blue-50/50" : "hover:bg-gray-50 transition"}`}>
-                          <td className="p-2">{lote.numero_lote}</td>
-                          <td className="p-2">{productorMap.get(Number(lote.productor_id)) ?? "N/D"}</td>
-                          <td className="p-2">{Number(lote.peso_bruto_ingreso ?? 0).toFixed(2)} kg</td>
-                          <td className="p-2">{netoActual.toFixed(2)} kg</td>
-                          <td className="p-2">{procesoMap.get(Number(lote.id)) ?? 0}</td>
-                          <td className="p-2">{lote.estado}</td>
-                          <td className="p-2">
-                            <Link
-                              href={`/clasificacion-neta?lote=${lote.id}`}
-                              className="inline-flex rounded-lg border border-blue-200 px-2 py-1 font-medium text-blue-700 hover:bg-blue-50"
-                            >
-                              {isSelected ? "Editando" : "Modificar clasificación"}
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        return (
+                          <tr key={lote.id} className={`border-b align-top ${isSelected ? "bg-blue-50/50" : "hover:bg-gray-50 transition"}`}>
+                            <td className="p-2">{lote.numero_lote}</td>
+                            <td className="p-2">{productorMap.get(Number(lote.productor_id)) ?? "N/D"}</td>
+                            <td className="p-2">{Number(lote.peso_bruto_ingreso ?? 0).toFixed(2)} kg</td>
+                            <td className="p-2">{netoActual.toFixed(2)} kg</td>
+                            <td className="p-2">{procesoMap.get(Number(lote.id)) ?? 0}</td>
+                            <td className="p-2">{lote.estado}</td>
+                            <td className="p-2">
+                              <Link
+                                href={buildClasificacionNetaUrl({
+                                  q: query,
+                                  estado: estadoFilter,
+                                  page: currentPage,
+                                  lote: Number(lote.id),
+                                })}
+                                className="inline-flex rounded-lg border border-blue-200 px-2 py-1 font-medium text-blue-700 hover:bg-blue-50"
+                              >
+                                {isSelected ? "Editando" : "Modificar clasificación"}
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-slate-500">
+                    Página {currentPage} de {totalPages}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={buildClasificacionNetaUrl({ q: query, estado: estadoFilter, page: Math.max(1, currentPage - 1) })}
+                      className={`sx-btn sx-btn-secondary ${currentPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
+                      aria-disabled={currentPage <= 1}
+                    >
+                      Anterior
+                    </Link>
+
+                    {paginationRange.map((pageNumber) => (
+                      <Link
+                        key={pageNumber}
+                        href={buildClasificacionNetaUrl({ q: query, estado: estadoFilter, page: pageNumber })}
+                        className={pageNumber === currentPage ? "sx-btn sx-btn-primary" : "sx-btn sx-btn-secondary"}
+                      >
+                        {pageNumber}
+                      </Link>
+                    ))}
+
+                    <Link
+                      href={buildClasificacionNetaUrl({ q: query, estado: estadoFilter, page: Math.min(totalPages, currentPage + 1) })}
+                      className={`sx-btn sx-btn-secondary ${currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}`}
+                      aria-disabled={currentPage >= totalPages}
+                    >
+                      Siguiente
+                    </Link>
+                  </div>
+                </div>
+              </>
             )}
           </section>
 
           {selectedLote ? (
             <ModuleFormModal
               isOpen={true}
-              closeHref="/clasificacion-neta"
+              closeHref={listBaseUrl}
               title={`Reclasificación: Lote ${selectedLote.numero_lote}`}
               description={`Ingreso: ${Number(selectedLote.peso_bruto_ingreso ?? 0).toFixed(2)} kg | Versión actual: v${versionActual}`}
               maxWidth="5xl"
@@ -295,7 +450,13 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                                 <td className="p-2">{actor}</td>
                                 <td className="p-2">
                                   <Link
-                                    href={`/clasificacion-neta?lote=${selectedLote.id}&rev=${version}`}
+                                    href={buildClasificacionNetaUrl({
+                                      q: query,
+                                      estado: estadoFilter,
+                                      page: currentPage,
+                                      lote: Number(selectedLote.id),
+                                      rev: version,
+                                    })}
                                     className="inline-flex rounded border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50"
                                   >
                                     {version === selectedVersion ? "Viendo" : "Ver"}
@@ -346,7 +507,13 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                           </table>
                         </div>
                         <Link
-                          href={`/clasificacion-neta?lote=${selectedLote.id}&rev=${versionActual}`}
+                          href={buildClasificacionNetaUrl({
+                            q: query,
+                            estado: estadoFilter,
+                            page: currentPage,
+                            lote: Number(selectedLote.id),
+                            rev: versionActual,
+                          })}
                           className="inline-flex rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
                         >
                           Volver a versión actual para editar
@@ -439,7 +606,7 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                             Guardar reclasificación (todas las categorías)
                           </button>
                           <Link
-                            href="/clasificacion-neta"
+                            href={listBaseUrl}
                             className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400"
                           >
                             Cancelar

@@ -17,6 +17,7 @@ type SearchParams = {
   q?: string;
   estado?: "todos" | "pendiente" | "en_proceso" | "completado" | "cancelado";
   cliente?: string;
+  page?: string;
   asignar?: string;
   editar?: string;
   ok?: string;
@@ -358,6 +359,41 @@ async function getAvailableLotesForPedido(
   return resultado.sort((a, b) => b.kg_disponibles - a.kg_disponibles);
 }
 
+function buildPedidosUrl(params: {
+  q?: string;
+  estado?: string;
+  cliente?: string;
+  page?: number;
+  asignar?: number | null;
+  editar?: number | null;
+}) {
+  const searchParams = new URLSearchParams();
+
+  const q = (params.q ?? "").trim();
+  if (q) searchParams.set("q", q);
+
+  const estado = (params.estado ?? "todos").trim();
+  if (estado && estado !== "todos") searchParams.set("estado", estado);
+
+  const cliente = (params.cliente ?? "").trim();
+  if (cliente && cliente !== "0") searchParams.set("cliente", cliente);
+
+  if ((params.page ?? 1) > 1) {
+    searchParams.set("page", String(params.page));
+  }
+
+  if ((params.asignar ?? 0) > 0) {
+    searchParams.set("asignar", String(params.asignar));
+  }
+
+  if ((params.editar ?? 0) > 0) {
+    searchParams.set("editar", String(params.editar));
+  }
+
+  const query = searchParams.toString();
+  return query ? `/pedidos?${query}` : "/pedidos";
+}
+
 export default async function PedidosPage({
   searchParams,
 }: {
@@ -390,6 +426,33 @@ export default async function PedidosPage({
 
   const asignarId = Number(search.asignar ?? "0");
   const editarId = Number(search.editar ?? "0");
+
+  const pageSize = 12;
+  const totalRows = pedidosData.pedidos.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const parsedPage = Number.parseInt(search.page ?? "1", 10);
+  const currentPage = Number.isFinite(parsedPage)
+    ? Math.min(Math.max(parsedPage, 1), totalPages)
+    : 1;
+  const pageStart = (currentPage - 1) * pageSize;
+  const pedidosPage = pedidosData.pedidos.slice(pageStart, pageStart + pageSize);
+  const fromItem = totalRows === 0 ? 0 : pageStart + 1;
+  const toItem = Math.min(pageStart + pageSize, totalRows);
+
+  const paginationRangeStart = Math.max(1, currentPage - 2);
+  const paginationRangeEnd = Math.min(totalPages, paginationRangeStart + 4);
+  const paginationRange = Array.from(
+    { length: paginationRangeEnd - paginationRangeStart + 1 },
+    (_, index) => paginationRangeStart + index,
+  );
+
+  const listBaseUrl = buildPedidosUrl({
+    q: search.q,
+    estado: search.estado,
+    cliente: search.cliente,
+    page: currentPage,
+  });
+
   const pedidoSeleccionado =
     asignarId > 0 ? await getPedidoById(asignarId) : null;
   const pedidoEditar = editarId > 0 ? await getPedidoById(editarId) : null;
@@ -736,7 +799,7 @@ export default async function PedidosPage({
           {pedidoEditar ? (
             <ModuleFormModal
               isOpen={true}
-              closeHref="/pedidos"
+              closeHref={listBaseUrl}
               title={`Editar Pedido ${pedidoEditar.numero_pedido}`}
               description="Modifica los datos del pedido y guarda los cambios."
               maxWidth="4xl"
@@ -815,7 +878,7 @@ export default async function PedidosPage({
                       <button type="submit" className="flex-1 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md">
                         Guardar cambios pedido
                       </button>
-                      <Link href="/pedidos" className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400">
+                      <Link href={listBaseUrl} className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400">
                         Cancelar
                       </Link>
                     </div>
@@ -828,7 +891,7 @@ export default async function PedidosPage({
           {pedidoSeleccionado ? (
             <ModuleFormModal
               isOpen={true}
-              closeHref="/pedidos"
+              closeHref={listBaseUrl}
               title={`Asignar lotes al pedido ${pedidoSeleccionado.numero_pedido}`}
               description={`Cliente: ${pedidosData.clienteMap.get(pedidoSeleccionado.cliente_id) ?? pedidoSeleccionado.cliente_id} | Producto: ${pedidoSeleccionado.producto} | Categoría: ${pedidoSeleccionado.categoria_id ? categoriaMap.get(pedidoSeleccionado.categoria_id) : "Varias"}`}
               maxWidth="5xl"
@@ -1116,6 +1179,9 @@ export default async function PedidosPage({
                 Vista general de pedidos con estado de cumplimiento y acciones
                 operativas:
               </p>
+              <p className="mt-2 text-xs text-slate-500">
+                Mostrando {fromItem}-{toItem} de {totalRows} pedido(s)
+              </p>
             </div>
             <div className="overflow-x-auto">
               <table className="sx-table">
@@ -1160,7 +1226,7 @@ export default async function PedidosPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {pedidosData.pedidos.length === 0 ? (
+                  {totalRows === 0 ? (
                     <tr>
                       <td
                         colSpan={12}
@@ -1171,7 +1237,7 @@ export default async function PedidosPage({
                     </tr>
                   ) : null}
 
-                  {pedidosData.pedidos.map((pedido) => {
+                  {pedidosPage.map((pedido) => {
                     const asignados = round2(
                       kgAsignadosMap.get(Number(pedido.id)) ?? 0,
                     );
@@ -1253,7 +1319,13 @@ export default async function PedidosPage({
                           <div className="flex flex-wrap items-start justify-center gap-2">
                             {pedido.estado !== "cancelado" ? (
                               <Link
-                                href={`/pedidos?asignar=${pedido.id}`}
+                                href={buildPedidosUrl({
+                                  q: search.q,
+                                  estado: search.estado,
+                                  cliente: search.cliente,
+                                  page: currentPage,
+                                  asignar: Number(pedido.id),
+                                })}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
                               >
                                 <Eye size={14} />
@@ -1261,7 +1333,13 @@ export default async function PedidosPage({
                               </Link>
                             ) : null}
                             <Link
-                              href={`/pedidos?editar=${pedido.id}`}
+                              href={buildPedidosUrl({
+                                q: search.q,
+                                estado: search.estado,
+                                cliente: search.cliente,
+                                page: currentPage,
+                                editar: Number(pedido.id),
+                              })}
                               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
                             >
                               Editar
@@ -1273,6 +1351,56 @@ export default async function PedidosPage({
                   })}
                 </tbody>
               </table>
+            </div>
+
+            <div className="border-t border-gray-200 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-slate-500">
+                  Página {currentPage} de {totalPages}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={buildPedidosUrl({
+                      q: search.q,
+                      estado: search.estado,
+                      cliente: search.cliente,
+                      page: Math.max(1, currentPage - 1),
+                    })}
+                    className={`sx-btn sx-btn-secondary ${currentPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
+                    aria-disabled={currentPage <= 1}
+                  >
+                    Anterior
+                  </Link>
+
+                  {paginationRange.map((pageNumber) => (
+                    <Link
+                      key={pageNumber}
+                      href={buildPedidosUrl({
+                        q: search.q,
+                        estado: search.estado,
+                        cliente: search.cliente,
+                        page: pageNumber,
+                      })}
+                      className={pageNumber === currentPage ? "sx-btn sx-btn-primary" : "sx-btn sx-btn-secondary"}
+                    >
+                      {pageNumber}
+                    </Link>
+                  ))}
+
+                  <Link
+                    href={buildPedidosUrl({
+                      q: search.q,
+                      estado: search.estado,
+                      cliente: search.cliente,
+                      page: Math.min(totalPages, currentPage + 1),
+                    })}
+                    className={`sx-btn sx-btn-secondary ${currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}`}
+                    aria-disabled={currentPage >= totalPages}
+                  >
+                    Siguiente
+                  </Link>
+                </div>
+              </div>
             </div>
           </section>
         </div>
