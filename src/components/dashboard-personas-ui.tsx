@@ -41,70 +41,70 @@ const moduleCards: Array<{
   {
     title: "Módulo 1 · Personas",
     href: "/personas",
-    image: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=1400&q=80",
+    image: "/uploads/evidencias/persona_perfil/1771047186310-6c91e73e-4e07-406d-941a-08608a7cd67d.jpg",
     description: "Gestión maestra de productores, clientes y equipo operativo con trazabilidad documental.",
     icon: Users,
   },
   {
     title: "Módulo 2 · Almacén",
     href: "/almacen",
-    image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1400&q=80",
+    image: "/uploads/evidencias/lote_ingreso/1771215978894-0334bd09-7814-48c1-960a-2a463c01989d.jpg",
     description: "Control de lotes y clasificación para mantener continuidad y calidad en la región.",
     icon: Boxes,
   },
   {
     title: "Módulo 3 · Pedidos",
     href: "/pedidos",
-    image: "https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=1400&q=80",
+    image: "/uploads/evidencias/lote_ingreso/1771215978894-0334bd09-7814-48c1-960a-2a463c01989d.jpg",
     description: "Pipeline comercial de pedidos y asignaciones para responder a la demanda del mercado local.",
     icon: ClipboardList,
   },
   {
     title: "Módulo 4 · Kardex",
     href: "/kardex",
-    image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1400&q=80",
+    image: "/uploads/evidencias/lote_ingreso/1771215978894-0334bd09-7814-48c1-960a-2a463c01989d.jpg",
     description: "Auditoría integral de movimientos físicos y financieros para decisiones con evidencia.",
     icon: ReceiptText,
   },
   {
     title: "Módulo 5 · Liquidaciones",
     href: "/liquidaciones",
-    image: "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1400&q=80",
+    image: "/uploads/evidencias/liquidacion/1771251602137-19608288-8652-416c-8384-88942d9cd341.jpg",
     description: "Liquidación de operaciones y adelantos con precisión para escenarios de alta rotación.",
     icon: Banknote,
   },
   {
     title: "Módulo 6 · Cobranzas",
     href: "/cobranzas",
-    image: "https://images.unsplash.com/photo-1601597111158-2fceff292cdc?auto=format&fit=crop&w=1400&q=80",
+    image: "/uploads/evidencias/adelanto/1771305312216-e09ed020-eda3-499b-8583-917e7ea12618.jpg",
     description: "Cobranza estructurada para sostener caja y competitividad frente a otros actores del rubro.",
     icon: CreditCard,
   },
   {
     title: "Módulo 7 · Analítica",
     href: "/analitica",
-    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1400&q=80",
+    image: "/uploads/evidencias/lote_ingreso/1771215978894-0334bd09-7814-48c1-960a-2a463c01989d.jpg",
     description: "KPIs de mercado, operación y finanzas para competir mejor en la misma plaza.",
     icon: ChartColumnBig,
   },
   {
     title: "Módulo 8 · Estado Productor",
     href: "/estado-cuenta-productor",
-    image: "https://images.unsplash.com/photo-1605000797499-95a51c5269ae?auto=format&fit=crop&w=1400&q=80",
+    image: "/uploads/evidencias/persona_perfil/1771047186310-6c91e73e-4e07-406d-941a-08608a7cd67d.jpg",
     description: "Visibilidad de cuenta por productor para relaciones de largo plazo y transparencia.",
     icon: Sprout,
   },
   {
     title: "Módulo 9 · Rentabilidad",
     href: "/rentabilidad-lotes",
-    image: "https://images.unsplash.com/photo-1554224154-22dec7ec8818?auto=format&fit=crop&w=1400&q=80",
+    image: "/uploads/evidencias/lote_ingreso/1771215978894-0334bd09-7814-48c1-960a-2a463c01989d.jpg",
     description: "Rentabilidad por lote para priorizar inversiones y proteger márgenes en contexto competitivo.",
     icon: TrendingUp,
   },
   {
     title: "Módulo 10 · Clasificación Neta",
     href: "/clasificacion-neta",
-    image: "https://images.unsplash.com/photo-1581093588401-22f66f6e0f55?auto=format&fit=crop&w=1400&q=80",
+    image: "/uploads/evidencias/lote_clasificacion/1771277847394-75eeb12f-db93-449c-8a9b-327909cabe99.jpg",
     description: "Control de variaciones de peso y auditoría de reclasificación con impacto directo en kardex.",
     icon: ClipboardList,
   },
@@ -121,17 +121,16 @@ export default function DashboardPersonasUi({ people }: Props) {
           <div className="relative z-10 grid gap-6 lg:grid-cols-[1.25fr_0.75fr] lg:items-end">
             <div>
               <p className="mb-3 inline-flex items-center rounded-full border border-[#CDBDFF] bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#5A3EC8]">
-                Dashboard estratégico
+                Control integral
               </p>
               <h1 className="text-3xl font-bold leading-tight text-[#1F2030] md:text-5xl">
-                Centro de módulos
+                De productores a clientes
                 <span className="block bg-gradient-to-r from-[#7A47E8] via-[#6A72F5] to-[#4B8BFF] bg-clip-text text-transparent">
-                  Operación regional competitiva
+                  Cadena de suministro unificada
                 </span>
               </h1>
               <p className="mt-4 max-w-3xl text-sm text-[#4C5477] md:text-base">
-                Plataforma orientada al mismo mercado y la misma región, con foco en ejecución comercial, trazabilidad y
-                velocidad operativa para competir frente a otras empresas del sector.
+                Gestiona toda tu operación agrícola en un mismo lugar: desde la recepción de cosechas hasta la liquidación final. Trazabilidad completa, decisiones más rápidas, márgenes protegidos.
               </p>
             </div>
 
