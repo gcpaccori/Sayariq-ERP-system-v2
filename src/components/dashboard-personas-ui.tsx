@@ -41,7 +41,7 @@ const moduleCards: Array<{
   {
     title: "Módulo 1 · Personas",
     href: "/personas",
-    image: "/company-images/persnal.jpg",
+    image: "https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&w=1400&q=80",
     description: "Gestión maestra de productores, clientes y equipo operativo con trazabilidad documental.",
     icon: Users,
   },
