@@ -5,7 +5,7 @@ import Image from "next/image";
 
 export default function LandingHero() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-[#f9faf9] to-white px-4 pb-12 pt-16 sm:px-6 sm:pb-20 sm:pt-24 lg:px-8 lg:pt-32 min-h-[100svh] lg:min-h-screen flex items-start lg:items-center">
+    <section className="relative overflow-hidden bg-gradient-to-br from-[#f9faf9] to-white px-4 pb-12 pt-16 sm:px-6 sm:pb-20 sm:pt-24 lg:px-8 lg:pt-32 min-h-[100svh] lg:min-h-screen flex items-center">
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 items-center gap-6 sm:gap-10 lg:grid-cols-2 lg:gap-12">
         {/* Texto */}
         <div className="order-2 lg:order-1">
