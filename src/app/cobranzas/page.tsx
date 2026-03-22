@@ -6,6 +6,7 @@ import {
   registrarCobroClienteAction,
 } from "./actions";
 import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
+import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
@@ -484,7 +485,7 @@ export default async function CobranzasPage({
                   </div>
                 </form>
               </ModuleFormModal>
-              <Link href="/" className="sx-btn sx-btn-secondary">← Inicio</Link>
+              <BackToDashboardButton className="sx-btn sx-btn-secondary" />
             </div>
           </div>
 

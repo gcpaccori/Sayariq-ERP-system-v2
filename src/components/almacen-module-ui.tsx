@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Search, Plus, Eye, X, AlertCircle, Package, Gauge } from "lucide-react";
 import { createLoteAction, clasificarLoteAction } from "@/app/almacen/actions";
+import BackToDashboardButton from "@/components/back-to-dashboard-button";
 
 type Lote = {
   id: number;
@@ -128,12 +129,7 @@ export default function AlmacenModuleUI({
                 <Plus size={18} className="flex-shrink-0" />
                 <span>Registrar Lote</span>
               </button>
-              <Link
-                href="/"
-                className="sx-btn sx-btn-secondary"
-              >
-                ← Inicio
-              </Link>
+              <BackToDashboardButton className="sx-btn sx-btn-secondary" />
             </div>
           </div>
 

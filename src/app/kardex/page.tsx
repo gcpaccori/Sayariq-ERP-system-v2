@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
 import PersonSearchField from "@/components/person-search-field";
@@ -512,12 +513,7 @@ export default async function KardexPage({
         <div className="mx-auto w-full max-w-7xl">
           <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">Módulo 4: Kardex General</h1>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
-            >
-              ← Inicio
-            </Link>
+            <BackToDashboardButton className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50" />
           </div>
 
           <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">

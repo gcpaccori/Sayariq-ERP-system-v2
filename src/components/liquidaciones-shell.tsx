@@ -1,7 +1,7 @@
 "use client";
 // M5-PR-SYNC: cambio de traza para consolidar PR del módulo 5
 
-import Link from "next/link";
+import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import { useEffect, useState } from "react";
 
 export default function LiquidacionesShell({
@@ -35,12 +35,9 @@ export default function LiquidacionesShell({
                 Control central de liquidaciones, adelantos y pagos relacionados.
               </p>
             </div>
-            <Link
-              href="/"
+            <BackToDashboardButton
               className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50 sm:w-auto"
-            >
-              ← Inicio
-            </Link>
+            />
           </div>
           <nav className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-2 sm:flex sm:flex-wrap">
             {[

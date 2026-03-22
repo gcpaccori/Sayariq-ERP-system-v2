@@ -2,6 +2,7 @@ import Link from "next/link";
 import { LoteProfitabilityCard } from "@/components/lote-profitability-card";
 import { RentabilidadFilters } from "@/components/rentabilidad-filters";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ModuleNavigation from "@/components/module-navigation";
 
 type SearchParams = {
@@ -333,7 +334,7 @@ export default async function RentabilidadLotesPage({
             </div>
             <nav className="flex items-center gap-2 flex-wrap">
               <Link href="/analitica" className="sx-btn sx-btn-secondary text-sm">Ir a Analítica</Link>
-              <Link href="/" className="sx-btn sx-btn-secondary text-sm">← Inicio</Link>
+              <BackToDashboardButton className="sx-btn sx-btn-secondary text-sm" />
             </nav>
           </div>
 

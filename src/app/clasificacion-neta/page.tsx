@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import AutoActorFields from "@/components/auto-actor-fields";
+import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ClasificacionNetaEditor from "@/components/clasificacion-neta-editor";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
@@ -259,12 +260,7 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50"
-              >
-                ← Inicio
-              </Link>
+              <BackToDashboardButton className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition duration-200 hover:bg-gray-50" />
             </div>
           </div>
 

@@ -17,6 +17,7 @@ import {
   togglePersonaEstadoAction,
   updatePersonaAction,
 } from "@/app/personas/actions";
+import BackToDashboardButton from "@/components/back-to-dashboard-button";
 
 type Rol =
   | "productor"
@@ -235,12 +236,7 @@ export default function PersonasModuleUI({
                 <Plus size={18} className="flex-shrink-0" />
                 <span className="text-inherit">Registrar Persona</span>
               </button>
-              <Link
-                href="/"
-                className="sx-btn sx-btn-secondary"
-              >
-                ← Inicio
-              </Link>
+              <BackToDashboardButton className="sx-btn sx-btn-secondary" />
             </div>
           </div>
 
