@@ -62,7 +62,7 @@ const moduleCards: Array<{
   {
     title: "Módulo 4 · Kardex",
     href: "/kardex",
-    image: "/company-images/pesando%20el%20producto.jpeg",
+    image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1400&q=80",
     description: "Auditoría integral de movimientos físicos y financieros para decisiones con evidencia.",
     icon: ReceiptText,
   },
@@ -83,7 +83,7 @@ const moduleCards: Array<{
   {
     title: "Módulo 7 · Analítica",
     href: "/analitica",
-    image: "/company-images/empresa%20trabajdoras%20escogiendo.jpeg",
+    image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1400&q=80",
     description: "KPIs de mercado, operación y finanzas para competir mejor en la misma plaza.",
     icon: ChartColumnBig,
   },
@@ -104,7 +104,7 @@ const moduleCards: Array<{
   {
     title: "Módulo 10 · Clasificación Neta",
     href: "/clasificacion-neta",
-    image: "/company-images/pesando%20el%20producto.jpeg",
+    image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1400&q=80",
     description: "Control de variaciones de peso y auditoría de reclasificación con impacto directo en kardex.",
     icon: ClipboardList,
   },
@@ -179,13 +179,13 @@ export default function DashboardPersonasUi({ people }: Props) {
                   loading="lazy"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0D1230]/85 via-[#3A2E70]/40 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#070B1E]/92 via-[#1B2450]/64 to-[#111931]/20" />
                 <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                  <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#E7DDFF]">
+                  <p className="inline-flex items-center gap-1.5 rounded-full bg-black/25 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-[#F3EEFF] shadow-sm backdrop-blur-[1px]">
                     <Icon size={14} /> {module.title}
                   </p>
-                  <p className="mt-2 text-sm text-[#EEF0FF]">{module.description}</p>
-                  <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#C2C8FF]">
+                  <p className="mt-2 text-sm leading-5 text-[#F8FAFF] [text-shadow:0_1px_3px_rgba(0,0,0,0.45)]">{module.description}</p>
+                  <p className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#DBE3FF] [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">
                     Abrir módulo <ArrowRight size={12} />
                   </p>
                 </div>
