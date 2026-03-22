@@ -50,9 +50,12 @@ export const metadata: Metadata = {
     images: ["/og-sayariq.jpg"],
   },
   icons: {
-    icon: [{ url: "/company-images/logo1-Photoroom.png" }],
-    shortcut: ["/company-images/logo1-Photoroom.png"],
-    apple: [{ url: "/company-images/logo1-Photoroom.png" }],
+    icon: [
+      { url: "/favicon.ico?v=4" },
+      { url: "/icon.png?v=4", type: "image/png", sizes: "256x256" },
+    ],
+    shortcut: ["/favicon.ico?v=4"],
+    apple: [{ url: "/icon.png?v=4", sizes: "180x180", type: "image/png" }],
   },
 };
 
