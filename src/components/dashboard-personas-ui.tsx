@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Highcharts from "highcharts";
+import HighchartsReact from "highcharts-react-official";
+import { useMemo } from "react";
 import {
   ArrowRight,
   Banknote,
@@ -9,7 +12,6 @@ import {
   ClipboardList,
   CreditCard,
   LayoutDashboard,
-  MapPin,
   ReceiptText,
   Sprout,
   TrendingUp,
@@ -29,6 +31,20 @@ type DashboardPerson = {
 
 type Props = {
   people: DashboardPerson[];
+  executiveChart: {
+    categories: string[];
+    ventas: number[];
+    cobros: number[];
+    pagosProductor: number[];
+    balance: number[];
+    pendienteCobro: number;
+    pendientePago: number;
+    agingLabels: string[];
+    agingCobrar: number[];
+    agingPagar: number[];
+    conversionLabels: string[];
+    conversionValues: number[];
+  };
 };
 
 const moduleCards: Array<{
@@ -110,7 +126,221 @@ const moduleCards: Array<{
   },
 ];
 
-export default function DashboardPersonasUi({ people }: Props) {
+function formatCurrency(value: number) {
+  return `S/ ${new Intl.NumberFormat("es-PE", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)}`;
+}
+
+export default function DashboardPersonasUi({ people, executiveChart }: Props) {
+  const chartOptions = useMemo<Highcharts.Options>(() => {
+    return {
+      chart: {
+        type: "column",
+        backgroundColor: "transparent",
+        height: 300,
+        spacingLeft: 0,
+        spacingRight: 0,
+      },
+      title: { text: undefined },
+      credits: { enabled: false },
+      legend: {
+        itemStyle: {
+          color: "#334155",
+          fontSize: "11px",
+          fontWeight: "600",
+        },
+      },
+      xAxis: {
+        categories: executiveChart.categories,
+        lineColor: "#DDE3F4",
+        tickColor: "#DDE3F4",
+        labels: { style: { color: "#475569", fontSize: "11px" } },
+      },
+      yAxis: {
+        title: { text: undefined },
+        gridLineColor: "#E7ECF9",
+        labels: {
+          style: { color: "#64748B", fontSize: "11px" },
+          formatter: function () {
+            const value = typeof this.value === "number" ? this.value : Number(this.value ?? 0);
+            return `S/ ${Math.round(value).toLocaleString("es-PE")}`;
+          },
+        },
+      },
+      tooltip: {
+        shared: true,
+        useHTML: true,
+        backgroundColor: "#0F172A",
+        borderColor: "#1E293B",
+        style: { color: "#E2E8F0" },
+        formatter: function () {
+          const rows = (this.points ?? [])
+            .map((point) => {
+              const value = point.y ?? 0;
+              return `<div style=\"display:flex;justify-content:space-between;gap:12px;\"><span style=\"color:${point.color};font-weight:600;\">${point.series.name}</span><span>S/ ${Number(value).toLocaleString("es-PE")}</span></div>`;
+            })
+            .join("");
+
+          return `<div style=\"min-width:210px\"><div style=\"margin-bottom:6px;font-size:12px;color:#CBD5E1\">${this.x ?? ""}</div>${rows}</div>`;
+        },
+      },
+      plotOptions: {
+        column: {
+          borderRadius: 6,
+          pointPadding: 0.1,
+          groupPadding: 0.12,
+        },
+        series: {
+          animation: false,
+          marker: { enabled: false },
+        },
+      },
+      series: [
+        {
+          type: "column",
+          name: "Ventas",
+          data: executiveChart.ventas,
+          color: "#6366F1",
+        },
+        {
+          type: "column",
+          name: "Cobros",
+          data: executiveChart.cobros,
+          color: "#0EA5E9",
+        },
+        {
+          type: "column",
+          name: "Pagos productor",
+          data: executiveChart.pagosProductor,
+          color: "#F97316",
+        },
+        {
+          type: "spline",
+          name: "Balance neto",
+          data: executiveChart.balance,
+          color: "#059669",
+          lineWidth: 2,
+          zIndex: 4,
+        },
+      ],
+    };
+  }, [executiveChart]);
+
+  const agingChartOptions = useMemo<Highcharts.Options>(() => {
+    return {
+      chart: {
+        type: "column",
+        backgroundColor: "transparent",
+        height: 260,
+      },
+      title: { text: undefined },
+      credits: { enabled: false },
+      xAxis: {
+        categories: executiveChart.agingLabels,
+        labels: { style: { color: "#475569", fontSize: "11px" } },
+      },
+      yAxis: {
+        title: { text: undefined },
+        gridLineColor: "#E7ECF9",
+        labels: {
+          style: { color: "#64748B", fontSize: "11px" },
+          formatter: function () {
+            const value = typeof this.value === "number" ? this.value : Number(this.value ?? 0);
+            return `S/ ${Math.round(value).toLocaleString("es-PE")}`;
+          },
+        },
+      },
+      legend: {
+        itemStyle: {
+          color: "#334155",
+          fontSize: "11px",
+          fontWeight: "600",
+        },
+      },
+      tooltip: {
+        shared: true,
+        valuePrefix: "S/ ",
+        valueDecimals: 0,
+      },
+      plotOptions: {
+        column: {
+          borderRadius: 6,
+        },
+        series: {
+          animation: false,
+        },
+      },
+      series: [
+        {
+          type: "column",
+          name: "Por cobrar",
+          data: executiveChart.agingCobrar,
+          color: "#2563EB",
+        },
+        {
+          type: "column",
+          name: "Por pagar",
+          data: executiveChart.agingPagar,
+          color: "#DC2626",
+        },
+      ],
+    };
+  }, [executiveChart]);
+
+  const conversionChartOptions = useMemo<Highcharts.Options>(() => {
+    return {
+      chart: {
+        type: "bar",
+        backgroundColor: "transparent",
+        height: 260,
+      },
+      title: { text: undefined },
+      credits: { enabled: false },
+      xAxis: {
+        categories: executiveChart.conversionLabels,
+        labels: { style: { color: "#475569", fontSize: "11px" } },
+      },
+      yAxis: {
+        title: { text: undefined },
+        allowDecimals: false,
+        gridLineColor: "#E7ECF9",
+        labels: {
+          style: { color: "#64748B", fontSize: "11px" },
+        },
+      },
+      legend: { enabled: false },
+      tooltip: {
+        pointFormatter: function () {
+          return `<span style=\"color:${this.color}\">●</span> ${this.category}: <b>${Number(this.y ?? 0).toLocaleString("es-PE")}</b><br/>`;
+        },
+      },
+      plotOptions: {
+        bar: {
+          borderRadius: 6,
+          dataLabels: {
+            enabled: true,
+            style: {
+              textOutline: "none",
+              color: "#0F172A",
+              fontSize: "11px",
+            },
+          },
+        },
+        series: {
+          animation: false,
+        },
+      },
+      series: [
+        {
+          type: "bar",
+          name: "Cantidad",
+          data: executiveChart.conversionValues,
+          colorByPoint: true,
+          colors: ["#6366F1", "#0EA5E9", "#F59E0B", "#10B981"],
+        },
+      ],
+    };
+  }, [executiveChart]);
+
   return (
     <main className="min-h-screen bg-[#F3F2F8] text-[#1F2233]">
       <div className="mx-auto w-full max-w-[1400px] px-4 pb-8 pt-6 md:px-8 md:pt-8">
@@ -134,24 +364,55 @@ export default function DashboardPersonasUi({ people }: Props) {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-[#D8CEF6] bg-white/70 p-4 backdrop-blur-sm">
-              <p className="text-xs uppercase tracking-[0.14em] text-[#6A53C9]">Estado de entorno</p>
-              <div className="mt-3 space-y-3 text-sm">
-                <div className="flex items-center justify-between rounded-lg border border-[#E3DAFF] bg-white px-3 py-2">
-                  <span className="text-[#4C5477]">Registros sincronizados</span>
-                  <strong className="text-[#2C2F44]">{people.length}</strong>
+            <div className="hidden rounded-2xl border border-[#D8CEF6] bg-white/85 p-4 shadow-sm backdrop-blur-sm lg:block">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6A53C9]">Pulso operativo (6 meses)</p>
+                <span className="rounded-full bg-[#EEF1FF] px-2 py-1 text-[11px] font-semibold text-[#4C46C8]">Solo escritorio</span>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg border border-[#E3DAFF] bg-white px-3 py-2">
+                  <p className="text-[#66708F]">Pendiente por cobrar</p>
+                  <p className="mt-1 text-sm font-semibold text-[#1E293B]">{formatCurrency(executiveChart.pendienteCobro)}</p>
                 </div>
-                <div className="flex items-center justify-between rounded-lg border border-[#E3DAFF] bg-white px-3 py-2">
-                  <span className="inline-flex items-center gap-2 text-[#4C5477]"><MapPin size={14} /> Región foco</span>
-                  <strong className="text-[#2C2F44]">Sur andino</strong>
-                </div>
-                <div className="flex items-center justify-between rounded-lg border border-[#E3DAFF] bg-white px-3 py-2">
-                  <span className="text-[#4C5477]">Modo</span>
-                  <strong className="text-[#5A3EC8]">Competitivo activo</strong>
+                <div className="rounded-lg border border-[#E3DAFF] bg-white px-3 py-2">
+                  <p className="text-[#66708F]">Pendiente por pagar</p>
+                  <p className="mt-1 text-sm font-semibold text-[#1E293B]">{formatCurrency(executiveChart.pendientePago)}</p>
                 </div>
               </div>
+
+              <div className="mt-3 overflow-hidden rounded-xl border border-[#E3DAFF] bg-white px-2 pb-2 pt-3">
+                <HighchartsReact highcharts={Highcharts} options={chartOptions} />
+              </div>
+
+              {people.length === 0 ? (
+                <p className="mt-2 text-xs text-[#64748B]">Aún no hay datos de personas; el gráfico se activará conforme ingresen liquidaciones.</p>
+              ) : null}
             </div>
+
           </div>
+        </section>
+
+        <section className="mt-6 hidden gap-4 lg:grid lg:grid-cols-2">
+          <article className="rounded-2xl border border-[#DBD8E8] bg-white p-4 shadow-sm">
+            <div className="mb-3">
+              <p className="text-sm font-semibold text-[#1F2233]">Aging de pendientes</p>
+              <p className="text-xs text-[#64748B]">Rango de antigüedad de saldos por cobrar y por pagar</p>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-[#E3DAFF] bg-white px-2 pb-2 pt-3">
+              <HighchartsReact highcharts={Highcharts} options={agingChartOptions} />
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-[#DBD8E8] bg-white p-4 shadow-sm">
+            <div className="mb-3">
+              <p className="text-sm font-semibold text-[#1F2233]">Conversión operativa (90 días)</p>
+              <p className="text-xs text-[#64748B]">Lotes en flujo desde ingreso hasta cobro de cliente</p>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-[#E3DAFF] bg-white px-2 pb-2 pt-3">
+              <HighchartsReact highcharts={Highcharts} options={conversionChartOptions} />
+            </div>
+          </article>
         </section>
 
         <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-12">

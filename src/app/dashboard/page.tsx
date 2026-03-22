@@ -13,6 +13,43 @@ type DashboardPerson = {
   saldo: number;
 };
 
+type DashboardExecutiveChart = {
+  categories: string[];
+  ventas: number[];
+  cobros: number[];
+  pagosProductor: number[];
+  balance: number[];
+  pendienteCobro: number;
+  pendientePago: number;
+  agingLabels: string[];
+  agingCobrar: number[];
+  agingPagar: number[];
+  conversionLabels: string[];
+  conversionValues: number[];
+};
+
+function round2(value: number) {
+  return Number(value.toFixed(2));
+}
+
+function getMonthKey(date: Date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function getLastMonthsWindow(size: number) {
+  const now = new Date();
+  const months: Array<{ key: string; label: string; date: Date }> = [];
+
+  for (let offset = size - 1; offset >= 0; offset--) {
+    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
+    const key = getMonthKey(date);
+    const label = date.toLocaleDateString("es-PE", { month: "short", year: "2-digit", timeZone: "UTC" });
+    months.push({ key, label: label.replace(".", ""), date });
+  }
+
+  return months;
+}
+
 async function getPeopleData(): Promise<DashboardPerson[]> {
   const supabase = getSupabaseServerClient();
 
@@ -84,14 +121,170 @@ async function getPeopleData(): Promise<DashboardPerson[]> {
   }));
 }
 
+async function getExecutiveChartData(): Promise<DashboardExecutiveChart> {
+  const supabase = getSupabaseServerClient();
+  const months = getLastMonthsWindow(6);
+  const monthKeys = new Set(months.map((month) => month.key));
+  const startDateIso = `${months[0]?.key ?? getMonthKey(new Date())}-01`;
+  const now = new Date();
+
+  const window90 = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 90));
+  const start90Iso = window90.toISOString().slice(0, 10);
+
+  const [liquidacionesRes, lotesRes, clasifRes, asignacionesRes, cobrosRes] = await Promise.all([
+    supabase
+      .from("liquidaciones")
+      .select("fecha_liquidacion,tipo,total_a_pagar,monto_pagado,estado,estado_pago")
+      .neq("estado", "anulada")
+      .gte("fecha_liquidacion", startDateIso)
+      .order("fecha_liquidacion", { ascending: true })
+      .limit(10000),
+    supabase.from("lotes").select("id").gte("fecha_ingreso", start90Iso).limit(10000),
+    supabase.from("lote_clasificacion").select("lote_id").gte("fecha_clasificacion", start90Iso).limit(10000),
+    supabase.from("pedido_asignaciones").select("lote_id").gte("fecha_asignacion", start90Iso).limit(10000),
+    supabase
+      .from("liquidaciones")
+      .select("lote_id,tipo,estado_pago,estado,fecha_liquidacion")
+      .eq("tipo", "cliente")
+      .neq("estado", "anulada")
+      .gte("fecha_liquidacion", start90Iso)
+      .limit(10000),
+  ]);
+
+  const liquidacionesData = liquidacionesRes.data;
+
+  const monthly = new Map<string, { ventas: number; cobros: number; pagosProductor: number }>();
+  for (const month of months) {
+    monthly.set(month.key, { ventas: 0, cobros: 0, pagosProductor: 0 });
+  }
+
+  let pendienteCobro = 0;
+  let pendientePago = 0;
+
+  const agingLabels = ["0-14 días", "15-30 días", "31-60 días", "+60 días"];
+  const agingCobrar = [0, 0, 0, 0];
+  const agingPagar = [0, 0, 0, 0];
+
+  const rows = (liquidacionesData ?? []) as Array<{
+    fecha_liquidacion: string | null;
+    tipo: "cliente" | "productor" | null;
+    total_a_pagar: number | null;
+    monto_pagado: number | null;
+    estado: string | null;
+    estado_pago: string | null;
+  }>;
+
+  for (const row of rows) {
+    if (!row.fecha_liquidacion || !row.tipo) continue;
+
+    const date = new Date(row.fecha_liquidacion);
+    if (Number.isNaN(date.getTime())) continue;
+
+    const key = getMonthKey(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1)));
+    if (!monthKeys.has(key)) continue;
+
+    const bucket = monthly.get(key);
+    if (!bucket) continue;
+
+    const total = Number(row.total_a_pagar ?? 0);
+    const pagado = Number(row.monto_pagado ?? 0);
+
+    if (row.tipo === "cliente") {
+      bucket.ventas += total;
+      bucket.cobros += pagado;
+      pendienteCobro += Math.max(0, total - pagado);
+    }
+
+    if (row.tipo === "productor") {
+      bucket.pagosProductor += total;
+      pendientePago += Math.max(0, total - pagado);
+    }
+
+    const saldo = Math.max(0, total - pagado);
+    if (saldo <= 0) continue;
+
+    const days = Math.max(0, Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)));
+    const bucketIndex = days <= 14 ? 0 : days <= 30 ? 1 : days <= 60 ? 2 : 3;
+
+    if (row.tipo === "cliente") {
+      agingCobrar[bucketIndex] = round2(agingCobrar[bucketIndex] + saldo);
+    } else if (row.tipo === "productor") {
+      agingPagar[bucketIndex] = round2(agingPagar[bucketIndex] + saldo);
+    }
+  }
+
+  const categories: string[] = [];
+  const ventas: number[] = [];
+  const cobros: number[] = [];
+  const pagosProductor: number[] = [];
+  const balance: number[] = [];
+
+  for (const month of months) {
+    const bucket = monthly.get(month.key) ?? { ventas: 0, cobros: 0, pagosProductor: 0 };
+    const ventasMonth = round2(bucket.ventas);
+    const cobrosMonth = round2(bucket.cobros);
+    const pagosMonth = round2(bucket.pagosProductor);
+    const balanceMonth = round2(cobrosMonth - pagosMonth);
+
+    categories.push(month.label);
+    ventas.push(ventasMonth);
+    cobros.push(cobrosMonth);
+    pagosProductor.push(pagosMonth);
+    balance.push(balanceMonth);
+  }
+
+  const lotesIngresados = (lotesRes.data ?? []).length;
+  const lotesClasificados = new Set(
+    ((clasifRes.data ?? []) as Array<{ lote_id: number | null }>).map((row) => Number(row.lote_id ?? 0)).filter(Boolean)
+  ).size;
+  const lotesAsignados = new Set(
+    ((asignacionesRes.data ?? []) as Array<{ lote_id: number | null }>).map((row) => Number(row.lote_id ?? 0)).filter(Boolean)
+  ).size;
+  const lotesCobrados = new Set(
+    ((cobrosRes.data ?? []) as Array<{
+      lote_id: number | null;
+      tipo: "cliente" | "productor" | null;
+      estado_pago: string | null;
+      estado: string | null;
+      fecha_liquidacion: string | null;
+    }>)
+      .filter((row) => row.tipo === "cliente" && (row.estado_pago === "cobrado" || row.estado_pago === "pagado"))
+      .map((row) => Number(row.lote_id ?? 0))
+      .filter(Boolean)
+  ).size;
+
+  const conversionLabels = [
+    "Lotes ingresados",
+    "Lotes clasificados",
+    "Lotes asignados",
+    "Lotes cobrados",
+  ];
+  const conversionValues = [lotesIngresados, lotesClasificados, lotesAsignados, lotesCobrados].map((value) => Number(value));
+
+  return {
+    categories,
+    ventas,
+    cobros,
+    pagosProductor,
+    balance,
+    pendienteCobro: round2(pendienteCobro),
+    pendientePago: round2(pendientePago),
+    agingLabels,
+    agingCobrar,
+    agingPagar,
+    conversionLabels,
+    conversionValues,
+  };
+}
+
 export default async function DashboardPage() {
-  const people = await getPeopleData();
+  const [people, executiveChart] = await Promise.all([getPeopleData(), getExecutiveChartData()]);
 
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
       <ModuleNavigation currentModule="dashboard" />
       <div className="flex-1">
-        <DashboardPersonasUi people={people} />
+        <DashboardPersonasUi people={people} executiveChart={executiveChart} />
       </div>
     </div>
   );
