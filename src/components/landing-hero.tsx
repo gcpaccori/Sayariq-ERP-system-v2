@@ -12,13 +12,13 @@ export default function LandingHero() {
           <p className="mb-4 hidden text-sm font-semibold uppercase tracking-widest text-[#00C853] sm:block">
             Agroexportación de Precisión
           </p>
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-[#0d2d22] leading-tight mb-6">
+          <h1 className="mb-2 text-5xl font-bold leading-tight text-[#0d2d22] sm:mb-6 sm:text-6xl lg:text-7xl">
             Fresco del Origen Peruano.
           </h1>
-          <p className="text-lg text-gray-600 mb-8 leading-relaxed max-w-xl">
-            Exportamos 10 toneladas semanales de jengibre y cúrcuma 100% fresco desde Pichanaki. Cero congelados. Precisión lean. Origen garantizado.
+          <p className="mb-8 hidden max-w-xl text-lg leading-relaxed text-gray-600 sm:block">
+            Productos agrícolas premium seleccionados directamente del campo peruano. Frescura, calidad y sostenibilidad garantizadas en cada envío.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="hidden flex-col gap-4 sm:flex sm:flex-row">
             <Link
               href="/login"
               className="inline-block bg-[#0d2d22] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#00C853] hover:text-[#0d2d22] transition-all text-center"
