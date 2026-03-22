@@ -5,6 +5,7 @@ import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ClasificacionNetaEditor from "@/components/clasificacion-neta-editor";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
+import { selectCategoriasActivasCompat } from "@/lib/categorias";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 import { editarClasificacionNetaAction } from "./actions";
@@ -105,7 +106,7 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
   const supabase = getSupabaseServerClient();
 
   const [categoriasRes, lotesRes, vigentesRes, procesosRes, personasRes] = await Promise.all([
-    supabase.from("categorias").select("id,nombre,codigo,orden").eq("estado", "activo").order("orden", { ascending: true }),
+    selectCategoriasActivasCompat<Categoria>(supabase, "id,nombre,codigo,orden"),
     supabase
       .from("lotes")
       .select("id,numero_lote,productor_id,peso_bruto_ingreso,estado")
@@ -118,7 +119,7 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
     supabase.from("personas").select("id,nombre_completo"),
   ]);
 
-  const categorias = (categoriasRes.data ?? []) as Categoria[];
+  const categorias = categoriasRes;
   const lotes = (lotesRes.data ?? []) as Lote[];
   const vigentes = (vigentesRes.data ?? []) as VigenteRow[];
   const procesos = (procesosRes.data ?? []) as Proceso[];

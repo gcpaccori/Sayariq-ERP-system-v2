@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { ensureWriteAccess } from "@/lib/auth/server";
+import { selectCategoriasActivasCompat } from "@/lib/categorias";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type Categoria = { id: number; codigo: string; nombre: string };
@@ -31,13 +32,7 @@ function redirectWithMessage(type: "ok" | "error", message: string, loteId?: num
 
 async function getCategoriasActivas(): Promise<Categoria[]> {
   const supabase = getSupabaseServerClient();
-  const { data } = await supabase
-    .from("categorias")
-    .select("id,codigo,nombre")
-    .eq("estado", "activo")
-    .order("orden", { ascending: true });
-
-  return (data ?? []) as Categoria[];
+  return selectCategoriasActivasCompat<Categoria>(supabase, "id,codigo,nombre");
 }
 
 async function resolveActorPersonaId(actorPersonaIdRaw: number | null, actorEmail: string) {

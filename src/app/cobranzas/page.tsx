@@ -7,6 +7,7 @@ import {
 } from "./actions";
 import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
 import BackToDashboardButton from "@/components/back-to-dashboard-button";
+import { selectCategoriasActivasCompat } from "@/lib/categorias";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
@@ -155,13 +156,7 @@ async function getClientes() {
 
 async function getCategorias() {
   const supabase = getSupabaseServerClient();
-  const { data } = await supabase
-    .from("categorias")
-    .select("id,nombre,orden")
-    .eq("estado", "activo")
-    .order("orden", { ascending: true });
-
-  return (data ?? []) as Categoria[];
+  return selectCategoriasActivasCompat<Categoria>(supabase, "id,nombre,orden");
 }
 
 async function getPedidosLiquidablesClientes() {

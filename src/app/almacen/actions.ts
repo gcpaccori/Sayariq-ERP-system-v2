@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { ensureWriteAccess } from "@/lib/auth/server";
+import {
+  ensureCategoriaActivaCompat,
+  selectCategoriasActivasCompat,
+} from "@/lib/categorias";
 import { saveEvidenciaFoto } from "@/lib/evidencias-fotos";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -62,18 +66,7 @@ async function ensureProductor(personaId: number) {
 
 async function ensureCategoriaActiva(categoriaId: number) {
   const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("categorias")
-    .select("id")
-    .eq("id", categoriaId)
-    .eq("estado", "activo")
-    .maybeSingle();
-
-  if (error || !data) {
-    return false;
-  }
-
-  return true;
+  return ensureCategoriaActivaCompat(supabase, categoriaId);
 }
 
 async function buildNumeroLote() {
@@ -297,13 +290,7 @@ async function getLoteSinClasificar(loteId: number): Promise<Lote | null> {
 
 async function getCategoriasActivas(): Promise<Categoria[]> {
   const supabase = getSupabaseServerClient();
-  const { data } = await supabase
-    .from("categorias")
-    .select("id,nombre,codigo")
-    .eq("estado", "activo")
-    .order("orden", { ascending: true });
-
-  return (data ?? []) as Categoria[];
+  return selectCategoriasActivasCompat<Categoria>(supabase, "id,nombre,codigo");
 }
 
 export async function clasificarLoteAction(formData: FormData) {

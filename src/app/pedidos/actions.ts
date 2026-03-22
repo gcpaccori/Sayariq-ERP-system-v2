@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { ensureWriteAccess } from "@/lib/auth/server";
+import { ensureCategoriaActivaCompat } from "@/lib/categorias";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type Producto = "Jengibre" | "Curcuma";
@@ -77,14 +78,7 @@ async function ensureCliente(personaId: number) {
 
 async function ensureCategoriaActiva(categoriaId: number) {
   const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("categorias")
-    .select("id")
-    .eq("id", categoriaId)
-    .eq("estado", "activo")
-    .maybeSingle();
-
-  return !error && !!data;
+  return ensureCategoriaActivaCompat(supabase, categoriaId);
 }
 
 async function buildNumeroPedido() {

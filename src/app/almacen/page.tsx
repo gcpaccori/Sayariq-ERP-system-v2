@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { createLoteAction, updateLoteAction } from "./actions";
+import { selectCategoriasActivasCompat } from "@/lib/categorias";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ModuleNavigation from "@/components/module-navigation";
@@ -136,13 +137,10 @@ async function getProductoresActivos() {
 
 async function getCategoriasActivas() {
   const supabase = getSupabaseServerClient();
-  const { data } = await supabase
-    .from("categorias")
-    .select("id,codigo,nombre,precio_kg,orden")
-    .eq("estado", "activo")
-    .order("orden", { ascending: true });
-
-  return (data ?? []) as Categoria[];
+  return selectCategoriasActivasCompat<Categoria>(
+    supabase,
+    "id,codigo,nombre,precio_kg,orden",
+  );
 }
 
 async function getLotes(search: SearchParams) {

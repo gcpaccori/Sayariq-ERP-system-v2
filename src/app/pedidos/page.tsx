@@ -8,6 +8,7 @@ import {
   updateAsignacionPedidoAction,
   updatePedidoAction,
 } from "./actions";
+import { selectCategoriasActivasCompat } from "@/lib/categorias";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ModuleNavigation from "@/components/module-navigation";
@@ -115,13 +116,10 @@ async function getClientesActivos() {
 
 async function getCategoriasActivas() {
   const supabase = getSupabaseServerClient();
-  const { data } = await supabase
-    .from("categorias")
-    .select("id,nombre,codigo,orden")
-    .eq("estado", "activo")
-    .order("orden", { ascending: true });
-
-  return (data ?? []) as Categoria[];
+  return selectCategoriasActivasCompat<Categoria>(
+    supabase,
+    "id,nombre,codigo,orden",
+  );
 }
 
 async function getPedidos(search: SearchParams) {

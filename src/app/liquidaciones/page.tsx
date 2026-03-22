@@ -13,6 +13,7 @@ import {
 import ComprobanteInternoFields from "@/components/comprobante-interno-fields";
 import { PagoLiquidacionForm } from "@/components/pago-liquidacion-form";
 import OperationsSwitcher from "@/components/operations-switcher";
+import { selectCategoriasActivasCompat } from "@/lib/categorias";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
@@ -159,13 +160,7 @@ async function getPersonasConRol(rol: "productor" | "cliente") {
 
 async function getCategorias() {
   const supabase = getSupabaseServerClient();
-  const { data } = await supabase
-    .from("categorias")
-    .select("id,nombre,orden")
-    .eq("estado", "activo")
-    .order("orden", { ascending: true });
-
-  return (data ?? []) as Categoria[];
+  return selectCategoriasActivasCompat<Categoria>(supabase, "id,nombre,orden");
 }
 
 async function getLotesLiquidables() {
