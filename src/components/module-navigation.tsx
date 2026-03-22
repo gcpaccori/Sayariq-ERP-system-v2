@@ -147,7 +147,7 @@ export default function ModuleNavigation({ currentModule }: ModuleNavigationProp
           desktopCollapsed ? "lg:w-20" : "lg:w-72"
         }`}
       >
-        <div className="w-full p-3 lg:p-5">
+        <div className="flex h-full min-h-0 w-full flex-col p-3 lg:p-5">
           <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
             <div className={`${desktopCollapsed ? "lg:hidden" : ""}`}>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Sayariq</p>
@@ -167,25 +167,27 @@ export default function ModuleNavigation({ currentModule }: ModuleNavigationProp
             Navegación
           </p>
           {!desktopCollapsed ? <AuthUserPanel /> : null}
-          <nav className="flex gap-1 overflow-x-auto pb-1 lg:max-h-[calc(100vh-4rem)] lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden">
-            {visibleModules.map((module) => {
-              const Icon = module.icon;
-              const isActive = currentModule ? module.href.includes(currentModule) || module.href === currentModule : false;
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <nav className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-x-hidden">
+              {visibleModules.map((module) => {
+                const Icon = module.icon;
+                const isActive = currentModule ? module.href.includes(currentModule) || module.href === currentModule : false;
 
-              return (
-                <Link
-                  key={module.href}
-                  href={module.href}
-                  className={`inline-flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${desktopCollapsed ? "lg:justify-center" : "lg:justify-start"} ${
-                    isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100"
-                  }`}
-                >
-                  <Icon size={16} className="shrink-0" />
-                  <span className={`truncate ${desktopCollapsed ? "lg:hidden" : ""}`}>{module.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
+                return (
+                  <Link
+                    key={module.href}
+                    href={module.href}
+                    className={`inline-flex w-full min-w-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${desktopCollapsed ? "lg:justify-center" : "lg:justify-start"} ${
+                      isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Icon size={16} className="shrink-0" />
+                    <span className={`truncate ${desktopCollapsed ? "lg:hidden" : ""}`}>{module.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
         </div>
       </aside>
     </>

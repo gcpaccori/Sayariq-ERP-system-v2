@@ -38,11 +38,13 @@ export default function LandingHero() {
         <div className="order-1 lg:order-2 relative h-96 sm:h-[500px] lg:h-[600px]">
           <div className="absolute inset-0 bg-gradient-to-br from-[#00C853]/10 to-transparent rounded-3xl" />
           <Image
-            src="/docs/jengibre%20planta.jpg"
-            alt="Jengibre fresco peruano"
+            src="/company-images/foto-principal.png"
+            alt="Foto principal de Sayariq"
             fill
             className="object-cover rounded-3xl shadow-2xl hover:shadow-3xl transition-shadow"
             priority
+            quality={92}
+            fetchPriority="high"
             sizes="(max-width: 768px) 100vw, 50vw"
           />
         </div>

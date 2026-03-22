@@ -54,7 +54,7 @@ export default function LandingProductosDestacados() {
   }, []);
 
   return (
-    <section ref={ref} className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#f9faf9] to-white">
+    <section id="productos" ref={ref} className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#f9faf9] to-white">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-16">
