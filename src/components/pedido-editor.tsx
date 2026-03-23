@@ -278,8 +278,8 @@ export default function PedidoEditor({
                   </button>
                 </div>
 
-                <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-12">
-                  <label className="grid min-w-0 gap-1.5 xl:col-span-4">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="grid min-w-0 gap-1.5 md:col-span-2">
                     <span className="text-sm font-semibold text-gray-900">Filtrar categoria</span>
                     <input
                       value={queryByLine[line.key] ?? ""}
@@ -289,7 +289,7 @@ export default function PedidoEditor({
                     />
                   </label>
 
-                  <label className="grid min-w-0 gap-1.5 xl:col-span-5">
+                  <label className="grid min-w-0 gap-1.5 md:col-span-2">
                     <span className="text-sm font-semibold text-gray-900">Categoria *</span>
                     <select
                       name={`detalle_categoria_id_${line.key}`}
@@ -316,7 +316,7 @@ export default function PedidoEditor({
                     {line.requiere_revision ? <span className="text-xs text-amber-700">Linea migrada sin reparto exacto. Requiere revision.</span> : null}
                   </label>
 
-                  <label className="grid min-w-0 gap-1.5 xl:col-span-3">
+                  <label className="grid min-w-0 gap-1.5">
                     <span className="text-sm font-semibold text-gray-900">Prioridad</span>
                     <input
                       name={`detalle_prioridad_${line.key}`}
@@ -329,7 +329,7 @@ export default function PedidoEditor({
                     />
                   </label>
 
-                  <label className="grid min-w-0 gap-1.5 xl:col-span-2">
+                  <label className="grid min-w-0 gap-1.5">
                     <span className="text-sm font-semibold text-gray-900">Kg requeridos *</span>
                     <input
                       name={`detalle_kg_solicitados_${line.key}`}
@@ -342,7 +342,7 @@ export default function PedidoEditor({
                     />
                   </label>
 
-                  <label className="grid min-w-0 gap-1.5 xl:col-span-2">
+                  <label className="grid min-w-0 gap-1.5">
                     <span className="text-sm font-semibold text-gray-900">Precio/kg *</span>
                     <input
                       name={`detalle_precio_kg_${line.key}`}
@@ -355,7 +355,7 @@ export default function PedidoEditor({
                     />
                   </label>
 
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 xl:col-span-5">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Resumen de linea</p>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-700">
                       <span>Subtotal: {round2(Number(line.kg_solicitados ?? 0) * Number(line.precio_kg ?? 0))}</span>
@@ -363,7 +363,7 @@ export default function PedidoEditor({
                     </div>
                   </div>
 
-                  <label className="grid min-w-0 gap-1.5 xl:col-span-7">
+                  <label className="grid min-w-0 gap-1.5 md:col-span-2">
                     <span className="text-sm font-semibold text-gray-900">Notas de la linea</span>
                     <input
                       name={`detalle_observaciones_${line.key}`}
@@ -374,7 +374,7 @@ export default function PedidoEditor({
                     />
                   </label>
 
-                  <label className="flex min-w-0 items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-3 text-sm text-gray-700 xl:col-span-5">
+                  <label className="flex min-w-0 items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-3 text-sm text-gray-700 md:col-span-2">
                     <input
                       type="checkbox"
                       checked={line.permite_sustitucion}

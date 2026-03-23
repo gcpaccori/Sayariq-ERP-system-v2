@@ -1139,14 +1139,14 @@ export default async function PedidosPage({
               <p className="mb-4 text-sm text-gray-600">
                 Aqui ves todos los lotes del mismo producto con stock util: clasificados exactos, clasificados de otra categoria y tambien lotes de almacen sin clasificacion neta. Cada caso queda marcado antes de asignar.
               </p>
-              <form method="get" className="mb-4 grid gap-3 rounded-xl border border-gray-200 bg-slate-50 p-4 lg:grid-cols-2 xl:grid-cols-6">
+              <form method="get" className="mb-4 grid gap-3 rounded-xl border border-gray-200 bg-slate-50 p-4 md:grid-cols-2">
                 {search.q ? <input type="hidden" name="q" value={search.q} /> : null}
                 {search.estado ? <input type="hidden" name="estado" value={search.estado} /> : null}
                 {search.cliente ? <input type="hidden" name="cliente" value={search.cliente} /> : null}
                 {currentPage > 1 ? <input type="hidden" name="page" value={String(currentPage)} /> : null}
                 <input type="hidden" name="asignar" value={String(pedidoSeleccionado.id)} />
 
-                <label className="grid gap-1 xl:col-span-2">
+                <label className="grid gap-1 md:col-span-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Buscar</span>
                   <input
                     name="asignar_q"
@@ -1214,7 +1214,7 @@ export default async function PedidosPage({
                   </select>
                 </label>
 
-                <div className="flex flex-wrap items-end gap-2 xl:justify-end">
+                <div className="flex flex-wrap items-end gap-2 md:col-span-2 md:justify-end">
                   <button
                     type="submit"
                     className="rounded-lg bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1765CC]"
@@ -1268,7 +1268,7 @@ export default async function PedidosPage({
                     key={`${row.lote_id}-${row.pedido_detalle_id}-${row.categoria_id}-${row.stock_badge}`}
                     className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h4 className="text-sm font-semibold text-gray-900">{row.numero_lote}</h4>
@@ -1327,8 +1327,8 @@ export default async function PedidosPage({
                         </p>
                       </div>
 
-                      <div className="w-full xl:max-w-[520px]">
-                        <form action={asignarLotePedidoAction} className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-6">
+                      <div className="w-full lg:max-w-[440px] lg:flex-none">
+                        <form action={asignarLotePedidoAction} className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-2">
                           <input type="hidden" name="pedido_id" value={String(pedidoSeleccionado.id)} />
                           <input type="hidden" name="pedido_detalle_id" value={String(row.pedido_detalle_id)} />
                           <input type="hidden" name="lote_id" value={String(row.lote_id)} />
@@ -1336,12 +1336,12 @@ export default async function PedidosPage({
                           <input type="hidden" name="categoria_id" value={String(row.categoria_id || 0)} />
 
                           {row.sin_clasificacion_neta && row.pedido_categoria_id <= 0 ? (
-                            <label className="grid gap-1 sm:col-span-2 xl:col-span-2">
+                            <label className="grid gap-1 md:col-span-2">
                               <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categoria destino</span>
                               <select
                                 name="categoria_destino_id"
                                 defaultValue=""
-                                className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
+                                className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                                 required
                               >
                                 <option value="">Selecciona destino</option>
@@ -1359,14 +1359,14 @@ export default async function PedidosPage({
                                 name="categoria_destino_id"
                                 value={String(row.pedido_categoria_id || row.categoria_id || "")}
                               />
-                              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 sm:col-span-2 xl:col-span-2">
+                              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 md:col-span-2">
                                 <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categoria destino</p>
                                 <p className="mt-1 text-xs font-medium text-slate-900">{row.pedido_categoria_nombre}</p>
                               </div>
                             </>
                           )}
 
-                          <label className="grid gap-1 xl:col-span-1">
+                          <label className="grid gap-1">
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Kg asignar</span>
                             <input
                               name="kg_asignados"
@@ -1375,12 +1375,12 @@ export default async function PedidosPage({
                               step="0.01"
                               max={String(row.kg_disponibles)}
                               placeholder="Kg"
-                              className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
+                              className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                               required
                             />
                           </label>
 
-                          <label className="grid gap-1 xl:col-span-1">
+                          <label className="grid gap-1">
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Precio/kg</span>
                             <input
                               name="precio_kg"
@@ -1388,34 +1388,34 @@ export default async function PedidosPage({
                               min="0"
                               step="0.01"
                               defaultValue={String(detalleLineMap.get(Number(row.pedido_detalle_id))?.precio_kg ?? pedidoSeleccionado.precio_kg)}
-                              className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
+                              className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                               required
                             />
                           </label>
 
-                          <label className="grid gap-1 xl:col-span-2">
+                          <label className="grid gap-1 md:col-span-2">
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fecha asignacion</span>
                             <input
                               name="fecha_asignacion"
                               type="date"
                               defaultValue={new Date().toISOString().slice(0, 10)}
-                              className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
+                              className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                               required
                             />
                           </label>
 
-                          <label className="grid gap-1 sm:col-span-2 xl:col-span-4">
+                          <label className="grid gap-1 md:col-span-2">
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Observaciones</span>
                             <input
                               name="observaciones"
                               placeholder={row.sin_clasificacion_neta ? "Ej. despacho directo desde almacen" : "Observacion opcional"}
-                              className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
+                              className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                             />
                           </label>
 
                           <button
                             type="submit"
-                            className="rounded-lg bg-[#1A73E8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1765CC] sm:col-span-2 xl:col-span-2"
+                            className="rounded-lg bg-[#1A73E8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1765CC] md:col-span-2"
                           >
                             Asignar lote
                           </button>
