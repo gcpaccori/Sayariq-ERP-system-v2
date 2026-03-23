@@ -5,6 +5,7 @@ import {
   asignarLotePedidoAction,
   createPedidoAction,
   deleteAsignacionPedidoAction,
+  descartarPedidoAction,
   updateAsignacionPedidoAction,
   updatePedidoAction,
 } from "./actions";
@@ -22,6 +23,7 @@ import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
 import PendingRouteButton from "@/components/pending-route-button";
+import ConfirmSubmitButton from "@/components/confirm-submit-button";
 import PedidoAsignacionForm from "@/components/pedido-asignacion-form";
 import PedidoEditor from "@/components/pedido-editor";
 
@@ -85,6 +87,17 @@ type Asignacion = {
   fecha_asignacion: string;
 };
 
+type PedidoDestinoOption = {
+  pedido_detalle_id: number;
+  categoria_id: number;
+  categoria_nombre: string;
+  precio_kg: number;
+  kg_solicitados: number;
+  kg_asignados: number;
+  permite_sustitucion: boolean;
+  requiere_revision: boolean;
+};
+
 type LoteDisponible = {
   lote_id: number;
   numero_lote: string;
@@ -98,6 +111,7 @@ type LoteDisponible = {
   pedido_detalle_id: number;
   pedido_categoria_id: number;
   pedido_categoria_nombre: string;
+  destino_opciones: PedidoDestinoOption[];
   categoria_id: number;
   categoria_origen_nombre: string;
   kg_disponibles: number;
@@ -203,7 +217,12 @@ function filterLotesDisponibles(rows: LoteDisponible[], filters: AsignacionFilte
     if (filters.antiguedad === "8_30" && (row.antiguedad_dias < 8 || row.antiguedad_dias > 30)) return false;
     if (filters.antiguedad === "31_plus" && row.antiguedad_dias < 31) return false;
 
-    if (filters.categoria && String(row.categoria_id) !== filters.categoria && String(row.pedido_categoria_id) !== filters.categoria) {
+    if (
+      filters.categoria &&
+      String(row.categoria_id) !== filters.categoria &&
+      String(row.pedido_categoria_id) !== filters.categoria &&
+      !row.destino_opciones.some((option) => String(option.categoria_id) === filters.categoria)
+    ) {
       return false;
     }
 
@@ -215,6 +234,7 @@ function filterLotesDisponibles(rows: LoteDisponible[], filters: AsignacionFilte
         row.chofer ?? "",
         row.categoria_origen_nombre,
         row.pedido_categoria_nombre,
+        row.destino_opciones.map((option) => option.categoria_nombre).join(" "),
         row.fecha_ingreso,
       ]
         .join(" ")
@@ -763,12 +783,38 @@ async function getAvailableLotesForPedido(
   }
 
   const resultado: LoteDisponible[] = [];
-  const pendientes = new Map<number, number>();
-  for (const line of detalle) {
-    const faltante = round2(Number(line.kg_solicitados ?? 0) - Number(line.kg_asignados ?? 0));
-    if (faltante > 0.01) {
-      pendientes.set(Number(line.id), faltante);
+  const destinoOpciones = detalle
+    .filter((line) => Number(line.id) > 0 && Number(line.categoria_id) > 0)
+    .map((line) => ({
+      pedido_detalle_id: Number(line.id),
+      categoria_id: Number(line.categoria_id),
+      categoria_nombre: line.categoria_nombre,
+      precio_kg: Number(line.precio_kg ?? 0),
+      kg_solicitados: round2(Number(line.kg_solicitados ?? 0)),
+      kg_asignados: round2(Number(line.kg_asignados ?? 0)),
+      permite_sustitucion: Boolean(line.permite_sustitucion),
+      requiere_revision: Boolean(line.requiere_revision),
+    }))
+    .sort((a, b) => a.pedido_detalle_id - b.pedido_detalle_id);
+
+  const fallbackDestino = detalle.find((line) => Number(line.categoria_id) > 0) ?? detalle[0] ?? null;
+
+  function resolveDestinoSugerido(categoriaId: number | null) {
+    if (destinoOpciones.length > 0) {
+      const match = categoriaId ? destinoOpciones.find((option) => option.categoria_id === categoriaId) : null;
+      const selected = match ?? destinoOpciones[0];
+      return {
+        pedido_detalle_id: Number(selected.pedido_detalle_id),
+        pedido_categoria_id: Number(selected.categoria_id),
+        pedido_categoria_nombre: selected.categoria_nombre,
+      };
     }
+
+    return {
+      pedido_detalle_id: 0,
+      pedido_categoria_id: Number(fallbackDestino?.categoria_id ?? 0),
+      pedido_categoria_nombre: fallbackDestino?.categoria_nombre ?? "Sin detalle por categoria",
+    };
   }
 
   const totalNetoPorLote = new Map<number, number>();
@@ -804,52 +850,44 @@ async function getAvailableLotesForPedido(
     const jabasConsumidasEstimadas = pesoPromedioJaba > 0 ? round2(asignado / pesoPromedioJaba) : 0;
     const kgConsumidosLote = round2(asignadoClasificadoLote + rawAsignado);
 
-    for (const line of detalle) {
-      const faltante = pendientes.get(Number(line.id)) ?? 0;
-      if (faltante <= 0.01) continue;
-      const targetCategoriaId = Number(line.categoria_id) > 0 ? Number(line.categoria_id) : categoriaId;
-      const esSustitucion = Number(line.categoria_id) > 0 && categoriaId !== Number(line.categoria_id);
-      const pedidoCategoriaNombre =
-        Number(line.categoria_id) > 0
-          ? line.categoria_nombre
-          : "Sin detalle por categoria";
-      const kgDisponiblesRow = round2(Math.min(disponible, faltante));
-      const jabasDisponiblesRow = pesoPromedioJaba > 0 ? round2(kgDisponiblesRow / pesoPromedioJaba) : 0;
+    const destinoSugerido = resolveDestinoSugerido(categoriaId);
+    const coincideConPedido = destinoOpciones.some((option) => option.categoria_id === categoriaId);
+    const jabasDisponiblesRow = pesoPromedioJaba > 0 ? round2(disponible / pesoPromedioJaba) : 0;
 
-      resultado.push({
-        lote_id: loteId,
-        numero_lote: loteData.numero_lote,
-        productor_nombre: productorMap.get(loteData.productor_id) ?? String(loteData.productor_id),
-        fecha_ingreso: loteData.fecha_ingreso,
-        guia_ingreso: loteData.guia_ingreso,
-        chofer: loteData.chofer,
-        numero_jabas: loteData.numero_jabas,
-        estado_lote: loteData.estado,
-        antiguedad_dias: getAgeInDays(loteData.fecha_ingreso),
-        pedido_detalle_id: Number(line.id),
-        pedido_categoria_id: targetCategoriaId,
-        pedido_categoria_nombre: pedidoCategoriaNombre,
-        categoria_id: categoriaId,
-        categoria_origen_nombre: categoriaMap.get(categoriaId) ?? String(categoriaId),
-        kg_disponibles: kgDisponiblesRow,
-        kg_total_origen: round2(neto),
-        kg_consumidos_origen: round2(asignado),
-        kg_total_lote: round2(loteTotal),
-        kg_consumidos_lote: kgConsumidosLote,
-        jabas_total_origen: round2(jabasTotalesFila),
-        jabas_disponibles_estimadas: jabasDisponiblesRow,
-        jabas_consumidas_estimadas: round2(jabasConsumidasEstimadas),
-        peso_promedio_jaba: pesoPromedioJaba,
-        sin_clasificacion_neta: false,
-        es_sustitucion: esSustitucion,
-        stock_badge:
-          Number(line.categoria_id) <= 0
-            ? "Pedido sin detalle"
-            : esSustitucion
-              ? "Categoria distinta"
-              : "Clasificacion neta",
-      });
-    }
+    resultado.push({
+      lote_id: loteId,
+      numero_lote: loteData.numero_lote,
+      productor_nombre: productorMap.get(loteData.productor_id) ?? String(loteData.productor_id),
+      fecha_ingreso: loteData.fecha_ingreso,
+      guia_ingreso: loteData.guia_ingreso,
+      chofer: loteData.chofer,
+      numero_jabas: loteData.numero_jabas,
+      estado_lote: loteData.estado,
+      antiguedad_dias: getAgeInDays(loteData.fecha_ingreso),
+      pedido_detalle_id: destinoSugerido.pedido_detalle_id,
+      pedido_categoria_id: destinoSugerido.pedido_categoria_id,
+      pedido_categoria_nombre: destinoSugerido.pedido_categoria_nombre,
+      destino_opciones: destinoOpciones,
+      categoria_id: categoriaId,
+      categoria_origen_nombre: categoriaMap.get(categoriaId) ?? String(categoriaId),
+      kg_disponibles: round2(disponible),
+      kg_total_origen: round2(neto),
+      kg_consumidos_origen: round2(asignado),
+      kg_total_lote: round2(loteTotal),
+      kg_consumidos_lote: kgConsumidosLote,
+      jabas_total_origen: round2(jabasTotalesFila),
+      jabas_disponibles_estimadas: jabasDisponiblesRow,
+      jabas_consumidas_estimadas: round2(jabasConsumidasEstimadas),
+      peso_promedio_jaba: pesoPromedioJaba,
+      sin_clasificacion_neta: false,
+      es_sustitucion: destinoOpciones.length > 0 ? !coincideConPedido : false,
+      stock_badge:
+        destinoOpciones.length === 0
+          ? "Pedido sin detalle"
+          : coincideConPedido
+            ? "Clasificacion neta"
+            : "Categoria distinta",
+    });
   }
 
   for (const lote of lotes) {
@@ -861,46 +899,38 @@ async function getAvailableLotesForPedido(
     const pesoPromedioJaba = jabasTotales > 0 ? round2(Number(lote.peso_bruto_ingreso ?? 0) / jabasTotales) : 0;
     const jabasConsumidasEstimadas = pesoPromedioJaba > 0 ? round2(rawAsignado / pesoPromedioJaba) : 0;
 
-    for (const line of detalle) {
-      const faltante = pendientes.get(Number(line.id)) ?? 0;
-      if (faltante <= 0.01) continue;
-      const targetCategoriaId = Number(line.categoria_id) > 0 ? Number(line.categoria_id) : 0;
-      const pedidoCategoriaNombre =
-        Number(line.categoria_id) > 0
-          ? line.categoria_nombre
-          : "Sin detalle por categoria";
-      const kgDisponiblesRow = round2(Math.min(disponibleBruto, faltante));
-      const jabasDisponiblesRow = pesoPromedioJaba > 0 ? round2(kgDisponiblesRow / pesoPromedioJaba) : 0;
+    const destinoSugerido = resolveDestinoSugerido(null);
+    const jabasDisponiblesRow = pesoPromedioJaba > 0 ? round2(disponibleBruto / pesoPromedioJaba) : 0;
 
-      resultado.push({
-        lote_id: Number(lote.id),
-        numero_lote: String(lote.numero_lote),
-        productor_nombre: productorMap.get(Number(lote.productor_id)) ?? String(lote.productor_id),
-        fecha_ingreso: String(lote.fecha_ingreso),
-        guia_ingreso: lote.guia_ingreso ? String(lote.guia_ingreso) : null,
-        chofer: lote.chofer ? String(lote.chofer) : null,
-        numero_jabas: Number(lote.numero_jabas ?? 0),
-        estado_lote: String(lote.estado),
-        antiguedad_dias: getAgeInDays(String(lote.fecha_ingreso)),
-        pedido_detalle_id: Number(line.id),
-        pedido_categoria_id: targetCategoriaId,
-        pedido_categoria_nombre: pedidoCategoriaNombre,
-        categoria_id: targetCategoriaId,
-        categoria_origen_nombre: "Sin clasificar",
-        kg_disponibles: kgDisponiblesRow,
-        kg_total_origen: round2(Number(lote.peso_bruto_ingreso ?? 0)),
-        kg_consumidos_origen: round2(rawAsignado),
-        kg_total_lote: round2(Number(lote.peso_bruto_ingreso ?? 0)),
-        kg_consumidos_lote: round2(rawAsignado),
-        jabas_total_origen: round2(jabasTotales),
-        jabas_disponibles_estimadas: jabasDisponiblesRow,
-        jabas_consumidas_estimadas: round2(jabasConsumidasEstimadas),
-        peso_promedio_jaba: pesoPromedioJaba,
-        sin_clasificacion_neta: true,
-        es_sustitucion: false,
-        stock_badge: Number(line.categoria_id) > 0 ? "Sin clasificacion neta" : "Sin clasificar y sin detalle",
-      });
-    }
+    resultado.push({
+      lote_id: Number(lote.id),
+      numero_lote: String(lote.numero_lote),
+      productor_nombre: productorMap.get(Number(lote.productor_id)) ?? String(lote.productor_id),
+      fecha_ingreso: String(lote.fecha_ingreso),
+      guia_ingreso: lote.guia_ingreso ? String(lote.guia_ingreso) : null,
+      chofer: lote.chofer ? String(lote.chofer) : null,
+      numero_jabas: Number(lote.numero_jabas ?? 0),
+      estado_lote: String(lote.estado),
+      antiguedad_dias: getAgeInDays(String(lote.fecha_ingreso)),
+      pedido_detalle_id: destinoSugerido.pedido_detalle_id,
+      pedido_categoria_id: destinoSugerido.pedido_categoria_id,
+      pedido_categoria_nombre: destinoSugerido.pedido_categoria_nombre,
+      destino_opciones: destinoOpciones,
+      categoria_id: 0,
+      categoria_origen_nombre: "Sin clasificar",
+      kg_disponibles: round2(disponibleBruto),
+      kg_total_origen: round2(Number(lote.peso_bruto_ingreso ?? 0)),
+      kg_consumidos_origen: round2(rawAsignado),
+      kg_total_lote: round2(Number(lote.peso_bruto_ingreso ?? 0)),
+      kg_consumidos_lote: round2(rawAsignado),
+      jabas_total_origen: round2(jabasTotales),
+      jabas_disponibles_estimadas: jabasDisponiblesRow,
+      jabas_consumidas_estimadas: round2(jabasConsumidasEstimadas),
+      peso_promedio_jaba: pesoPromedioJaba,
+      sin_clasificacion_neta: true,
+      es_sustitucion: false,
+      stock_badge: destinoOpciones.length > 0 ? "Sin clasificacion neta" : "Sin clasificar y sin detalle",
+    });
   }
 
   return {
@@ -1380,7 +1410,7 @@ export default async function PedidosPage({
               maxWidth="5xl"
             >
               <p className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                Primero te mostramos el faltante real por linea. Ademas ya puedes asignar lotes en estado <code>sin_clasificar</code> desde Almacen; cuando eso ocurra queda marcado como &quot;sin clasificacion neta&quot;.
+                Primero te mostramos el estado real por linea. Ahora puedes elegir libremente a que linea/categoria del pedido dirigir cada lote del mismo producto, incluso si la categoria origen no coincide o si ya pasaste el 100% comercial; solo respetamos el stock disponible. Ademas ya puedes asignar lotes en estado <code>sin_clasificar</code> desde Almacen; cuando eso ocurra queda marcado como &quot;sin clasificacion neta&quot;.
               </p>
               {consumosDestinoResult.errorMessage ? (
                 <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -1406,6 +1436,7 @@ export default async function PedidosPage({
               <div className="mb-6 grid gap-3 lg:grid-cols-2">
                 {detallePedidoSeleccionado.map((line) => {
                   const faltante = round2(Number(line.kg_solicitados ?? 0) - Number(line.kg_asignados ?? 0));
+                  const exceso = round2(Math.max(0, Number(line.kg_asignados ?? 0) - Number(line.kg_solicitados ?? 0)));
                   return (
                     <div key={line.id} className="rounded-xl border border-gray-200 bg-slate-50 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1431,8 +1462,12 @@ export default async function PedidosPage({
                           <p className="mt-1 text-base font-bold text-emerald-700">{line.kg_asignados} kg</p>
                         </div>
                         <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pendiente</p>
-                          <p className={`mt-1 text-base font-bold ${faltante > 0.01 ? "text-red-700" : "text-emerald-700"}`}>{faltante} kg</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {faltante >= 0 ? "Pendiente" : "Excedente"}
+                          </p>
+                          <p className={`mt-1 text-base font-bold ${faltante > 0.01 ? "text-red-700" : faltante < -0.01 ? "text-amber-700" : "text-emerald-700"}`}>
+                            {faltante >= 0 ? faltante : exceso} kg
+                          </p>
                         </div>
                       </div>
                       {line.observaciones ? <p className="mt-3 text-xs text-slate-600">{line.observaciones}</p> : null}
@@ -1595,7 +1630,7 @@ export default async function PedidosPage({
 
                   return (
                     <details
-                      key={`${row.lote_id}-${row.pedido_detalle_id}-${row.categoria_id}-${row.stock_badge}`}
+                      key={`${row.lote_id}-${row.sin_clasificacion_neta ? "raw" : row.categoria_id}-${row.stock_badge}`}
                       className={`group overflow-hidden rounded-xl border shadow-sm ${toneClass}`}
                     >
                       <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-3 marker:content-none">
@@ -1607,8 +1642,13 @@ export default async function PedidosPage({
                                 Origen {row.categoria_origen_nombre}
                               </span>
                               <span className="inline-flex rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                                Destino {row.pedido_categoria_nombre}
+                                Sugerido {row.pedido_categoria_nombre}
                               </span>
+                              {row.destino_opciones.length > 1 ? (
+                                <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                                  Elige linea destino
+                                </span>
+                              ) : null}
                               <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${row.sin_clasificacion_neta ? "bg-amber-100 text-amber-800" : row.es_sustitucion ? "bg-violet-100 text-violet-800" : "bg-emerald-100 text-emerald-800"}`}>
                                 {row.stock_badge}
                               </span>
@@ -1661,7 +1701,7 @@ export default async function PedidosPage({
                       <div className="border-t border-white/70 bg-white p-4">
                         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                           <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Linea destino</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Destino sugerido</p>
                             <p className="mt-1 text-xs font-medium text-slate-900">{row.pedido_categoria_nombre}</p>
                           </div>
                           <div className="rounded-lg bg-slate-50 px-3 py-2">
@@ -1691,6 +1731,12 @@ export default async function PedidosPage({
                           <div className="rounded-lg bg-slate-50 px-3 py-2">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Jabas ingreso lote</p>
                             <p className="mt-1 text-xs font-medium text-slate-900">{row.numero_jabas}</p>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Lineas destino</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">
+                              {row.destino_opciones.length > 0 ? `${row.destino_opciones.length} opcion(es) del pedido` : "Pedido legado / categoria libre"}
+                            </p>
                           </div>
                         </div>
 
@@ -1789,13 +1835,16 @@ export default async function PedidosPage({
                             : row.sin_clasificacion_neta
                               ? `Lote en ${row.estado_lote}; saldra directo desde almacen sin clasificacion neta.`
                               : row.es_sustitucion
-                                ? "Categoria distinta a la linea pedida; revisa antes de confirmar la sustitucion."
-                                : "Coincide con la categoria de la linea pedida."}{" "}
+                                ? "La categoria origen no coincide con las lineas pedidas, pero igual puedes dirigirla a cualquier linea del pedido."
+                                : "La categoria origen coincide con al menos una linea del pedido."}{" "}
                           {origenConsumido
                             ? "Este origen ya tiene reservas activas; aqui solo puedes usar el saldo restante."
                             : loteParcial
                               ? "Este origen sigue intacto, pero el lote ya tiene reservas en otra salida."
                               : "Todo el origen sigue libre para una nueva asignacion."}{" "}
+                          {row.destino_opciones.length > 1
+                            ? "Antes de confirmar, elige a que linea/categoria del pedido quieres dirigir este lote."
+                            : ""}{" "}
                           {consumosOrigen.some((consumo) => Number(consumo.pedido_id) === pedidoSeleccionado.id)
                             ? "Las reservas de este mismo pedido las puedes ajustar mas abajo en Asignaciones registradas."
                             : ""}
@@ -1809,6 +1858,7 @@ export default async function PedidosPage({
                           categoriaId={row.categoria_id}
                           pedidoCategoriaId={row.pedido_categoria_id}
                           pedidoCategoriaNombre={row.pedido_categoria_nombre}
+                          destinoOptions={row.destino_opciones}
                           categorias={categorias.map((categoria) => ({
                             id: categoria.id,
                             codigo: categoria.codigo,
@@ -2122,19 +2172,37 @@ export default async function PedidosPage({
                                 Asignar
                               </PendingRouteButton>
                             ) : null}
-                            <PendingRouteButton
-                              href={buildPedidosUrl({
-                                q: search.q,
-                                estado: search.estado,
-                                cliente: search.cliente,
-                                page: currentPage,
-                                editar: Number(pedido.id),
-                              })}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
-                              pendingLabel="Abriendo..."
-                            >
-                              Editar
-                            </PendingRouteButton>
+                            {pedido.estado !== "cancelado" ? (
+                              <>
+                                <PendingRouteButton
+                                  href={buildPedidosUrl({
+                                    q: search.q,
+                                    estado: search.estado,
+                                    cliente: search.cliente,
+                                    page: currentPage,
+                                    editar: Number(pedido.id),
+                                  })}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                                  pendingLabel="Abriendo..."
+                                >
+                                  Editar
+                                </PendingRouteButton>
+
+                                <form action={descartarPedidoAction}>
+                                  <input type="hidden" name="pedido_id" value={String(pedido.id)} />
+                                  <ConfirmSubmitButton
+                                    confirmMessage="Este pedido se descartara sin borrarse y se liberaran sus asignaciones activas. Seguro que deseas continuar?"
+                                    className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+                                  >
+                                    Descartar
+                                  </ConfirmSubmitButton>
+                                </form>
+                              </>
+                            ) : (
+                              <span className="inline-flex rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                                Pedido descartado
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -8,6 +8,17 @@ type CategoriaOption = {
   nombre: string;
 };
 
+type DestinoOption = {
+  pedido_detalle_id: number;
+  categoria_id: number;
+  categoria_nombre: string;
+  precio_kg: number;
+  kg_solicitados: number;
+  kg_asignados: number;
+  permite_sustitucion: boolean;
+  requiere_revision: boolean;
+};
+
 type Props = {
   pedidoId: number;
   pedidoDetalleId: number;
@@ -16,6 +27,7 @@ type Props = {
   categoriaId: number;
   pedidoCategoriaId: number;
   pedidoCategoriaNombre: string;
+  destinoOptions: DestinoOption[];
   categorias: CategoriaOption[];
   defaultPrecioKg: number;
   maxKg: number;
@@ -30,6 +42,10 @@ function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function buildDestinoKey(option: DestinoOption) {
+  return `${option.pedido_detalle_id}:${option.categoria_id}`;
+}
+
 export default function PedidoAsignacionForm({
   pedidoId,
   pedidoDetalleId,
@@ -38,6 +54,7 @@ export default function PedidoAsignacionForm({
   categoriaId,
   pedidoCategoriaId,
   pedidoCategoriaNombre,
+  destinoOptions,
   categorias,
   defaultPrecioKg,
   maxKg,
@@ -47,8 +64,26 @@ export default function PedidoAsignacionForm({
   jabasDisponiblesEstimadas,
   asignarAction,
 }: Props) {
+  const defaultDestino = useMemo(() => {
+    if (destinoOptions.length === 0) return null;
+    return (
+      destinoOptions.find((option) => option.pedido_detalle_id === pedidoDetalleId)
+      ?? destinoOptions.find((option) => option.categoria_id === pedidoCategoriaId)
+      ?? destinoOptions[0]
+    );
+  }, [destinoOptions, pedidoCategoriaId, pedidoDetalleId]);
+
+  const [destinoKey, setDestinoKey] = useState(defaultDestino ? buildDestinoKey(defaultDestino) : "");
+  const [categoriaLibreId, setCategoriaLibreId] = useState(
+    pedidoCategoriaId > 0 ? String(pedidoCategoriaId) : "",
+  );
   const [kgAsignados, setKgAsignados] = useState("");
   const [ajustarKgExacto, setAjustarKgExacto] = useState(false);
+
+  const destinoSeleccionado = useMemo(() => {
+    if (destinoOptions.length === 0) return null;
+    return destinoOptions.find((option) => buildDestinoKey(option) === destinoKey) ?? defaultDestino;
+  }, [defaultDestino, destinoKey, destinoOptions]);
 
   const resumenJabas = useMemo(() => {
     const kg = Number(kgAsignados || 0);
@@ -66,22 +101,62 @@ export default function PedidoAsignacionForm({
     };
   }, [kgAsignados, pesoPromedioJaba]);
 
+  const saldoLinea = destinoSeleccionado
+    ? round2(Number(destinoSeleccionado.kg_solicitados ?? 0) - Number(destinoSeleccionado.kg_asignados ?? 0))
+    : 0;
+
+  const pedidoDetalleIdValue = destinoSeleccionado ? String(destinoSeleccionado.pedido_detalle_id) : String(Math.max(0, pedidoDetalleId));
+  const categoriaDestinoValue = destinoSeleccionado
+    ? String(destinoSeleccionado.categoria_id)
+    : categoriaLibreId || String(pedidoCategoriaId || categoriaId || "");
+
   return (
     <form action={asignarAction} className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-2">
       <input type="hidden" name="pedido_id" value={String(pedidoId)} />
-      <input type="hidden" name="pedido_detalle_id" value={String(pedidoDetalleId)} />
+      <input type="hidden" name="pedido_detalle_id" value={pedidoDetalleIdValue} />
       <input type="hidden" name="lote_id" value={String(loteId)} />
       <input type="hidden" name="sin_clasificacion_neta" value={sinClasificacionNeta ? "1" : "0"} />
       <input type="hidden" name="categoria_id" value={String(categoriaId || 0)} />
       <input type="hidden" name="numero_jabas_estimadas" value={String(resumenJabas.jabasEstimadas)} />
       <input type="hidden" name="ajustar_kg_exacto" value={ajustarKgExacto ? "1" : "0"} />
+      <input type="hidden" name="categoria_destino_id" value={categoriaDestinoValue} />
 
-      {sinClasificacionNeta && pedidoCategoriaId <= 0 ? (
+      {destinoOptions.length > 1 ? (
+        <label className="grid gap-1 md:col-span-2">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Linea / categoria destino</span>
+          <select
+            value={destinoKey}
+            onChange={(event) => setDestinoKey(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
+          >
+            {destinoOptions.map((option) => {
+              const saldo = round2(option.kg_solicitados - option.kg_asignados);
+              const estadoSaldo =
+                saldo > 0.01
+                  ? `pend. ${saldo} kg`
+                  : saldo < -0.01
+                    ? `exced. ${Math.abs(saldo)} kg`
+                    : "cubierta";
+
+              return (
+                <option key={buildDestinoKey(option)} value={buildDestinoKey(option)}>
+                  {option.categoria_nombre} | ped. {option.kg_solicitados} | asig. {option.kg_asignados} | {estadoSaldo}
+                </option>
+              );
+            })}
+          </select>
+        </label>
+      ) : destinoSeleccionado ? (
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 md:col-span-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Linea / categoria destino</p>
+          <p className="mt-1 text-xs font-medium text-slate-900">{destinoSeleccionado.categoria_nombre}</p>
+        </div>
+      ) : pedidoCategoriaId <= 0 ? (
         <label className="grid gap-1 md:col-span-2">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categoria destino</span>
           <select
-            name="categoria_destino_id"
-            defaultValue=""
+            value={categoriaLibreId}
+            onChange={(event) => setCategoriaLibreId(event.target.value)}
             className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
             required
           >
@@ -94,18 +169,26 @@ export default function PedidoAsignacionForm({
           </select>
         </label>
       ) : (
-        <>
-          <input
-            type="hidden"
-            name="categoria_destino_id"
-            value={String(pedidoCategoriaId || categoriaId || "")}
-          />
-          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 md:col-span-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categoria destino</p>
-            <p className="mt-1 text-xs font-medium text-slate-900">{pedidoCategoriaNombre}</p>
-          </div>
-        </>
+        <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 md:col-span-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categoria destino</p>
+          <p className="mt-1 text-xs font-medium text-slate-900">{pedidoCategoriaNombre}</p>
+        </div>
       )}
+
+      {destinoSeleccionado ? (
+        <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-900 md:col-span-2">
+          <p className="font-semibold">
+            Esta linea lleva {destinoSeleccionado.kg_asignados} / {destinoSeleccionado.kg_solicitados} kg.
+          </p>
+          <p className="mt-1">
+            {saldoLinea > 0.01
+              ? `Aun faltan ${saldoLinea} kg, pero igual puedes asignar mas si el cliente ya lo negocio.`
+              : saldoLinea < -0.01
+                ? `Ya esta sobreasignada por ${Math.abs(saldoLinea)} kg y aun asi puedes seguir enviando si corresponde.`
+                : "Ya esta cubierta al 100%, pero el sistema permite seguir asignando mas si asi lo acordaron."}
+          </p>
+        </div>
+      ) : null}
 
       <label className="grid gap-1">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -128,11 +211,12 @@ export default function PedidoAsignacionForm({
       <label className="grid gap-1">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Precio/kg</span>
         <input
+          key={`precio-${destinoKey || categoriaDestinoValue || "base"}`}
           name="precio_kg"
           type="number"
           min="0"
           step="0.01"
-          defaultValue={String(defaultPrecioKg)}
+          defaultValue={String(destinoSeleccionado?.precio_kg ?? defaultPrecioKg)}
           className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
           required
         />
@@ -145,15 +229,14 @@ export default function PedidoAsignacionForm({
             <p className="text-xs text-slate-700">
               {ajustarKgExacto ? (
                 <>
-                  Se usara el <strong className="text-slate-900">kg exacto</strong> solicitado, pero como referencia el retiro seria de
-                  {" "}<strong className="text-slate-900">~{resumenJabas.jabasEstimadas} jabas</strong>.
+                  Se usara el <strong className="text-slate-900">kg exacto</strong> solicitado, pero como referencia el retiro seria de{" "}
+                  <strong className="text-slate-900">~{resumenJabas.jabasEstimadas} jabas</strong>.
                 </>
               ) : (
                 <>
-                  Con jabas completas, para cubrir ese kiloaje se retiraran
-                  {" "}<strong className="text-slate-900">~{resumenJabas.jabasEstimadas} jabas</strong>
-                  {" "}y el sistema registrara
-                  {" "}<strong className="text-slate-900">~{resumenJabas.pesoCubierto} kg</strong>.
+                  Con jabas completas, para cubrir ese kiloaje se retiraran{" "}
+                  <strong className="text-slate-900">~{resumenJabas.jabasEstimadas} jabas</strong>{" "}
+                  y el sistema registrara <strong className="text-slate-900">~{resumenJabas.pesoCubierto} kg</strong>.
                 </>
               )}
             </p>

@@ -682,20 +682,131 @@ export async function updatePedidoAction(formData: FormData) {
   revalidatePath("/pedidos");
   redirectWithMessage("ok", `Pedido ${pedido.numero_pedido} actualizado correctamente.`);
 }
+
+export async function descartarPedidoAction(formData: FormData) {
+  await ensureWriteAccess("pedidos");
+
+  const pedidoId = Number(getField(formData, "pedido_id"));
+  if (!pedidoId || Number.isNaN(pedidoId)) {
+    redirectWithMessage("error", "Pedido invalido para descartar.");
+  }
+
+  const pedido = await getPedidoById(pedidoId);
+  if (!pedido) {
+    redirectWithMessage("error", "El pedido no existe.");
+  }
+
+  if (pedido.estado === "cancelado") {
+    redirectWithMessage("error", `El pedido ${pedido.numero_pedido} ya estaba descartado.`);
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { data: asignaciones, error: asignacionesError } = await supabase
+    .from("pedido_asignaciones")
+    .select("id,lote_id,categoria_id,sin_clasificacion_neta,kg_asignados")
+    .eq("pedido_id", pedidoId);
+
+  if (asignacionesError) {
+    redirectWithMessage("error", `No se pudieron cargar las asignaciones del pedido: ${asignacionesError.message}`);
+  }
+
+  const lotesAfectados = [
+    ...new Set((asignaciones ?? []).map((row) => Number(row.lote_id)).filter((value) => value > 0)),
+  ];
+  const totalLiberado = round2(
+    (asignaciones ?? []).reduce((acc, row) => acc + Number(row.kg_asignados ?? 0), 0),
+  );
+
+  if ((asignaciones ?? []).length > 0) {
+    const { error: deleteError } = await supabase.from("pedido_asignaciones").delete().eq("pedido_id", pedidoId);
+    if (deleteError) {
+      redirectWithMessage("error", `No se pudieron liberar las asignaciones del pedido: ${deleteError.message}`);
+    }
+
+    const { error: kardexError } = await supabase.from("kardex").insert(
+      (asignaciones ?? []).map((row) => ({
+        tipo_kardex: "producto",
+        tipo_movimiento: "salida",
+        origen: "ajuste",
+        origen_id: Number(row.id),
+        origen_numero: pedido.numero_pedido,
+        lote_id: Number(row.lote_id),
+        categoria_id: Number(row.categoria_id),
+        peso_kg: round2(-Number(row.kg_asignados ?? 0)),
+        persona_id: pedido.cliente_id,
+        concepto: row.sin_clasificacion_neta
+          ? `Anulacion por descarte del pedido ${pedido.numero_pedido} sin clasificacion neta`
+          : `Anulacion por descarte del pedido ${pedido.numero_pedido}`,
+        observaciones: row.sin_clasificacion_neta
+          ? "Pedido descartado; se libero asignacion desde almacen sin clasificacion neta."
+          : "Pedido descartado; se libero asignacion.",
+      })),
+    );
+
+    if (kardexError) {
+      redirectWithMessage("error", `Pedido descartado, pero fallo el kardex de liberacion: ${kardexError.message}`);
+    }
+  }
+
+  const selloDescarte = `[DESCARTADO ${new Date().toISOString()}] Pedido descartado sin borrar. ${
+    totalLiberado > 0.01
+      ? `Se liberaron ${(asignaciones ?? []).length} asignacion(es) / ${totalLiberado} kg.`
+      : "No tenia asignaciones vigentes."
+  }`;
+  const observaciones = [pedido.observaciones, selloDescarte].filter(Boolean).join(" | ");
+
+  const { error: updateError } = await supabase
+    .from("pedidos")
+    .update({
+      estado: "cancelado",
+      observaciones,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", pedidoId);
+
+  if (updateError) {
+    redirectWithMessage("error", `No se pudo marcar el pedido como descartado: ${updateError.message}`);
+  }
+
+  try {
+    await syncPedidoDetalleAsignado(supabase, pedidoId);
+  } catch (syncError) {
+    const message = syncError instanceof Error ? syncError.message : "No se pudo recalcular el detalle del pedido descartado.";
+    redirectWithMessage("error", message);
+  }
+
+  for (const loteId of lotesAfectados) {
+    const loteEstadoError = await recalculateAndUpdateLoteEstado(loteId);
+    if (loteEstadoError) {
+      redirectWithMessage("error", `Pedido descartado, pero no se pudo recalcular el estado del lote ${loteId}: ${loteEstadoError}`);
+    }
+  }
+
+  revalidatePath("/pedidos");
+  revalidatePath("/almacen");
+  revalidatePath("/clasificacion-neta");
+  redirectWithMessage(
+    "ok",
+    totalLiberado > 0.01
+      ? `Pedido ${pedido.numero_pedido} descartado y ${totalLiberado} kg liberados.`
+      : `Pedido ${pedido.numero_pedido} descartado correctamente.`,
+  );
+}
+
 export async function asignarLotePedidoAction(formData: FormData) {
   await ensureWriteAccess("pedidos");
 
   const pedidoId = Number(getField(formData, "pedido_id"));
-  const pedidoDetalleId = Number(getField(formData, "pedido_detalle_id"));
+  const pedidoDetalleIdRaw = Number(getField(formData, "pedido_detalle_id"));
   const loteId = Number(getField(formData, "lote_id"));
   const categoriaOrigenId = Number(getField(formData, "categoria_id"));
-  const categoriaDestinoId = Number(getField(formData, "categoria_destino_id") || getField(formData, "categoria_id"));
+  let categoriaDestinoId = Number(getField(formData, "categoria_destino_id") || getField(formData, "categoria_id"));
   const sinClasificacionNeta = getField(formData, "sin_clasificacion_neta") === "1";
   const ajustarKgExacto = getField(formData, "ajustar_kg_exacto") === "1";
   const kgSolicitados = toDecimal(getField(formData, "kg_asignados"));
   const precioKg = toDecimal(getField(formData, "precio_kg"));
   const fechaAsignacion = getField(formData, "fecha_asignacion");
-  const categoriaRegistroId = categoriaOrigenId > 0 ? categoriaOrigenId : categoriaDestinoId;
+  let pedidoDetalleId = pedidoDetalleIdRaw;
 
   if (!pedidoId || !loteId || !categoriaDestinoId) {
     redirectWithMessage("error", "Datos invalidos para la asignacion.");
@@ -712,10 +823,6 @@ export async function asignarLotePedidoAction(formData: FormData) {
 
   if (pedido.estado === "cancelado") {
     redirectWithMessage("error", "No se puede asignar un pedido cancelado.");
-  }
-
-  if (pedido.estado === "completado") {
-    redirectWithMessage("error", "El pedido ya esta completado.");
   }
 
   const categoriaDestinoValida = await ensureCategoriaActiva(categoriaDestinoId);
@@ -748,19 +855,22 @@ export async function asignarLotePedidoAction(formData: FormData) {
     redirectWithMessage("error", message);
   }
 
+  const pedidoTieneDetalle = detailMap.size > 0;
   const detalle = pedidoDetalleId > 0 ? detailMap.get(pedidoDetalleId) : null;
+  if (pedidoTieneDetalle) {
+    if (pedidoDetalleId <= 0 || !detalle) {
+      redirectWithMessage("error", "Selecciona la linea destino del pedido antes de asignar el lote.");
+    }
+    categoriaDestinoId = Number(detalle.categoria_id);
+  } else {
+    pedidoDetalleId = 0;
+  }
+
   if (pedidoDetalleId > 0 && !detalle) {
     redirectWithMessage("error", "La linea del pedido ya no existe o requiere migracion.");
   }
 
-  const pedidoKgAsignados = await getPedidoKgAsignados(pedidoId);
-  const pedidoFaltante = round2(Number(pedido.kg_solicitados ?? 0) - pedidoKgAsignados);
-  const pendienteLinea = detalle
-    ? round2(Number(detalle.kg_solicitados ?? 0) - Number(detalle.kg_asignados ?? 0))
-    : pedidoFaltante;
-  if (pendienteLinea <= 0.01) {
-    redirectWithMessage("error", detalle ? "Esa linea del pedido ya no tiene kg pendientes." : "El pedido ya no tiene kg pendientes.");
-  }
+  const categoriaRegistroId = categoriaOrigenId > 0 ? categoriaOrigenId : categoriaDestinoId;
 
   let stockDisponible = 0;
   try {
@@ -824,14 +934,6 @@ export async function asignarLotePedidoAction(formData: FormData) {
         ? `Kg asignados exceden stock disponible (${stockDisponible} kg).`
         : `Con jabas completas necesitas aprox. ${numeroJabasEstimadas} jabas (~${kgAsignados} kg), pero el origen solo tiene ${stockDisponible} kg disponibles.`,
     );
-  }
-
-  if (ajustarKgExacto) {
-    if (kgAsignados > pendienteLinea + 0.01) {
-      redirectWithMessage("error", `Kg asignados exceden faltante de la linea (${pendienteLinea} kg).`);
-    }
-  } else if (kgSolicitados > pendienteLinea + 0.01) {
-    redirectWithMessage("error", `El objetivo minimo excede el faltante de la linea (${pendienteLinea} kg).`);
   }
 
   const subtotal = round2(kgAsignados * precioKg);
@@ -954,28 +1056,8 @@ export async function updateAsignacionPedidoAction(formData: FormData) {
     redirectWithMessage("error", "Pedido o lote no disponibles para actualizar asignacion.");
   }
 
-  let detailMap: Awaited<ReturnType<typeof getPedidoDetalleMap>>;
-  try {
-    detailMap = await getPedidoDetalleMap(Number(asignacionActual.pedido_id));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo cargar el detalle del pedido.";
-    redirectWithMessage("error", message);
-  }
-
-  const detalle = detailMap.get(Number(asignacionActual.pedido_detalle_id ?? 0)) ?? null;
-  const totalAsignadoPedido = await getPedidoKgAsignados(Number(asignacionActual.pedido_id));
-  const pendienteMaximoLinea = detalle
-    ? round2(
-        Number(detalle.kg_solicitados ?? 0) - Number(detalle.kg_asignados ?? 0) + Number(asignacionActual.kg_asignados ?? 0),
-      )
-    : round2(Number(pedido.kg_solicitados ?? 0) - (totalAsignadoPedido - Number(asignacionActual.kg_asignados ?? 0)));
-  if (kgAsignados > pendienteMaximoLinea + 0.01) {
-    redirectWithMessage(
-      "error",
-      detalle
-        ? `Con ese cambio excedes el faltante de la linea (${pendienteMaximoLinea} kg).`
-        : `Con ese cambio excedes el faltante total del pedido (${pendienteMaximoLinea} kg).`,
-    );
+  if (pedido.estado === "cancelado") {
+    redirectWithMessage("error", "No se puede editar una asignacion de un pedido descartado.");
   }
 
   let stockMaximo = 0;
