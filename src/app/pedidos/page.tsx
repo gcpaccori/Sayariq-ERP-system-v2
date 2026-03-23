@@ -586,6 +586,12 @@ export default async function PedidosPage({
                             </option>
                           ))}
                         </select>
+                        {categorias.length === 0 ? (
+                          <span className="text-xs text-amber-700">
+                            No hay categorías visibles en Supabase para este entorno. Si la tabla está vacía y existe
+                            `SUPABASE_SERVICE_ROLE_KEY`, la app intentará sembrar categorías base automáticamente.
+                          </span>
+                        ) : null}
                       </label>
 
                       <label className="grid gap-1">
@@ -840,6 +846,11 @@ export default async function PedidosPage({
                             </option>
                           ))}
                         </select>
+                        {categorias.length === 0 ? (
+                          <span className="text-xs text-amber-700">
+                            No hay categorías visibles en Supabase para este entorno.
+                          </span>
+                        ) : null}
                       </label>
 
                       <label className="grid gap-1.5">
