@@ -32,6 +32,7 @@ type SearchParams = {
   estado?: "todos" | "pendiente" | "en_proceso" | "completado" | "cancelado";
   cliente?: string;
   page?: string;
+  ver?: string;
   asignar?: string;
   asignar_q?: string;
   asignar_tipo?: "todos" | "exacta" | "sustitucion" | "sin_clasificar";
@@ -85,6 +86,17 @@ type Asignacion = {
   precio_kg: number;
   subtotal: number;
   fecha_asignacion: string;
+};
+
+type AsignacionVista = Asignacion & {
+  lote_numero: string;
+  productor_nombre: string;
+  fecha_ingreso: string;
+  guia_ingreso: string | null;
+  chofer: string | null;
+  estado_lote: string;
+  categoria_origen_nombre: string;
+  linea_destino_nombre: string;
 };
 
 type PedidoDestinoOption = {
@@ -361,6 +373,106 @@ async function getAsignacionesByPedidos(pedidoIds: number[]) {
     .in("pedido_id", pedidoIds);
 
   return (data ?? []) as Asignacion[];
+}
+
+async function getAsignacionesVistaPedido(
+  pedidoId: number,
+  detalleLines: PedidoDetalleLine[],
+): Promise<AsignacionVista[]> {
+  const rows = await getAsignacionesByPedidos([pedidoId]);
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const supabase = getSupabaseServerClient();
+  const loteIds = [...new Set(rows.map((row) => Number(row.lote_id)).filter((value) => value > 0))];
+  const categoriaIds = [...new Set(rows.map((row) => Number(row.categoria_id)).filter((value) => value > 0))];
+
+  const { data: lotesData, error: lotesError } =
+    loteIds.length > 0
+      ? await supabase
+        .from("lotes")
+        .select("id,numero_lote,productor_id,fecha_ingreso,guia_ingreso,chofer,estado")
+        .in("id", loteIds)
+      : { data: [], error: null };
+
+  if (lotesError) {
+    throw new Error(`No se pudieron cargar los lotes del pedido: ${lotesError.message}`);
+  }
+
+  const productorIds = [
+    ...new Set((lotesData ?? []).map((row) => Number(row.productor_id)).filter((value) => value > 0)),
+  ];
+
+  const [categoriasResult, productoresResult] = await Promise.all([
+    categoriaIds.length > 0
+      ? supabase.from("categorias").select("id,nombre").in("id", categoriaIds)
+      : Promise.resolve({ data: [], error: null }),
+    productorIds.length > 0
+      ? supabase.from("personas").select("id,nombre_completo").in("id", productorIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (categoriasResult.error) {
+    throw new Error(`No se pudieron cargar las categorias de las asignaciones: ${categoriasResult.error.message}`);
+  }
+
+  if (productoresResult.error) {
+    throw new Error(`No se pudieron cargar los productores de las asignaciones: ${productoresResult.error.message}`);
+  }
+
+  const loteMap = new Map<
+    number,
+    {
+      numero_lote: string;
+      productor_id: number;
+      fecha_ingreso: string;
+      guia_ingreso: string | null;
+      chofer: string | null;
+      estado: string;
+    }
+  >();
+  for (const row of lotesData ?? []) {
+    loteMap.set(Number(row.id), {
+      numero_lote: String(row.numero_lote),
+      productor_id: Number(row.productor_id),
+      fecha_ingreso: String(row.fecha_ingreso),
+      guia_ingreso: row.guia_ingreso ? String(row.guia_ingreso) : null,
+      chofer: row.chofer ? String(row.chofer) : null,
+      estado: String(row.estado),
+    });
+  }
+
+  const categoriaMap = new Map<number, string>();
+  for (const row of categoriasResult.data ?? []) {
+    categoriaMap.set(Number(row.id), String(row.nombre));
+  }
+
+  const productorMap = new Map<number, string>();
+  for (const row of productoresResult.data ?? []) {
+    productorMap.set(Number(row.id), String(row.nombre_completo));
+  }
+
+  const detalleMap = new Map<number, PedidoDetalleLine>();
+  for (const line of detalleLines) {
+    detalleMap.set(Number(line.id), line);
+  }
+
+  return rows.map((row) => {
+    const lote = loteMap.get(Number(row.lote_id));
+    const linea = detalleMap.get(Number(row.pedido_detalle_id ?? 0));
+    return {
+      ...row,
+      lote_numero: lote?.numero_lote ?? String(row.lote_id),
+      productor_nombre: productorMap.get(Number(lote?.productor_id ?? 0)) ?? "No registrado",
+      fecha_ingreso: lote?.fecha_ingreso ?? "-",
+      guia_ingreso: lote?.guia_ingreso ?? null,
+      chofer: lote?.chofer ?? null,
+      estado_lote: lote?.estado ?? "-",
+      categoria_origen_nombre: categoriaMap.get(Number(row.categoria_id)) ?? String(row.categoria_id),
+      linea_destino_nombre: linea?.categoria_nombre ?? categoriaMap.get(Number(linea?.categoria_id ?? row.categoria_id)) ?? "Pedido sin detalle por categoria",
+    };
+  });
 }
 
 async function getConsumosDestinoByLotes(loteIds: number[]): Promise<ConsumosDestinoResult> {
@@ -952,6 +1064,7 @@ function buildPedidosUrl(params: {
   estado?: string;
   cliente?: string;
   page?: number;
+  ver?: number | null;
   asignar?: number | null;
   asignarQ?: string;
   asignarTipo?: string;
@@ -974,6 +1087,10 @@ function buildPedidosUrl(params: {
 
   if ((params.page ?? 1) > 1) {
     searchParams.set("page", String(params.page));
+  }
+
+  if ((params.ver ?? 0) > 0) {
+    searchParams.set("ver", String(params.ver));
   }
 
   if ((params.asignar ?? 0) > 0) {
@@ -1060,6 +1177,7 @@ export default async function PedidosPage({
     }
   }
 
+  const verId = Number(search.ver ?? "0");
   const asignarId = Number(search.asignar ?? "0");
   const editarId = Number(search.editar ?? "0");
 
@@ -1089,22 +1207,36 @@ export default async function PedidosPage({
     page: currentPage,
   });
 
+  const pedidoVer = verId > 0 ? await getPedidoById(verId) : null;
   const pedidoSeleccionado =
     asignarId > 0 ? await getPedidoById(asignarId) : null;
   const pedidoEditar = editarId > 0 ? await getPedidoById(editarId) : null;
+  const detallePedidoVer = pedidoVer
+    ? await loadPedidoDetalleCompat(supabase, pedidoVer)
+    : [];
   const detallePedidoSeleccionado = pedidoSeleccionado
     ? await loadPedidoDetalleCompat(supabase, pedidoSeleccionado)
     : [];
   const detallePedidoEditar = pedidoEditar
     ? await loadPedidoDetalleCompat(supabase, pedidoEditar)
     : [];
+  if (detallePedidoVer.length === 1 && Number(detallePedidoVer[0]?.categoria_id) <= 0) {
+    detallePedidoVer[0] = {
+      ...detallePedidoVer[0],
+      kg_asignados: round2(kgAsignadosMap.get(Number(pedidoVer?.id ?? 0)) ?? 0),
+    };
+  }
   if (detallePedidoSeleccionado.length === 1 && Number(detallePedidoSeleccionado[0]?.categoria_id) <= 0) {
     detallePedidoSeleccionado[0] = {
       ...detallePedidoSeleccionado[0],
       kg_asignados: round2(kgAsignadosMap.get(Number(pedidoSeleccionado?.id ?? 0)) ?? 0),
     };
   }
+  const resumenDetalleVer = summarizePedidoDetalle(detallePedidoVer);
   const resumenDetalleSeleccionado = summarizePedidoDetalle(detallePedidoSeleccionado);
+  const asignacionesPedidoVer = pedidoVer
+    ? await getAsignacionesVistaPedido(pedidoVer.id, detallePedidoVer)
+    : [];
 
   const loteDisponiblesResult = pedidoSeleccionado
     ? await getAvailableLotesForPedido(pedidoSeleccionado, detallePedidoSeleccionado)
@@ -1177,6 +1309,25 @@ export default async function PedidosPage({
   for (const row of lotesSelData ?? []) {
     loteMapSel.set(Number(row.id), String(row.numero_lote));
   }
+
+  const kgAsignadoVer = round2(
+    asignacionesPedidoVer.reduce((acc, row) => acc + Number(row.kg_asignados ?? 0), 0),
+  );
+  const jabasAsignadasVer = round2(
+    asignacionesPedidoVer.reduce((acc, row) => acc + Number(row.numero_jabas_estimadas ?? 0), 0),
+  );
+  const kgSolicitadoVer = round2(
+    Number(resumenDetalleVer.kgSolicitados || pedidoVer?.kg_solicitados || 0),
+  );
+  const deltaPedidoVer = round2(kgAsignadoVer - kgSolicitadoVer);
+  const estadoPreparacionVer =
+    kgAsignadoVer <= 0.01
+      ? "Sin asignacion"
+      : deltaPedidoVer > 0.01
+        ? "Sobreasignado"
+        : deltaPedidoVer < -0.01
+          ? "Incompleto"
+          : "Completo";
 
   const consumosDestinoByLote = consumosDestinoResult.byLote;
 
@@ -1363,6 +1514,218 @@ export default async function PedidosPage({
               </form>
             </div>
           </section>
+
+          {pedidoVer ? (
+            <ModuleFormModal
+              isOpen={true}
+              closeHref={listBaseUrl}
+              title={`Ver pedido ${pedidoVer.numero_pedido}`}
+              description={`Cliente: ${pedidosData.clienteMap.get(pedidoVer.cliente_id) ?? pedidoVer.cliente_id} | Producto: ${pedidoVer.producto} | Estado comercial: ${pedidoVer.estado}`}
+              maxWidth="5xl"
+            >
+              <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <div className="rounded-xl border border-gray-200 bg-blue-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Preparacion</p>
+                  <p className="mt-2 text-xl font-bold text-blue-800">{estadoPreparacionVer}</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-slate-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Kg solicitados</p>
+                  <p className="mt-2 text-xl font-bold text-slate-900">{kgSolicitadoVer}</p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-emerald-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Kg asignados</p>
+                  <p className="mt-2 text-xl font-bold text-emerald-800">{kgAsignadoVer}</p>
+                </div>
+                <div className={`rounded-xl border p-4 ${deltaPedidoVer > 0.01 ? "border-amber-200 bg-amber-50" : deltaPedidoVer < -0.01 ? "border-red-200 bg-red-50" : "border-emerald-200 bg-emerald-50"}`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    {deltaPedidoVer > 0.01 ? "Excedente" : deltaPedidoVer < -0.01 ? "Faltante" : "Encuadre"}
+                  </p>
+                  <p className={`mt-2 text-xl font-bold ${deltaPedidoVer > 0.01 ? "text-amber-800" : deltaPedidoVer < -0.01 ? "text-red-800" : "text-emerald-800"}`}>
+                    {Math.abs(deltaPedidoVer)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-violet-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Jabas est. totales</p>
+                  <p className="mt-2 text-xl font-bold text-violet-800">{jabasAsignadasVer}</p>
+                </div>
+              </div>
+
+              <div className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-lg border border-gray-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Cliente</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">
+                    {pedidosData.clienteMap.get(pedidoVer.cliente_id) ?? pedidoVer.cliente_id}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Producto</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{pedidoVer.producto}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fecha pedido</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{pedidoVer.fecha_pedido}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fecha entrega</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{pedidoVer.fecha_entrega ?? "Sin fecha"}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Estado comercial</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{pedidoVer.estado}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Lineas</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{detallePedidoVer.length}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Asignaciones</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{asignacionesPedidoVer.length}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total estimado</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{pedidoVer.total_estimado}</p>
+                </div>
+              </div>
+
+              {pedidoVer.observaciones ? (
+                <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Observaciones</p>
+                  <p className="mt-1 whitespace-pre-wrap">{pedidoVer.observaciones}</p>
+                </div>
+              ) : null}
+
+              <h3 className="mb-2 text-base font-semibold text-gray-900">Composicion del pedido</h3>
+              <p className="mb-4 text-sm text-gray-600">Asi esta conformado el pedido por linea, incluyendo si ya esta completo, incompleto o sobreasignado.</p>
+              <div className="mb-6 grid gap-3 lg:grid-cols-2">
+                {detallePedidoVer.map((line) => {
+                  const deltaLinea = round2(Number(line.kg_asignados ?? 0) - Number(line.kg_solicitados ?? 0));
+                  const estadoLinea =
+                    Number(line.kg_asignados ?? 0) <= 0.01
+                      ? "Sin asignacion"
+                      : deltaLinea > 0.01
+                        ? "Sobreasignada"
+                        : deltaLinea < -0.01
+                          ? "Incompleta"
+                          : "Completa";
+
+                  return (
+                    <div key={line.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{line.categoria_nombre}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Prioridad {line.prioridad} | Precio {line.precio_kg} | {line.permite_sustitucion ? "Acepta sustitucion" : "Solo exacta"}
+                          </p>
+                        </div>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                          estadoLinea === "Sobreasignada"
+                            ? "bg-amber-100 text-amber-800"
+                            : estadoLinea === "Incompleta"
+                              ? "bg-red-100 text-red-800"
+                              : estadoLinea === "Completa"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-slate-100 text-slate-700"
+                        }`}>
+                          {estadoLinea}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Solicitado</p>
+                          <p className="mt-1 text-sm font-bold text-slate-900">{line.kg_solicitados} kg</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Asignado</p>
+                          <p className="mt-1 text-sm font-bold text-emerald-700">{line.kg_asignados} kg</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            {deltaLinea > 0.01 ? "Excedente" : deltaLinea < -0.01 ? "Faltante" : "Encuadre"}
+                          </p>
+                          <p className={`mt-1 text-sm font-bold ${deltaLinea > 0.01 ? "text-amber-700" : deltaLinea < -0.01 ? "text-red-700" : "text-emerald-700"}`}>
+                            {deltaLinea > 0.01 ? deltaLinea : Math.abs(deltaLinea)} kg
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Requiere revision</p>
+                          <p className="mt-1 text-sm font-bold text-slate-900">{line.requiere_revision ? "Si" : "No"}</p>
+                        </div>
+                      </div>
+                      {line.observaciones ? (
+                        <p className="mt-3 text-xs text-slate-600">{line.observaciones}</p>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <h3 className="mb-2 text-base font-semibold text-gray-900">Preparacion por lote</h3>
+              <p className="mb-4 text-sm text-gray-600">Vista completa para preparar o verificar el pedido, con datos de lote, productor, jabas y fechas.</p>
+              {asignacionesPedidoVer.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
+                  Este pedido aun no tiene asignaciones registradas.
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {asignacionesPedidoVer.map((row) => (
+                    <div key={`vista-${row.id}`} className="rounded-xl border border-gray-200 bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-900">Lote {row.lote_numero}</p>
+                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${row.sin_clasificacion_neta ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>
+                              {row.sin_clasificacion_neta ? "Sin clasificacion neta" : "Clasificado"}
+                            </span>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                              {row.estado_lote}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-600">
+                            Destino {row.linea_destino_nombre} | Origen {row.categoria_origen_nombre}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-slate-900">{row.kg_asignados} kg</p>
+                          <p className="text-xs text-slate-600">~{row.numero_jabas_estimadas ?? 0} jabas</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Productor</p>
+                          <p className="mt-1 text-xs font-medium text-slate-900">{row.productor_nombre}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Ingreso</p>
+                          <p className="mt-1 text-xs font-medium text-slate-900">{row.fecha_ingreso}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Guia</p>
+                          <p className="mt-1 text-xs font-medium text-slate-900">{row.guia_ingreso ?? "Sin guia"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Chofer</p>
+                          <p className="mt-1 text-xs font-medium text-slate-900">{row.chofer ?? "No registrado"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Precio/kg</p>
+                          <p className="mt-1 text-xs font-medium text-slate-900">{row.precio_kg}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Subtotal</p>
+                          <p className="mt-1 text-xs font-medium text-slate-900">{row.subtotal}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fecha asignacion</p>
+                          <p className="mt-1 text-xs font-medium text-slate-900">{row.fecha_asignacion}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ModuleFormModal>
+          ) : null}
 
           {pedidoEditar ? (
             <ModuleFormModal
@@ -2156,6 +2519,20 @@ export default async function PedidosPage({
                         </td>
                         <td className="sticky right-0 bg-white px-4 py-3 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-gray-50 z-10">
                           <div className="flex flex-wrap items-start justify-center gap-2">
+                            <PendingRouteButton
+                              href={buildPedidosUrl({
+                                q: search.q,
+                                estado: search.estado,
+                                cliente: search.cliente,
+                                page: currentPage,
+                                ver: Number(pedido.id),
+                              })}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                              pendingLabel="Abriendo..."
+                            >
+                              <Eye size={14} />
+                              Ver
+                            </PendingRouteButton>
                             {pedido.estado !== "cancelado" ? (
                               <PendingRouteButton
                                 href={buildPedidosUrl({
@@ -2168,7 +2545,6 @@ export default async function PedidosPage({
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
                                 pendingLabel="Abriendo..."
                               >
-                                <Eye size={14} />
                                 Asignar
                               </PendingRouteButton>
                             ) : null}
