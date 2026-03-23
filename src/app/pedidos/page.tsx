@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, Eye } from "lucide-react";
+import { Search, Eye, ChevronDown } from "lucide-react";
 
 import {
   asignarLotePedidoAction,
@@ -97,6 +97,14 @@ type LoteDisponible = {
   categoria_id: number;
   categoria_origen_nombre: string;
   kg_disponibles: number;
+  kg_total_origen: number;
+  kg_consumidos_origen: number;
+  kg_total_lote: number;
+  kg_consumidos_lote: number;
+  jabas_total_origen: number;
+  jabas_disponibles_estimadas: number;
+  jabas_consumidas_estimadas: number;
+  peso_promedio_jaba: number;
   sin_clasificacion_neta: boolean;
   es_sustitucion: boolean;
   stock_badge: string;
@@ -188,6 +196,10 @@ function filterLotesDisponibles(rows: LoteDisponible[], filters: AsignacionFilte
   });
 
   return filtered.sort((a, b) => {
+    const aParcial = a.kg_consumidos_lote > 0.01;
+    const bParcial = b.kg_consumidos_lote > 0.01;
+    if (aParcial !== bParcial) return aParcial ? -1 : 1;
+
     if (filters.orden === "stock_asc") return a.kg_disponibles - b.kg_disponibles;
     if (filters.orden === "fecha_antigua") return b.antiguedad_dias - a.antiguedad_dias;
     if (filters.orden === "fecha_reciente") return a.antiguedad_dias - b.antiguedad_dias;
@@ -442,7 +454,7 @@ async function getAvailableLotesForPedido(
 
   const { data: clasificaciones, error: clasificacionesError } = await supabase
     .from("vw_lote_clasificacion_vigente")
-    .select("lote_id,categoria_id,peso_neto")
+    .select("lote_id,categoria_id,peso_neto,numero_jabas")
     .in("lote_id", loteIds);
 
   if (clasificacionesError) {
@@ -553,9 +565,14 @@ async function getAvailableLotesForPedido(
   }
 
   const totalNetoPorLote = new Map<number, number>();
+  const jabasClasificadasPorFila = new Map<string, number>();
   for (const row of clasificaciones ?? []) {
     const loteId = Number(row.lote_id);
     totalNetoPorLote.set(loteId, round2((totalNetoPorLote.get(loteId) ?? 0) + Number(row.peso_neto ?? 0)));
+    jabasClasificadasPorFila.set(
+      `${loteId}-${Number(row.categoria_id)}`,
+      round2(Number(row.numero_jabas ?? 0)),
+    );
   }
 
   for (const row of clasificaciones ?? []) {
@@ -575,6 +592,10 @@ async function getAvailableLotesForPedido(
 
     const loteData = lotesMap.get(loteId);
     if (!loteData) continue;
+    const jabasTotalesFila = Number(jabasClasificadasPorFila.get(`${loteId}-${categoriaId}`) ?? 0);
+    const pesoPromedioJaba = jabasTotalesFila > 0 ? round2(neto / jabasTotalesFila) : 0;
+    const jabasConsumidasEstimadas = pesoPromedioJaba > 0 ? round2(asignado / pesoPromedioJaba) : 0;
+    const kgConsumidosLote = round2(asignadoClasificadoLote + rawAsignado);
 
     for (const line of detalle) {
       const faltante = pendientes.get(Number(line.id)) ?? 0;
@@ -585,6 +606,8 @@ async function getAvailableLotesForPedido(
         Number(line.categoria_id) > 0
           ? line.categoria_nombre
           : "Sin detalle por categoria";
+      const kgDisponiblesRow = round2(Math.min(disponible, faltante));
+      const jabasDisponiblesRow = pesoPromedioJaba > 0 ? round2(kgDisponiblesRow / pesoPromedioJaba) : 0;
 
       resultado.push({
         lote_id: loteId,
@@ -601,7 +624,15 @@ async function getAvailableLotesForPedido(
         pedido_categoria_nombre: pedidoCategoriaNombre,
         categoria_id: categoriaId,
         categoria_origen_nombre: categoriaMap.get(categoriaId) ?? String(categoriaId),
-        kg_disponibles: round2(Math.min(disponible, faltante)),
+        kg_disponibles: kgDisponiblesRow,
+        kg_total_origen: round2(neto),
+        kg_consumidos_origen: round2(asignado),
+        kg_total_lote: round2(loteTotal),
+        kg_consumidos_lote: kgConsumidosLote,
+        jabas_total_origen: round2(jabasTotalesFila),
+        jabas_disponibles_estimadas: jabasDisponiblesRow,
+        jabas_consumidas_estimadas: round2(jabasConsumidasEstimadas),
+        peso_promedio_jaba: pesoPromedioJaba,
         sin_clasificacion_neta: false,
         es_sustitucion: esSustitucion,
         stock_badge:
@@ -618,6 +649,10 @@ async function getAvailableLotesForPedido(
     if (String(lote.estado) !== "sin_clasificar") continue;
     const disponibleBruto = round2(Number(lote.peso_bruto_ingreso ?? 0) - (rawAsignadoPorLote.get(Number(lote.id)) ?? 0));
     if (disponibleBruto <= 0.01) continue;
+    const jabasTotales = Number(lote.numero_jabas ?? 0);
+    const rawAsignado = rawAsignadoPorLote.get(Number(lote.id)) ?? 0;
+    const pesoPromedioJaba = jabasTotales > 0 ? round2(Number(lote.peso_bruto_ingreso ?? 0) / jabasTotales) : 0;
+    const jabasConsumidasEstimadas = pesoPromedioJaba > 0 ? round2(rawAsignado / pesoPromedioJaba) : 0;
 
     for (const line of detalle) {
       const faltante = pendientes.get(Number(line.id)) ?? 0;
@@ -627,6 +662,8 @@ async function getAvailableLotesForPedido(
         Number(line.categoria_id) > 0
           ? line.categoria_nombre
           : "Sin detalle por categoria";
+      const kgDisponiblesRow = round2(Math.min(disponibleBruto, faltante));
+      const jabasDisponiblesRow = pesoPromedioJaba > 0 ? round2(kgDisponiblesRow / pesoPromedioJaba) : 0;
 
       resultado.push({
         lote_id: Number(lote.id),
@@ -643,7 +680,15 @@ async function getAvailableLotesForPedido(
         pedido_categoria_nombre: pedidoCategoriaNombre,
         categoria_id: targetCategoriaId,
         categoria_origen_nombre: "Sin clasificar",
-        kg_disponibles: round2(Math.min(disponibleBruto, faltante)),
+        kg_disponibles: kgDisponiblesRow,
+        kg_total_origen: round2(Number(lote.peso_bruto_ingreso ?? 0)),
+        kg_consumidos_origen: round2(rawAsignado),
+        kg_total_lote: round2(Number(lote.peso_bruto_ingreso ?? 0)),
+        kg_consumidos_lote: round2(rawAsignado),
+        jabas_total_origen: round2(jabasTotales),
+        jabas_disponibles_estimadas: jabasDisponiblesRow,
+        jabas_consumidas_estimadas: round2(jabasConsumidasEstimadas),
+        peso_promedio_jaba: pesoPromedioJaba,
         sin_clasificacion_neta: true,
         es_sustitucion: false,
         stock_badge: Number(line.categoria_id) > 0 ? "Sin clasificacion neta" : "Sin clasificar y sin detalle",
@@ -1263,26 +1308,74 @@ export default async function PedidosPage({
                   </div>
                 ) : null}
 
-                {loteDisponibles.map((row) => (
-                  <article
-                    key={`${row.lote_id}-${row.pedido_detalle_id}-${row.categoria_id}-${row.stock_badge}`}
-                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-sm font-semibold text-gray-900">{row.numero_lote}</h4>
-                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${row.sin_clasificacion_neta ? "bg-amber-100 text-amber-800" : row.es_sustitucion ? "bg-violet-100 text-violet-800" : "bg-emerald-100 text-emerald-800"}`}>
-                            {row.stock_badge}
-                          </span>
-                          <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                            {row.sin_clasificacion_neta ? "Sin clasificar" : "Clasificado"}
-                          </span>
-                          <span className="inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
-                            {row.antiguedad_dias} d
+                {loteDisponibles.map((row) => {
+                  const loteParcial = row.kg_consumidos_lote > 0.01;
+                  const toneClass = loteParcial
+                    ? "border-amber-300 bg-amber-50/80"
+                    : row.sin_clasificacion_neta
+                      ? "border-sky-200 bg-sky-50/80"
+                      : row.es_sustitucion
+                        ? "border-violet-200 bg-violet-50/80"
+                        : "border-emerald-200 bg-emerald-50/70";
+
+                  return (
+                    <details
+                      key={`${row.lote_id}-${row.pedido_detalle_id}-${row.categoria_id}-${row.stock_badge}`}
+                      className={`group overflow-hidden rounded-xl border shadow-sm ${toneClass}`}
+                    >
+                      <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-3 marker:content-none">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="text-sm font-semibold text-gray-900">{row.numero_lote}</h4>
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${row.sin_clasificacion_neta ? "bg-amber-100 text-amber-800" : row.es_sustitucion ? "bg-violet-100 text-violet-800" : "bg-emerald-100 text-emerald-800"}`}>
+                                {row.stock_badge}
+                              </span>
+                              <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                {row.sin_clasificacion_neta ? "Sin clasificar" : "Clasificado"}
+                              </span>
+                              {loteParcial ? (
+                                <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                                  Consumido parcial
+                                </span>
+                              ) : (
+                                <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                  Lote completo
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-slate-600">
+                              Destino {row.pedido_categoria_nombre} | Productor {row.productor_nombre} | Ingreso {row.fecha_ingreso} | {row.antiguedad_dias} d
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#1A73E8]">
+                            Ver detalle y asignar
+                            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
                           </span>
                         </div>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+
+                        <div className="grid gap-2 md:grid-cols-4">
+                          <div className="rounded-lg bg-white/90 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Disponible ahora</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900">{row.kg_disponibles} kg</p>
+                          </div>
+                          <div className="rounded-lg bg-white/90 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Consumido del origen</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900">{row.kg_consumidos_origen} / {row.kg_total_origen} kg</p>
+                          </div>
+                          <div className="rounded-lg bg-white/90 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Jabas disp. est.</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900">~{row.jabas_disponibles_estimadas}</p>
+                          </div>
+                          <div className="rounded-lg bg-white/90 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Consumo total lote</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900">{row.kg_consumidos_lote} / {row.kg_total_lote} kg</p>
+                          </div>
+                        </div>
+                      </summary>
+
+                      <div className="border-t border-white/70 bg-white p-4">
+                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                           <div className="rounded-lg bg-slate-50 px-3 py-2">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Linea destino</p>
                             <p className="mt-1 text-xs font-medium text-slate-900">{row.pedido_categoria_nombre}</p>
@@ -1290,14 +1383,6 @@ export default async function PedidosPage({
                           <div className="rounded-lg bg-slate-50 px-3 py-2">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categoria origen</p>
                             <p className="mt-1 text-xs font-medium text-slate-900">{row.categoria_origen_nombre}</p>
-                          </div>
-                          <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Productor</p>
-                            <p className="mt-1 text-xs font-medium text-slate-900">{row.productor_nombre}</p>
-                          </div>
-                          <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Ingreso</p>
-                            <p className="mt-1 text-xs font-medium text-slate-900">{row.fecha_ingreso}</p>
                           </div>
                           <div className="rounded-lg bg-slate-50 px-3 py-2">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Chofer</p>
@@ -1308,15 +1393,24 @@ export default async function PedidosPage({
                             <p className="mt-1 text-xs font-medium text-slate-900">{row.guia_ingreso ?? "Sin guia"}</p>
                           </div>
                           <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Jabas</p>
-                            <p className="mt-1 text-xs font-medium text-slate-900">{row.numero_jabas}</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Jabas origen</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">{row.jabas_total_origen}</p>
                           </div>
                           <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Kg disponibles</p>
-                            <p className="mt-1 text-sm font-bold text-slate-900">{row.kg_disponibles} kg</p>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Jabas consumidas est.</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">~{row.jabas_consumidas_estimadas}</p>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Promedio kg/jaba</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">{row.peso_promedio_jaba > 0 ? `~${row.peso_promedio_jaba}` : "Sin dato"}</p>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Jabas ingreso lote</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">{row.numero_jabas}</p>
                           </div>
                         </div>
-                        <p className="mt-2 text-xs text-slate-500">
+
+                        <p className="mt-3 text-xs text-slate-500">
                           {Number(row.pedido_detalle_id) <= 0
                             ? "Pedido legado sin detalle: puedes asignar el lote, pero conviene editar el pedido para dejar el destino bien definido."
                             : row.sin_clasificacion_neta
@@ -1325,10 +1419,8 @@ export default async function PedidosPage({
                                 ? "Categoria distinta a la linea pedida; revisa antes de confirmar la sustitucion."
                                 : "Coincide con la categoria de la linea pedida."}
                         </p>
-                      </div>
 
-                      <div className="w-full lg:max-w-[440px] lg:flex-none">
-                        <form action={asignarLotePedidoAction} className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-2">
+                        <form action={asignarLotePedidoAction} className="mt-4 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-2">
                           <input type="hidden" name="pedido_id" value={String(pedidoSeleccionado.id)} />
                           <input type="hidden" name="pedido_detalle_id" value={String(row.pedido_detalle_id)} />
                           <input type="hidden" name="lote_id" value={String(row.lote_id)} />
@@ -1378,6 +1470,7 @@ export default async function PedidosPage({
                               className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                               required
                             />
+                            <span className="text-[11px] text-slate-500">Referencia jabas: ~{row.jabas_disponibles_estimadas} disponibles en este origen.</span>
                           </label>
 
                           <label className="grid gap-1">
@@ -1421,9 +1514,9 @@ export default async function PedidosPage({
                           </button>
                         </form>
                       </div>
-                    </div>
-                  </article>
-                ))}
+                    </details>
+                  );
+                })}
               </div>
 
               <h3 className="mb-2 text-base font-semibold text-gray-900">Asignaciones registradas</h3>
