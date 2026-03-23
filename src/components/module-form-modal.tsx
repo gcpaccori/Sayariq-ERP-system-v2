@@ -1,8 +1,8 @@
 "use client";
 
-import { ReactNode, useCallback, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
 
 type MaxWidth = "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl";
 
@@ -43,6 +43,7 @@ type Props = (TriggerProps | ControlledProps) & {
 export default function ModuleFormModal(props: Props) {
   const { title, description, maxWidth = "4xl", children } = props;
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
   /* ── Internal state for trigger mode ── */
   const [internalOpen, setInternalOpen] = useState(false);
@@ -51,12 +52,18 @@ export default function ModuleFormModal(props: Props) {
   const isOpen = isControlled ? props.isOpen : internalOpen;
 
   const close = useCallback(() => {
+    if (isPending) return;
+
     if (isControlled) {
-      router.push((props as ControlledProps).closeHref);
+      startTransition(() => {
+        router.push((props as ControlledProps).closeHref, { scroll: false });
+      });
     } else {
-      setInternalOpen(false);
+      startTransition(() => {
+        setInternalOpen(false);
+      });
     }
-  }, [isControlled, props, router]);
+  }, [isControlled, isPending, props, router, startTransition]);
 
   /* ── Close on Escape ── */
   useEffect(() => {
@@ -88,15 +95,21 @@ export default function ModuleFormModal(props: Props) {
       {!isControlled && props.buttonLabel ? (
         <button
           type="button"
-          onClick={() => setInternalOpen(true)}
+          onClick={() => {
+            if (isPending) return;
+            startTransition(() => {
+              setInternalOpen(true);
+            });
+          }}
+          disabled={isPending}
           className={
             props.buttonVariant === "secondary"
-              ? "sx-btn sx-btn-secondary"
-              : "sx-btn sx-btn-primary"
+              ? `sx-btn sx-btn-secondary ${isPending ? "cursor-wait opacity-70" : ""}`
+              : `sx-btn sx-btn-primary ${isPending ? "cursor-wait opacity-70" : ""}`
           }
         >
-          <Plus size={18} className="flex-shrink-0" />
-          <span>{props.buttonLabel}</span>
+          {isPending ? <Loader2 size={18} className="animate-spin flex-shrink-0" /> : <Plus size={18} className="flex-shrink-0" />}
+          <span>{isPending ? "Abriendo..." : props.buttonLabel}</span>
         </button>
       ) : null}
 
@@ -105,7 +118,7 @@ export default function ModuleFormModal(props: Props) {
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm md:items-center"
           onClick={(e) => {
-            if (e.target === e.currentTarget) close();
+            if (!isPending && e.target === e.currentTarget) close();
           }}
           role="dialog"
           aria-modal="true"
@@ -116,6 +129,14 @@ export default function ModuleFormModal(props: Props) {
               animation: "sx-modal-enter 0.25s cubic-bezier(0.16,1,0.3,1)",
             }}
           >
+            {isPending ? (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/75 backdrop-blur-[1px]">
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>Cerrando modal...</span>
+                </div>
+              </div>
+            ) : null}
             {/* Header */}
             <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50 px-6 py-5 md:rounded-t-2xl">
               <div className="flex-1">
@@ -131,10 +152,11 @@ export default function ModuleFormModal(props: Props) {
               <button
                 type="button"
                 onClick={close}
-                className="rounded-full p-1.5 text-gray-500 transition duration-200 hover:bg-gray-100 hover:text-gray-700"
+                disabled={isPending}
+                className={`rounded-full p-1.5 text-gray-500 transition duration-200 hover:bg-gray-100 hover:text-gray-700 ${isPending ? "cursor-wait opacity-60" : ""}`}
                 aria-label="Cerrar formulario"
               >
-                <X size={20} />
+                {isPending ? <Loader2 size={20} className="animate-spin" /> : <X size={20} />}
               </button>
             </div>
 

@@ -21,6 +21,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
+import PendingRouteButton from "@/components/pending-route-button";
 import PedidoAsignacionForm from "@/components/pedido-asignacion-form";
 import PedidoEditor from "@/components/pedido-editor";
 
@@ -118,6 +119,28 @@ type LotesDisponiblesResult = {
   errorMessage: string;
 };
 
+type ConsumoDestino = {
+  asignacion_id: number;
+  lote_id: number;
+  pedido_id: number;
+  pedido_numero: string;
+  cliente_nombre: string;
+  pedido_detalle_id: number | null;
+  linea_categoria_nombre: string;
+  categoria_origen_id: number;
+  categoria_origen_nombre: string;
+  sin_clasificacion_neta: boolean;
+  kg_asignados: number;
+  numero_jabas_estimadas: number;
+  fecha_asignacion: string;
+  origen_scope_key: string;
+};
+
+type ConsumosDestinoResult = {
+  byLote: Map<number, ConsumoDestino[]>;
+  errorMessage: string;
+};
+
 type AsignacionFilters = {
   q: string;
   tipo: "todos" | "exacta" | "sustitucion" | "sin_clasificar";
@@ -132,6 +155,10 @@ function escapeLike(input: string) {
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function getOrigenScopeKey(categoriaId: number, sinClasificacionNeta: boolean) {
+  return sinClasificacionNeta ? "raw" : `cat-${categoriaId}`;
 }
 
 function getAgeInDays(dateValue: string) {
@@ -314,6 +341,183 @@ async function getAsignacionesByPedidos(pedidoIds: number[]) {
     .in("pedido_id", pedidoIds);
 
   return (data ?? []) as Asignacion[];
+}
+
+async function getConsumosDestinoByLotes(loteIds: number[]): Promise<ConsumosDestinoResult> {
+  if (loteIds.length === 0) {
+    return {
+      byLote: new Map<number, ConsumoDestino[]>(),
+      errorMessage: "",
+    };
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { data: asignaciones, error: asignacionesError } = await supabase
+    .from("pedido_asignaciones")
+    .select(
+      "id,pedido_id,pedido_detalle_id,lote_id,categoria_id,sin_clasificacion_neta,kg_asignados,numero_jabas_estimadas,fecha_asignacion",
+    )
+    .in("lote_id", loteIds)
+    .order("fecha_asignacion", { ascending: false })
+    .order("id", { ascending: false });
+
+  if (asignacionesError) {
+    return {
+      byLote: new Map<number, ConsumoDestino[]>(),
+      errorMessage: `No se pudo cargar el destino de las reservas actuales: ${asignacionesError.message}`,
+    };
+  }
+
+  const rows = (asignaciones ?? []) as Array<{
+    id: number;
+    pedido_id: number;
+    pedido_detalle_id: number | null;
+    lote_id: number;
+    categoria_id: number;
+    sin_clasificacion_neta: boolean;
+    kg_asignados: number;
+    numero_jabas_estimadas: number | null;
+    fecha_asignacion: string;
+  }>;
+
+  if (rows.length === 0) {
+    return {
+      byLote: new Map<number, ConsumoDestino[]>(),
+      errorMessage: "",
+    };
+  }
+
+  const pedidoIds = [...new Set(rows.map((row) => Number(row.pedido_id)).filter((value) => value > 0))];
+  const pedidoDetalleIds = [
+    ...new Set(rows.map((row) => Number(row.pedido_detalle_id ?? 0)).filter((value) => value > 0)),
+  ];
+
+  const { data: pedidos, error: pedidosError } =
+    pedidoIds.length > 0
+      ? await supabase.from("pedidos").select("id,numero_pedido,cliente_id").in("id", pedidoIds)
+      : { data: [], error: null };
+
+  if (pedidosError) {
+    return {
+      byLote: new Map<number, ConsumoDestino[]>(),
+      errorMessage: `No se pudo cargar a que pedidos van esas reservas: ${pedidosError.message}`,
+    };
+  }
+
+  const { data: pedidoDetalleRows, error: pedidoDetalleError } =
+    pedidoDetalleIds.length > 0
+      ? await supabase.from("pedido_detalle").select("id,categoria_id").in("id", pedidoDetalleIds)
+      : { data: [], error: null };
+
+  if (pedidoDetalleError) {
+    return {
+      byLote: new Map<number, ConsumoDestino[]>(),
+      errorMessage: `No se pudo cargar el detalle de destino de las reservas: ${pedidoDetalleError.message}`,
+    };
+  }
+
+  const clienteIds = [
+    ...new Set((pedidos ?? []).map((row) => Number(row.cliente_id)).filter((value) => value > 0)),
+  ];
+  const categoriaIds = [
+    ...new Set(
+      [...(pedidoDetalleRows ?? []).map((row) => Number(row.categoria_id)), ...rows.map((row) => Number(row.categoria_id))]
+        .filter((value) => value > 0),
+    ),
+  ];
+
+  const [clientesResult, categoriasResult] = await Promise.all([
+    clienteIds.length > 0
+      ? supabase.from("personas").select("id,nombre_completo").in("id", clienteIds)
+      : Promise.resolve({ data: [], error: null }),
+    categoriaIds.length > 0
+      ? supabase.from("categorias").select("id,nombre").in("id", categoriaIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (clientesResult.error) {
+    return {
+      byLote: new Map<number, ConsumoDestino[]>(),
+      errorMessage: `No se pudo cargar los clientes destino de las reservas: ${clientesResult.error.message}`,
+    };
+  }
+
+  if (categoriasResult.error) {
+    return {
+      byLote: new Map<number, ConsumoDestino[]>(),
+      errorMessage: `No se pudo cargar las categorias destino/origen de las reservas: ${categoriasResult.error.message}`,
+    };
+  }
+
+  const pedidoMap = new Map<
+    number,
+    {
+      numero_pedido: string;
+      cliente_id: number;
+    }
+  >();
+  for (const row of pedidos ?? []) {
+    pedidoMap.set(Number(row.id), {
+      numero_pedido: String(row.numero_pedido),
+      cliente_id: Number(row.cliente_id),
+    });
+  }
+
+  const clienteMap = new Map<number, string>();
+  for (const row of clientesResult.data ?? []) {
+    clienteMap.set(Number(row.id), String(row.nombre_completo));
+  }
+
+  const detalleCategoriaMap = new Map<number, number>();
+  for (const row of pedidoDetalleRows ?? []) {
+    detalleCategoriaMap.set(Number(row.id), Number(row.categoria_id));
+  }
+
+  const categoriaMap = new Map<number, string>();
+  for (const row of categoriasResult.data ?? []) {
+    categoriaMap.set(Number(row.id), String(row.nombre));
+  }
+
+  const byLote = new Map<number, ConsumoDestino[]>();
+
+  for (const row of rows) {
+    const pedido = pedidoMap.get(Number(row.pedido_id));
+    const detalleCategoriaId = Number(detalleCategoriaMap.get(Number(row.pedido_detalle_id ?? 0)) ?? 0);
+    const destinoCategoriaId = detalleCategoriaId > 0 ? detalleCategoriaId : Number(row.categoria_id);
+    const clienteNombre = pedido ? clienteMap.get(pedido.cliente_id) ?? `Cliente ${pedido.cliente_id}` : "Pedido sin cliente";
+    const categoriaOrigenNombre = row.sin_clasificacion_neta
+      ? "Sin clasificar"
+      : categoriaMap.get(Number(row.categoria_id)) ?? `Categoria ${row.categoria_id}`;
+    const lineaCategoriaNombre = destinoCategoriaId > 0
+      ? categoriaMap.get(destinoCategoriaId) ?? `Categoria ${destinoCategoriaId}`
+      : "Pedido sin detalle por categoria";
+    const loteId = Number(row.lote_id);
+    const current = byLote.get(loteId) ?? [];
+
+    current.push({
+      asignacion_id: Number(row.id),
+      lote_id: loteId,
+      pedido_id: Number(row.pedido_id),
+      pedido_numero: pedido?.numero_pedido ?? `Pedido ${row.pedido_id}`,
+      cliente_nombre: clienteNombre,
+      pedido_detalle_id: row.pedido_detalle_id ? Number(row.pedido_detalle_id) : null,
+      linea_categoria_nombre: lineaCategoriaNombre,
+      categoria_origen_id: Number(row.categoria_id),
+      categoria_origen_nombre: categoriaOrigenNombre,
+      sin_clasificacion_neta: Boolean(row.sin_clasificacion_neta),
+      kg_asignados: round2(Number(row.kg_asignados ?? 0)),
+      numero_jabas_estimadas: Number(row.numero_jabas_estimadas ?? 0),
+      fecha_asignacion: String(row.fecha_asignacion),
+      origen_scope_key: getOrigenScopeKey(Number(row.categoria_id), Boolean(row.sin_clasificacion_neta)),
+    });
+
+    byLote.set(loteId, current);
+  }
+
+  return {
+    byLote,
+    errorMessage: "",
+  };
 }
 
 async function getResumenPedidos() {
@@ -875,6 +1079,11 @@ export default async function PedidosPage({
   const loteDisponiblesResult = pedidoSeleccionado
     ? await getAvailableLotesForPedido(pedidoSeleccionado, detallePedidoSeleccionado)
     : { lotes: [], errorMessage: "" };
+  const consumosDestinoResult = pedidoSeleccionado
+    ? await getConsumosDestinoByLotes([
+      ...new Set(loteDisponiblesResult.lotes.map((row) => Number(row.lote_id)).filter((value) => value > 0)),
+    ])
+    : { byLote: new Map<number, ConsumoDestino[]>(), errorMessage: "" };
   const asignacionFilters = buildAsignacionFilters(search);
   const loteDisponibles = filterLotesDisponibles(loteDisponiblesResult.lotes, asignacionFilters);
   const asignacionPageSize = 12;
@@ -938,6 +1147,8 @@ export default async function PedidosPage({
   for (const row of lotesSelData ?? []) {
     loteMapSel.set(Number(row.id), String(row.numero_lote));
   }
+
+  const consumosDestinoByLote = consumosDestinoResult.byLote;
 
   const categoriasEditor = categorias.map((categoria) => ({
     id: categoria.id,
@@ -1171,6 +1382,11 @@ export default async function PedidosPage({
               <p className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                 Primero te mostramos el faltante real por linea. Ademas ya puedes asignar lotes en estado <code>sin_clasificar</code> desde Almacen; cuando eso ocurra queda marcado como &quot;sin clasificacion neta&quot;.
               </p>
+              {consumosDestinoResult.errorMessage ? (
+                <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {consumosDestinoResult.errorMessage}
+                </p>
+              ) : null}
 
               <div className="mb-6 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border border-gray-200 bg-blue-50 p-4">
@@ -1311,7 +1527,7 @@ export default async function PedidosPage({
                   >
                     Aplicar filtros
                   </button>
-                  <Link
+                  <PendingRouteButton
                     href={buildPedidosUrl({
                       q: search.q,
                       estado: search.estado,
@@ -1320,9 +1536,10 @@ export default async function PedidosPage({
                       asignar: pedidoSeleccionado.id,
                     })}
                     className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                    pendingLabel="Limpiando..."
                   >
                     Limpiar
-                  </Link>
+                  </PendingRouteButton>
                 </div>
               </form>
 
@@ -1356,8 +1573,18 @@ export default async function PedidosPage({
                 ) : null}
 
                 {loteDisponiblesPage.map((row) => {
+                  const origenScopeKey = getOrigenScopeKey(Number(row.categoria_id), Boolean(row.sin_clasificacion_neta));
+                  const consumosLote = consumosDestinoByLote.get(Number(row.lote_id)) ?? [];
+                  const consumosOrigen = consumosLote.filter((item) => item.origen_scope_key === origenScopeKey);
+                  const otrosConsumosLote = consumosLote.filter((item) => item.origen_scope_key !== origenScopeKey);
                   const loteParcial = row.kg_consumidos_lote > 0.01;
                   const origenConsumido = row.kg_consumidos_origen > 0.01;
+                  const loteReservaLabel = loteParcial
+                    ? origenConsumido
+                      ? "Este origen ya tiene reservas"
+                      : "Reserva en otro origen"
+                    : "Sin reservas previas";
+                  const origenReservaLabel = origenConsumido ? "Saldo parcial disponible" : "Origen intacto";
                   const toneClass = loteParcial
                     ? "border-amber-300 bg-amber-50/80"
                     : row.sin_clasificacion_neta
@@ -1390,7 +1617,7 @@ export default async function PedidosPage({
                               </span>
                               {loteParcial ? (
                                 <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                                  Lote parcialmente consumido
+                                  {loteReservaLabel}
                                 </span>
                               ) : (
                                 <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
@@ -1398,11 +1625,11 @@ export default async function PedidosPage({
                                 </span>
                               )}
                               <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${origenConsumido ? "bg-orange-100 text-orange-800" : "bg-cyan-100 text-cyan-800"}`}>
-                                {origenConsumido ? "Origen ya consumido" : "Origen intacto"}
+                                {origenReservaLabel}
                               </span>
                             </div>
                             <p className="mt-1 text-xs text-slate-600">
-                              Productor {row.productor_nombre} | Ingreso {row.fecha_ingreso} | {row.antiguedad_dias} d
+                              Productor {row.productor_nombre} | Ingreso {row.fecha_ingreso} | {row.antiguedad_dias} d | {origenConsumido ? "solo queda saldo del origen" : loteParcial ? "el consumo actual esta en otra salida del lote" : "sin reservas previas"}
                             </p>
                           </div>
                           <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-[#1A73E8]">
@@ -1467,6 +1694,95 @@ export default async function PedidosPage({
                           </div>
                         </div>
 
+                        {consumosOrigen.length > 0 || otrosConsumosLote.length > 0 ? (
+                          <div className="mt-3 grid gap-3 xl:grid-cols-2">
+                            {consumosOrigen.length > 0 ? (
+                              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div>
+                                    <p className="text-xs font-semibold text-amber-900">Ya reservado desde este mismo origen</p>
+                                    <p className="mt-0.5 text-[11px] text-amber-800">
+                                      Aqui ves a que pedido/cliente ya se comprometio este saldo.
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                                    {consumosOrigen.length} reserva(s)
+                                  </span>
+                                </div>
+                                <div className="mt-3 grid gap-2">
+                                  {consumosOrigen.map((consumo) => {
+                                    const esPedidoActual = Number(consumo.pedido_id) === pedidoSeleccionado.id;
+                                    return (
+                                      <div key={`origen-${row.lote_id}-${consumo.asignacion_id}`} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-white/80 bg-white px-3 py-2">
+                                        <div className="min-w-0">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-xs font-semibold text-slate-900">{consumo.pedido_numero}</span>
+                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${esPedidoActual ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>
+                                              {esPedidoActual ? "Este pedido" : "Otro pedido"}
+                                            </span>
+                                          </div>
+                                          <p className="mt-1 text-xs text-slate-700">{consumo.cliente_nombre}</p>
+                                          <p className="mt-1 text-[11px] text-slate-500">
+                                            Destino {consumo.linea_categoria_nombre} | Fecha {consumo.fecha_asignacion}
+                                          </p>
+                                        </div>
+                                        <div className="text-right text-[11px] text-slate-600">
+                                          <p className="font-semibold text-slate-900">{consumo.kg_asignados} kg</p>
+                                          <p>~{consumo.numero_jabas_estimadas} jabas</p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {otrosConsumosLote.length > 0 ? (
+                              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div>
+                                    <p className="text-xs font-semibold text-slate-900">Otras reservas del mismo lote</p>
+                                    <p className="mt-0.5 text-[11px] text-slate-600">
+                                      Este origen puede seguir usandose, pero el lote ya tiene salidas comprometidas en otros destinos.
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                                    {otrosConsumosLote.length} reserva(s)
+                                  </span>
+                                </div>
+                                <div className="mt-3 grid gap-2">
+                                  {otrosConsumosLote.map((consumo) => {
+                                    const esPedidoActual = Number(consumo.pedido_id) === pedidoSeleccionado.id;
+                                    return (
+                                      <div key={`lote-${row.lote_id}-${consumo.asignacion_id}`} className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-white bg-white px-3 py-2">
+                                        <div className="min-w-0">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-xs font-semibold text-slate-900">{consumo.pedido_numero}</span>
+                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${esPedidoActual ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>
+                                              {esPedidoActual ? "Este pedido" : "Otro pedido"}
+                                            </span>
+                                            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800">
+                                              Origen {consumo.categoria_origen_nombre}
+                                            </span>
+                                          </div>
+                                          <p className="mt-1 text-xs text-slate-700">{consumo.cliente_nombre}</p>
+                                          <p className="mt-1 text-[11px] text-slate-500">
+                                            Destino {consumo.linea_categoria_nombre} | Fecha {consumo.fecha_asignacion}
+                                          </p>
+                                        </div>
+                                        <div className="text-right text-[11px] text-slate-600">
+                                          <p className="font-semibold text-slate-900">{consumo.kg_asignados} kg</p>
+                                          <p>~{consumo.numero_jabas_estimadas} jabas</p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+
                         <p className="mt-3 text-xs text-slate-500">
                           {Number(row.pedido_detalle_id) <= 0
                             ? "Pedido legado sin detalle: puedes asignar el lote, pero conviene editar el pedido para dejar el destino bien definido."
@@ -1474,7 +1790,15 @@ export default async function PedidosPage({
                               ? `Lote en ${row.estado_lote}; saldra directo desde almacen sin clasificacion neta.`
                               : row.es_sustitucion
                                 ? "Categoria distinta a la linea pedida; revisa antes de confirmar la sustitucion."
-                                : "Coincide con la categoria de la linea pedida."}
+                                : "Coincide con la categoria de la linea pedida."}{" "}
+                          {origenConsumido
+                            ? "Este origen ya tiene reservas activas; aqui solo puedes usar el saldo restante."
+                            : loteParcial
+                              ? "Este origen sigue intacto, pero el lote ya tiene reservas en otra salida."
+                              : "Todo el origen sigue libre para una nueva asignacion."}{" "}
+                          {consumosOrigen.some((consumo) => Number(consumo.pedido_id) === pedidoSeleccionado.id)
+                            ? "Las reservas de este mismo pedido las puedes ajustar mas abajo en Asignaciones registradas."
+                            : ""}
                         </p>
 
                         <PedidoAsignacionForm
@@ -1510,7 +1834,7 @@ export default async function PedidosPage({
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {asignacionPagination.map((pageNumber) => (
-                      <Link
+                      <PendingRouteButton
                         key={pageNumber}
                         href={buildPedidosUrl({
                           q: search.q,
@@ -1526,9 +1850,10 @@ export default async function PedidosPage({
                           asignarPage: pageNumber,
                         })}
                         className={`rounded-lg px-3 py-1.5 font-medium transition ${pageNumber === currentAsignacionPage ? "bg-[#1A73E8] text-white" : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"}`}
+                        pendingLabel={`Pagina ${pageNumber}...`}
                       >
                         {pageNumber}
-                      </Link>
+                      </PendingRouteButton>
                     ))}
                   </div>
                 </div>
@@ -1782,7 +2107,7 @@ export default async function PedidosPage({
                         <td className="sticky right-0 bg-white px-4 py-3 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-gray-50 z-10">
                           <div className="flex flex-wrap items-start justify-center gap-2">
                             {pedido.estado !== "cancelado" ? (
-                              <Link
+                              <PendingRouteButton
                                 href={buildPedidosUrl({
                                   q: search.q,
                                   estado: search.estado,
@@ -1791,12 +2116,13 @@ export default async function PedidosPage({
                                   asignar: Number(pedido.id),
                                 })}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                                pendingLabel="Abriendo..."
                               >
                                 <Eye size={14} />
                                 Asignar
-                              </Link>
+                              </PendingRouteButton>
                             ) : null}
-                            <Link
+                            <PendingRouteButton
                               href={buildPedidosUrl({
                                 q: search.q,
                                 estado: search.estado,
@@ -1805,9 +2131,10 @@ export default async function PedidosPage({
                                 editar: Number(pedido.id),
                               })}
                               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+                              pendingLabel="Abriendo..."
                             >
                               Editar
-                            </Link>
+                            </PendingRouteButton>
                           </div>
                         </td>
                       </tr>
