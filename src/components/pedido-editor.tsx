@@ -72,20 +72,10 @@ export default function PedidoEditor({
   submitLabel,
   showNumeroPedido = false,
 }: Props) {
-  const [categoryQuery, setCategoryQuery] = useState("");
   const [lineas, setLineas] = useState<PedidoEditorLine[]>(
     initial.lineas.length > 0 ? initial.lineas : [buildLine("line-1")],
   );
-
-  const categoriasFiltradas = useMemo(() => {
-    const query = categoryQuery.trim().toLowerCase();
-    if (!query) return categorias;
-
-    return categorias.filter((categoria) => {
-      const text = `${categoria.codigo} ${categoria.nombre}`.toLowerCase();
-      return text.includes(query);
-    });
-  }, [categorias, categoryQuery]);
+  const [queryByLine, setQueryByLine] = useState<Record<string, string>>({});
 
   const duplicateCategoriaIds = useMemo(() => {
     const counts = new Map<number, number>();
@@ -104,7 +94,9 @@ export default function PedidoEditor({
 
   const resumen = useMemo(() => {
     const kgSolicitados = round2(lineas.reduce((acc, line) => acc + Number(line.kg_solicitados ?? 0), 0));
-    const totalEstimado = round2(lineas.reduce((acc, line) => acc + Number(line.kg_solicitados ?? 0) * Number(line.precio_kg ?? 0), 0));
+    const totalEstimado = round2(
+      lineas.reduce((acc, line) => acc + Number(line.kg_solicitados ?? 0) * Number(line.precio_kg ?? 0), 0),
+    );
     const lineasValidas = lineas.filter((line) => Number(line.categoria_id) > 0 && Number(line.kg_solicitados) > 0).length;
 
     return {
@@ -131,15 +123,25 @@ export default function PedidoEditor({
         .filter((line) => line.key !== key)
         .map((line, index) => ({ ...line, prioridad: index + 1 }));
     });
+
+    setQueryByLine((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
   };
 
   const updateLine = (key: string, patch: Partial<PedidoEditorLine>) => {
     setLineas((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
   };
 
+  const updateLineQuery = (key: string, value: string) => {
+    setQueryByLine((current) => ({ ...current, [key]: value }));
+  };
+
   return (
     <div className="grid gap-5">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
         {showNumeroPedido ? (
           <label className="grid gap-1.5">
             <span className="text-sm font-semibold text-gray-900">Numero pedido</span>
@@ -194,7 +196,7 @@ export default function PedidoEditor({
           />
         </label>
 
-        <label className="grid gap-1.5 sm:col-span-3">
+        <label className="grid gap-1.5 lg:col-span-2 xl:col-span-4">
           <span className="text-sm font-semibold text-gray-900">Observaciones generales</span>
           <textarea
             name="observaciones"
@@ -220,29 +222,22 @@ export default function PedidoEditor({
           </button>
         </div>
 
-        <div className="mb-4 grid gap-4 lg:grid-cols-[1.7fr_1fr]">
-          <label className="grid gap-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Buscar categoria</span>
-            <input
-              value={categoryQuery}
-              onChange={(event) => setCategoryQuery(event.target.value)}
-              placeholder="Filtrar por codigo o nombre"
-              className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-            />
-          </label>
-          <div className="grid gap-2 rounded-xl border border-gray-200 bg-white p-4 sm:grid-cols-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Lineas validas</p>
-              <p className="mt-1 text-lg font-bold text-slate-900">{resumen.lineasValidas}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Kg solicitados</p>
-              <p className="mt-1 text-lg font-bold text-slate-900">{resumen.kgSolicitados}</p>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total estimado</p>
-              <p className="mt-1 text-lg font-bold text-slate-900">{resumen.totalEstimado}</p>
-            </div>
+        <div className="mb-4 grid gap-2 rounded-xl border border-gray-200 bg-white p-4 sm:grid-cols-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Categorias cargadas</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">{categorias.length}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Lineas validas</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">{resumen.lineasValidas}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Kg solicitados</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">{resumen.kgSolicitados}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total estimado</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">{resumen.totalEstimado}</p>
           </div>
         </div>
 
@@ -256,13 +251,17 @@ export default function PedidoEditor({
           {lineas.map((line, index) => {
             const categoria = categorias.find((item) => Number(item.id) === Number(line.categoria_id));
             const isDuplicate = duplicateCategoriaIds.has(Number(line.categoria_id));
+            const lineQuery = (queryByLine[line.key] ?? "").trim().toLowerCase();
+            const categoriasFiltradas = !lineQuery
+              ? categorias
+              : categorias.filter((item) => `${item.codigo} ${item.nombre}`.toLowerCase().includes(lineQuery));
 
             return (
               <div key={line.key} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <input type="hidden" name="detalle_ids" value={line.key} />
                 <input type="hidden" name={`detalle_permite_sustitucion_${line.key}`} value={line.permite_sustitucion ? "1" : "0"} />
 
-                <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Linea {index + 1}</p>
                     <p className="text-xs text-slate-500">
@@ -279,8 +278,18 @@ export default function PedidoEditor({
                   </button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-5">
-                  <label className="grid gap-1.5 md:col-span-2">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+                  <label className="grid gap-1.5 xl:col-span-2">
+                    <span className="text-sm font-semibold text-gray-900">Filtrar categoria</span>
+                    <input
+                      value={queryByLine[line.key] ?? ""}
+                      onChange={(event) => updateLineQuery(line.key, event.target.value)}
+                      placeholder="Escribe codigo o nombre"
+                      className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                    />
+                  </label>
+
+                  <label className="grid gap-1.5 xl:col-span-2">
                     <span className="text-sm font-semibold text-gray-900">Categoria *</span>
                     <select
                       name={`detalle_categoria_id_${line.key}`}
@@ -295,6 +304,9 @@ export default function PedidoEditor({
                         </option>
                       ))}
                     </select>
+                    {lineQuery && categoriasFiltradas.length === 0 ? (
+                      <span className="text-xs text-amber-700">No hay coincidencias para ese filtro en esta linea.</span>
+                    ) : null}
                     {isDuplicate ? <span className="text-xs text-red-700">No repitas la misma categoria en dos lineas.</span> : null}
                     {line.requiere_revision ? <span className="text-xs text-amber-700">Linea migrada sin reparto exacto. Requiere revision.</span> : null}
                   </label>
@@ -338,7 +350,7 @@ export default function PedidoEditor({
                     />
                   </label>
 
-                  <label className="grid gap-1.5 md:col-span-2">
+                  <label className="grid gap-1.5 xl:col-span-3">
                     <span className="text-sm font-semibold text-gray-900">Notas de la linea</span>
                     <input
                       name={`detalle_observaciones_${line.key}`}
@@ -349,7 +361,7 @@ export default function PedidoEditor({
                     />
                   </label>
 
-                  <label className="flex items-center gap-3 rounded-lg border border-gray-200 bg-slate-50 px-3.5 py-2.5 text-sm text-gray-700 md:col-span-3">
+                  <label className="flex items-center gap-3 rounded-lg border border-gray-200 bg-slate-50 px-3.5 py-2.5 text-sm text-gray-700 xl:col-span-3">
                     <input
                       type="checkbox"
                       checked={line.permite_sustitucion}

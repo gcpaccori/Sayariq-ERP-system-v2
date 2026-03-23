@@ -152,7 +152,22 @@ function buildLegacyLines(pedido: PedidoCompatRow | null, categoriasMap: Map<num
     ? [Number(pedido.categoria_id)]
     : extractLegacyCategoriaIds(pedido.observaciones);
 
-  if (categoriaIds.length === 0) return [] as PedidoDetalleLine[];
+  if (categoriaIds.length === 0) {
+    return [{
+      id: -100000 - Number(pedido.id),
+      pedido_id: Number(pedido.id),
+      categoria_id: 0,
+      categoria_nombre: "Sin detalle por categoria",
+      categoria_codigo: "PEND",
+      kg_solicitados: round2(Number(pedido.kg_solicitados ?? 0)),
+      precio_kg: round2(Number(pedido.precio_kg ?? 0)),
+      kg_asignados: 0,
+      prioridad: 1,
+      permite_sustitucion: true,
+      observaciones: "Pedido legado sin detalle por categoria. Puedes asignar cualquier lote del mismo producto, pero conviene editarlo.",
+      requiere_revision: true,
+    }];
+  }
 
   if (categoriaIds.length === 1) {
     const categoriaId = Number(categoriaIds[0]);
@@ -410,6 +425,7 @@ export function summarizePedidoDetalle(lines: PedidoDetalleLine[]) {
 
 export function buildPedidoDetalleLabel(lines: PedidoDetalleLine[]) {
   if (lines.length === 0) return "Sin detalle";
+  if (lines.length === 1 && Number(lines[0].categoria_id) <= 0) return "Sin detalle por categoria";
   if (lines.length === 1) return lines[0].categoria_nombre;
 
   const names = lines.slice(0, 3).map((line) => line.categoria_nombre);

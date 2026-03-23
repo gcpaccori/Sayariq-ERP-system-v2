@@ -475,22 +475,31 @@ async function getAvailableLotesForPedido(
     for (const line of detalle) {
       const faltante = pendientes.get(Number(line.id)) ?? 0;
       if (faltante <= 0.01) continue;
-      const esSustitucion = categoriaId !== Number(line.categoria_id);
-      if (esSustitucion && !line.permite_sustitucion) continue;
+      const targetCategoriaId = Number(line.categoria_id) > 0 ? Number(line.categoria_id) : categoriaId;
+      const esSustitucion = Number(line.categoria_id) > 0 && categoriaId !== Number(line.categoria_id);
+      const pedidoCategoriaNombre =
+        Number(line.categoria_id) > 0
+          ? line.categoria_nombre
+          : "Sin detalle por categoria";
 
       resultado.push({
         lote_id: loteId,
         numero_lote: loteData.numero_lote,
         productor_nombre: productorMap.get(loteData.productor_id) ?? String(loteData.productor_id),
         pedido_detalle_id: Number(line.id),
-        pedido_categoria_id: Number(line.categoria_id),
-        pedido_categoria_nombre: line.categoria_nombre,
+        pedido_categoria_id: targetCategoriaId,
+        pedido_categoria_nombre: pedidoCategoriaNombre,
         categoria_id: categoriaId,
         categoria_nombre: categoriaMap.get(categoriaId) ?? String(categoriaId),
         kg_disponibles: round2(Math.min(disponible, faltante)),
         sin_clasificacion_neta: false,
         es_sustitucion: esSustitucion,
-        stock_badge: esSustitucion ? "Sustitucion" : "Clasificacion neta",
+        stock_badge:
+          Number(line.categoria_id) <= 0
+            ? "Pedido sin detalle"
+            : esSustitucion
+              ? "Categoria distinta"
+              : "Clasificacion neta",
       });
     }
   }
@@ -503,20 +512,25 @@ async function getAvailableLotesForPedido(
     for (const line of detalle) {
       const faltante = pendientes.get(Number(line.id)) ?? 0;
       if (faltante <= 0.01) continue;
+      const targetCategoriaId = Number(line.categoria_id) > 0 ? Number(line.categoria_id) : 0;
+      const pedidoCategoriaNombre =
+        Number(line.categoria_id) > 0
+          ? line.categoria_nombre
+          : "Sin detalle por categoria";
 
       resultado.push({
         lote_id: Number(lote.id),
         numero_lote: String(lote.numero_lote),
         productor_nombre: productorMap.get(Number(lote.productor_id)) ?? String(lote.productor_id),
         pedido_detalle_id: Number(line.id),
-        pedido_categoria_id: Number(line.categoria_id),
-        pedido_categoria_nombre: line.categoria_nombre,
-        categoria_id: Number(line.categoria_id),
-        categoria_nombre: line.categoria_nombre,
+        pedido_categoria_id: targetCategoriaId,
+        pedido_categoria_nombre: pedidoCategoriaNombre,
+        categoria_id: targetCategoriaId,
+        categoria_nombre: pedidoCategoriaNombre,
         kg_disponibles: round2(Math.min(disponibleBruto, faltante)),
         sin_clasificacion_neta: true,
         es_sustitucion: false,
-        stock_badge: "Sin clasificacion neta",
+        stock_badge: Number(line.categoria_id) > 0 ? "Sin clasificacion neta" : "Sin clasificar y sin detalle",
       });
     }
   }
@@ -610,6 +624,18 @@ export default async function PedidosPage({
       detalleLineMap.set(Number(line.id), line);
     }
   }
+  for (const pedido of pedidosData.pedidos) {
+    const pedidoId = Number(pedido.id);
+    const lines = detalleByPedido.get(pedidoId) ?? [];
+    if (lines.length === 1 && Number(lines[0].categoria_id) <= 0) {
+      lines[0] = {
+        ...lines[0],
+        kg_asignados: round2(kgAsignadosMap.get(pedidoId) ?? 0),
+      };
+      detalleByPedido.set(pedidoId, lines);
+      detalleLineMap.set(Number(lines[0].id), lines[0]);
+    }
+  }
 
   const asignarId = Number(search.asignar ?? "0");
   const editarId = Number(search.editar ?? "0");
@@ -649,6 +675,12 @@ export default async function PedidosPage({
   const detallePedidoEditar = pedidoEditar
     ? await loadPedidoDetalleCompat(supabase, pedidoEditar)
     : [];
+  if (detallePedidoSeleccionado.length === 1 && Number(detallePedidoSeleccionado[0]?.categoria_id) <= 0) {
+    detallePedidoSeleccionado[0] = {
+      ...detallePedidoSeleccionado[0],
+      kg_asignados: round2(kgAsignadosMap.get(Number(pedidoSeleccionado?.id ?? 0)) ?? 0),
+    };
+  }
   const resumenDetalleSeleccionado = summarizePedidoDetalle(detallePedidoSeleccionado);
 
   const loteDisponiblesResult = pedidoSeleccionado
@@ -981,7 +1013,7 @@ export default async function PedidosPage({
 
               <h3 className="mb-2 text-base font-semibold text-gray-900">Lotes disponibles</h3>
               <p className="mb-4 text-sm text-gray-600">
-                Ahora la asignacion se filtra por linea pedida. Si una fila viene desde almacen sin pasar por clasificacion neta, lo veras marcado antes de asignar.
+                Aqui ves todos los lotes del mismo producto con stock util: clasificados exactos, clasificados de otra categoria y tambien lotes de almacen sin clasificacion neta. Cada caso queda marcado antes de asignar.
               </p>
               {loteDisponiblesResult.errorMessage ? (
                 <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 shadow-sm">
@@ -1017,7 +1049,11 @@ export default async function PedidosPage({
                         <td className="px-4 py-3">
                           <p className="font-medium text-gray-900">{row.pedido_categoria_nombre}</p>
                           <p className="mt-1 text-xs text-slate-500">
-                            {detalleLineMap.get(Number(row.pedido_detalle_id))?.permite_sustitucion ? "Acepta sustitucion" : "Exacta"}
+                            {Number(row.pedido_detalle_id) <= 0
+                              ? "Pedido legado sin detalle: el destino se define al asignar."
+                              : detalleLineMap.get(Number(row.pedido_detalle_id))?.permite_sustitucion
+                                ? "Acepta sustitucion"
+                                : "Exacta"}
                           </p>
                         </td>
                         <td className="px-4 py-3 font-medium text-gray-900">{row.numero_lote}</td>
@@ -1026,16 +1062,44 @@ export default async function PedidosPage({
                           <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${row.sin_clasificacion_neta ? "bg-amber-100 text-amber-800" : row.es_sustitucion ? "bg-violet-100 text-violet-800" : "bg-emerald-100 text-emerald-800"}`}>
                             {row.stock_badge}
                           </span>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {row.sin_clasificacion_neta
+                              ? "Se descuenta desde almacen sin clasificacion neta."
+                              : row.es_sustitucion
+                                ? "Categoria distinta a la linea pedida; revisar antes de confirmar."
+                                : "Coincide con la categoria de la linea."}
+                          </p>
                         </td>
                         <td className="px-4 py-3">{row.categoria_nombre}</td>
                         <td className="px-4 py-3 text-right font-medium">{row.kg_disponibles}</td>
                         <td className="px-4 py-3">
-                          <form action={asignarLotePedidoAction} className="grid gap-2 xl:grid-cols-[100px_110px_130px_1fr_auto]">
+                          <form action={asignarLotePedidoAction} className="grid gap-2 xl:grid-cols-[160px_100px_110px_130px_1fr_auto]">
                             <input type="hidden" name="pedido_id" value={String(pedidoSeleccionado.id)} />
                             <input type="hidden" name="pedido_detalle_id" value={String(row.pedido_detalle_id)} />
                             <input type="hidden" name="lote_id" value={String(row.lote_id)} />
-                            <input type="hidden" name="categoria_id" value={String(row.categoria_id)} />
                             <input type="hidden" name="sin_clasificacion_neta" value={row.sin_clasificacion_neta ? "1" : "0"} />
+                            <input type="hidden" name="categoria_id" value={String(row.categoria_id || 0)} />
+                            {row.sin_clasificacion_neta && row.pedido_categoria_id <= 0 ? (
+                              <select
+                                name="categoria_destino_id"
+                                defaultValue=""
+                                className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
+                                required
+                              >
+                                <option value="">Categoria destino</option>
+                                {categorias.map((categoria) => (
+                                  <option key={categoria.id} value={String(categoria.id)}>
+                                    {categoria.codigo} | {categoria.nombre}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="hidden"
+                                name="categoria_destino_id"
+                                value={String(row.pedido_categoria_id || row.categoria_id || "")}
+                              />
+                            )}
                             <input
                               name="kg_asignados"
                               type="number"
@@ -1108,7 +1172,7 @@ export default async function PedidosPage({
                           <td className="px-4 py-3 font-medium">{loteMapSel.get(Number(row.lote_id)) ?? row.lote_id}</td>
                           <td className="px-4 py-3">
                             <div className="flex flex-col gap-1">
-                              <span>{linea?.categoria_nombre ?? "Linea sin vinculo"}</span>
+                              <span>{linea?.categoria_nombre ?? "Pedido sin detalle por categoria"}</span>
                               {row.sin_clasificacion_neta ? (
                                 <span className="inline-flex w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
                                   Sin clasificacion neta

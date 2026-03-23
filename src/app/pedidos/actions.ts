@@ -605,13 +605,15 @@ export async function asignarLotePedidoAction(formData: FormData) {
   const pedidoId = Number(getField(formData, "pedido_id"));
   const pedidoDetalleId = Number(getField(formData, "pedido_detalle_id"));
   const loteId = Number(getField(formData, "lote_id"));
-  const categoriaId = Number(getField(formData, "categoria_id"));
+  const categoriaOrigenId = Number(getField(formData, "categoria_id"));
+  const categoriaDestinoId = Number(getField(formData, "categoria_destino_id") || getField(formData, "categoria_id"));
   const sinClasificacionNeta = getField(formData, "sin_clasificacion_neta") === "1";
   const kgAsignados = toDecimal(getField(formData, "kg_asignados"));
   const precioKg = toDecimal(getField(formData, "precio_kg"));
   const fechaAsignacion = getField(formData, "fecha_asignacion");
+  const categoriaRegistroId = categoriaOrigenId > 0 ? categoriaOrigenId : categoriaDestinoId;
 
-  if (!pedidoId || !pedidoDetalleId || !loteId || !categoriaId) {
+  if (!pedidoId || !loteId || !categoriaDestinoId) {
     redirectWithMessage("error", "Datos invalidos para la asignacion.");
   }
 
@@ -630,6 +632,11 @@ export async function asignarLotePedidoAction(formData: FormData) {
 
   if (pedido.estado === "completado") {
     redirectWithMessage("error", "El pedido ya esta completado.");
+  }
+
+  const categoriaDestinoValida = await ensureCategoriaActiva(categoriaDestinoId);
+  if (!categoriaDestinoValida) {
+    redirectWithMessage("error", "La categoria destino no existe o esta inactiva.");
   }
 
   const lote = await getLoteById(loteId);
@@ -657,18 +664,18 @@ export async function asignarLotePedidoAction(formData: FormData) {
     redirectWithMessage("error", message);
   }
 
-  const detalle = detailMap.get(pedidoDetalleId);
-  if (!detalle) {
+  const detalle = pedidoDetalleId > 0 ? detailMap.get(pedidoDetalleId) : null;
+  if (pedidoDetalleId > 0 && !detalle) {
     redirectWithMessage("error", "La linea del pedido ya no existe o requiere migracion.");
   }
 
-  const pendienteLinea = round2(Number(detalle.kg_solicitados ?? 0) - Number(detalle.kg_asignados ?? 0));
+  const pedidoKgAsignados = await getPedidoKgAsignados(pedidoId);
+  const pedidoFaltante = round2(Number(pedido.kg_solicitados ?? 0) - pedidoKgAsignados);
+  const pendienteLinea = detalle
+    ? round2(Number(detalle.kg_solicitados ?? 0) - Number(detalle.kg_asignados ?? 0))
+    : pedidoFaltante;
   if (pendienteLinea <= 0.01) {
-    redirectWithMessage("error", "Esa linea del pedido ya no tiene kg pendientes.");
-  }
-
-  if (!sinClasificacionNeta && categoriaId !== Number(detalle.categoria_id) && !detalle.permite_sustitucion) {
-    redirectWithMessage("error", "La linea solo acepta su categoria exacta. Activa sustitucion para usar otra categoria clasificada.");
+    redirectWithMessage("error", detalle ? "Esa linea del pedido ya no tiene kg pendientes." : "El pedido ya no tiene kg pendientes.");
   }
 
   let stockDisponible = 0;
@@ -676,7 +683,7 @@ export async function asignarLotePedidoAction(formData: FormData) {
     if (sinClasificacionNeta) {
       stockDisponible = await getStockDisponibleLoteSinClasificacion(loteId);
     } else {
-      const stockDisponibleResult = await getStockDisponibleLoteCategoria(loteId, categoriaId);
+      const stockDisponibleResult = await getStockDisponibleLoteCategoria(loteId, categoriaRegistroId);
       if (stockDisponibleResult.errorMessage) {
         redirectWithMessage("error", stockDisponibleResult.errorMessage);
       }
@@ -710,9 +717,9 @@ export async function asignarLotePedidoAction(formData: FormData) {
     .from("pedido_asignaciones")
     .insert({
       pedido_id: pedidoId,
-      pedido_detalle_id: pedidoDetalleId,
+      pedido_detalle_id: pedidoDetalleId > 0 ? pedidoDetalleId : null,
       lote_id: loteId,
-      categoria_id: categoriaId,
+      categoria_id: categoriaRegistroId,
       codigo_division: null,
       sin_clasificacion_neta: sinClasificacionNeta,
       kg_asignados: round2(kgAsignados),
@@ -742,7 +749,7 @@ export async function asignarLotePedidoAction(formData: FormData) {
   const { data: categoriaData } = await supabase
     .from("categorias")
     .select("nombre")
-    .eq("id", categoriaId)
+    .eq("id", categoriaRegistroId)
     .maybeSingle();
 
   const concepto = sinClasificacionNeta
@@ -761,7 +768,7 @@ export async function asignarLotePedidoAction(formData: FormData) {
     origen_id: asignacionCreada.id,
     origen_numero: pedido.numero_pedido,
     lote_id: loteId,
-    categoria_id: categoriaId,
+    categoria_id: categoriaRegistroId,
     peso_kg: round2(kgAsignados),
     persona_id: pedido.cliente_id,
     concepto,
@@ -831,16 +838,20 @@ export async function updateAsignacionPedidoAction(formData: FormData) {
     redirectWithMessage("error", message);
   }
 
-  const detalle = detailMap.get(Number(asignacionActual.pedido_detalle_id ?? 0));
-  if (!detalle) {
-    redirectWithMessage("error", "La linea vinculada a esta asignacion ya no existe. Revisa el detalle del pedido.");
-  }
-
-  const pendienteMaximoLinea = round2(
-    Number(detalle.kg_solicitados ?? 0) - Number(detalle.kg_asignados ?? 0) + Number(asignacionActual.kg_asignados ?? 0),
-  );
+  const detalle = detailMap.get(Number(asignacionActual.pedido_detalle_id ?? 0)) ?? null;
+  const totalAsignadoPedido = await getPedidoKgAsignados(Number(asignacionActual.pedido_id));
+  const pendienteMaximoLinea = detalle
+    ? round2(
+        Number(detalle.kg_solicitados ?? 0) - Number(detalle.kg_asignados ?? 0) + Number(asignacionActual.kg_asignados ?? 0),
+      )
+    : round2(Number(pedido.kg_solicitados ?? 0) - (totalAsignadoPedido - Number(asignacionActual.kg_asignados ?? 0)));
   if (kgAsignados > pendienteMaximoLinea + 0.01) {
-    redirectWithMessage("error", `Con ese cambio excedes el faltante de la linea (${pendienteMaximoLinea} kg).`);
+    redirectWithMessage(
+      "error",
+      detalle
+        ? `Con ese cambio excedes el faltante de la linea (${pendienteMaximoLinea} kg).`
+        : `Con ese cambio excedes el faltante total del pedido (${pendienteMaximoLinea} kg).`,
+    );
   }
 
   let stockMaximo = 0;
