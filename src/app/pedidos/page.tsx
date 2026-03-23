@@ -9,6 +9,7 @@ import {
   updatePedidoAction,
 } from "./actions";
 import { selectCategoriasActivasCompat } from "@/lib/categorias";
+import { getClasificacionVigenteErrorMessage } from "@/lib/lote-clasificacion-vigente";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ModuleNavigation from "@/components/module-navigation";
@@ -73,6 +74,11 @@ type LoteDisponible = {
   categoria_id: number;
   categoria_nombre: string;
   kg_disponibles: number;
+};
+
+type LotesDisponiblesResult = {
+  lotes: LoteDisponible[];
+  errorMessage: string;
 };
 
 function escapeLike(input: string) {
@@ -259,46 +265,84 @@ async function getPedidoById(id: number) {
 
 async function getAvailableLotesForPedido(
   pedido: Pedido,
-): Promise<LoteDisponible[]> {
+): Promise<LotesDisponiblesResult> {
   const supabase = getSupabaseServerClient();
 
-  const { data: lotes } = await supabase
+  const { data: lotes, error: lotesError } = await supabase
     .from("lotes")
     .select("id,numero_lote,productor_id")
     .in("estado", ["clasificado", "asignado"])
     .eq("producto", pedido.producto);
 
-  if (!lotes || lotes.length === 0) return [];
+  if (lotesError) {
+    return {
+      lotes: [],
+      errorMessage: `No se pudieron cargar los lotes del producto ${pedido.producto}: ${lotesError.message}`,
+    };
+  }
+
+  if (!lotes || lotes.length === 0) {
+    return { lotes: [], errorMessage: "" };
+  }
 
   const loteIds = lotes.map((lote) => Number(lote.id));
 
-  const clasifQuery = supabase
+  const { data: clasificaciones, error: clasificacionesError } = await supabase
     .from("vw_lote_clasificacion_vigente")
     .select("lote_id,categoria_id,peso_neto")
     .in("lote_id", loteIds);
 
-  const { data: clasificaciones } = await clasifQuery;
-  if (!clasificaciones || clasificaciones.length === 0) return [];
+  if (clasificacionesError) {
+    return {
+      lotes: [],
+      errorMessage: getClasificacionVigenteErrorMessage(clasificacionesError),
+    };
+  }
+
+  if (!clasificaciones || clasificaciones.length === 0) {
+    return { lotes: [], errorMessage: "" };
+  }
 
   const categoriaIds = [
     ...new Set(clasificaciones.map((row) => Number(row.categoria_id))),
   ];
 
-  const { data: categorias } = await supabase
+  const { data: categorias, error: categoriasError } = await supabase
     .from("categorias")
     .select("id,nombre")
     .in("id", categoriaIds);
 
-  const { data: personas } = await supabase
+  if (categoriasError) {
+    return {
+      lotes: [],
+      errorMessage: `No se pudieron cargar las categorias relacionadas: ${categoriasError.message}`,
+    };
+  }
+
+  const { data: personas, error: personasError } = await supabase
     .from("personas")
     .select("id,nombre_completo")
     .in("id", [...new Set(lotes.map((row) => Number(row.productor_id)))]);
 
-  const { data: asignaciones } = await supabase
+  if (personasError) {
+    return {
+      lotes: [],
+      errorMessage: `No se pudieron cargar los productores de los lotes: ${personasError.message}`,
+    };
+  }
+
+  const { data: asignaciones, error: asignacionesError } = await supabase
     .from("pedido_asignaciones")
     .select("lote_id,categoria_id,kg_asignados")
     .in("lote_id", loteIds)
     .in("categoria_id", categoriaIds);
+
+  if (asignacionesError) {
+    return {
+      lotes: [],
+      errorMessage: `No se pudieron cargar las asignaciones actuales: ${asignacionesError.message}`,
+    };
+  }
 
   const asignadoMap = new Map<string, number>();
   for (const row of asignaciones ?? []) {
@@ -355,7 +399,10 @@ async function getAvailableLotesForPedido(
     });
   }
 
-  return resultado.sort((a, b) => b.kg_disponibles - a.kg_disponibles);
+  return {
+    lotes: resultado.sort((a, b) => b.kg_disponibles - a.kg_disponibles),
+    errorMessage: "",
+  };
 }
 
 function buildPedidosUrl(params: {
@@ -456,9 +503,10 @@ export default async function PedidosPage({
     asignarId > 0 ? await getPedidoById(asignarId) : null;
   const pedidoEditar = editarId > 0 ? await getPedidoById(editarId) : null;
 
-  const loteDisponibles = pedidoSeleccionado
+  const loteDisponiblesResult = pedidoSeleccionado
     ? await getAvailableLotesForPedido(pedidoSeleccionado)
-    : [];
+    : { lotes: [], errorMessage: "" };
+  const loteDisponibles = loteDisponiblesResult.lotes;
 
   const asignacionesPedidoSeleccionado = pedidoSeleccionado
     ? asignaciones.filter(
@@ -938,6 +986,11 @@ export default async function PedidosPage({
               <p className="mb-4 text-sm text-gray-600">
                 Selecciona lotes para asignar kg a este pedido:
               </p>
+              {loteDisponiblesResult.errorMessage ? (
+                <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 shadow-sm">
+                  ! {loteDisponiblesResult.errorMessage}
+                </div>
+              ) : null}
               <div className="mb-8 sx-table-wrap">
                 <table className="sx-table">
                   <thead>
@@ -966,7 +1019,9 @@ export default async function PedidosPage({
                           colSpan={5}
                           className="p-4 text-center text-gray-500"
                         >
-                          No hay lotes disponibles para este pedido.
+                          {loteDisponiblesResult.errorMessage
+                            ? "No se pudieron cargar los lotes disponibles para este pedido."
+                            : "No hay lotes disponibles para este pedido."}
                         </td>
                       </tr>
                     ) : null}

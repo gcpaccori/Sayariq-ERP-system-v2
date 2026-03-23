@@ -25,6 +25,7 @@ type Lote = {
   productor_id: number;
   peso_bruto_ingreso: number;
   estado: string;
+  observaciones?: string | null;
 };
 
 function getField(formData: FormData, key: string) {
@@ -46,6 +47,11 @@ function round2(value: number) {
 function redirectWithMessage(type: "ok" | "error", message: string): never {
   const params = new URLSearchParams({ [type]: message });
   redirect(`/almacen?${params.toString()}`);
+}
+
+function appendObservacion(base: string | null | undefined, extra: string) {
+  const cleanBase = (base ?? "").trim();
+  return cleanBase ? `${cleanBase}\n${extra}` : extra;
 }
 
 async function ensureProductor(personaId: number) {
@@ -280,12 +286,73 @@ async function getLoteSinClasificar(loteId: number): Promise<Lote | null> {
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
     .from("lotes")
-    .select("id,numero_lote,productor_id,peso_bruto_ingreso,estado")
+    .select("id,numero_lote,productor_id,peso_bruto_ingreso,estado,observaciones")
     .eq("id", loteId)
     .maybeSingle();
 
   if (!data) return null;
   return data as Lote;
+}
+
+export async function descartarLoteAction(formData: FormData) {
+  await ensureWriteAccess("almacen");
+
+  const loteId = Number(getField(formData, "lote_id"));
+  if (!loteId || Number.isNaN(loteId)) {
+    redirectWithMessage("error", "Lote invalido para descartar.");
+  }
+
+  const lote = await getLoteSinClasificar(loteId);
+  if (!lote) {
+    redirectWithMessage("error", "No existe el lote.");
+  }
+
+  if (lote.estado !== "sin_clasificar") {
+    redirectWithMessage("error", "Solo se pueden descartar ingresos en estado sin_clasificar.");
+  }
+
+  const motivoInput = getField(formData, "motivo_descarte");
+  const motivo = motivoInput || "Ingreso descartado desde almacen antes de clasificar.";
+  const marca = `[DESCARTADO ${new Date().toISOString()}] ${motivo}`;
+
+  const supabase = getSupabaseServerClient();
+
+  const { error: updateError } = await supabase
+    .from("lotes")
+    .update({
+      estado: "cancelado",
+      observaciones: appendObservacion(lote.observaciones, marca),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", loteId)
+    .eq("estado", "sin_clasificar");
+
+  if (updateError) {
+    redirectWithMessage("error", updateError.message);
+  }
+
+  const { error: kardexError } = await supabase.from("kardex").insert({
+    tipo_kardex: "producto",
+    tipo_movimiento: "salida",
+    origen: "ajuste",
+    origen_id: lote.id,
+    origen_numero: lote.numero_lote,
+    lote_id: lote.id,
+    peso_kg: round2(-Number(lote.peso_bruto_ingreso ?? 0)),
+    persona_id: lote.productor_id,
+    concepto: `Descarte de ingreso de lote ${lote.numero_lote}`,
+    observaciones: motivo,
+  });
+
+  if (kardexError) {
+    redirectWithMessage("error", `Lote descartado, pero fallo kardex: ${kardexError.message}`);
+  }
+
+  revalidatePath("/almacen");
+  revalidatePath("/clasificacion-neta");
+  revalidatePath("/dashboard");
+  revalidatePath("/kardex");
+  redirectWithMessage(`ok`, `Lote ${lote.numero_lote} movido a descartados. Ya no aparecera para clasificar.`);
 }
 
 async function getCategoriasActivas(): Promise<Categoria[]> {

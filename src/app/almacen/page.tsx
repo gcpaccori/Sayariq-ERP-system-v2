@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { createLoteAction, updateLoteAction } from "./actions";
+import { createLoteAction, descartarLoteAction, updateLoteAction } from "./actions";
+import ConfirmSubmitButton from "@/components/confirm-submit-button";
 import { selectCategoriasActivasCompat } from "@/lib/categorias";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import BackToDashboardButton from "@/components/back-to-dashboard-button";
@@ -159,6 +160,8 @@ async function getLotes(search: SearchParams) {
 
   if (estado !== "todos") {
     lotesQuery = lotesQuery.eq("estado", estado);
+  } else {
+    lotesQuery = lotesQuery.neq("estado", "cancelado");
   }
 
   if (productor > 0) {
@@ -331,6 +334,7 @@ async function getAsignacionesByLote(loteId: number) {
 }
 
 function getEstadoLabel(estado: Lote["estado"]) {
+  if (estado === "cancelado") return "descartado";
   return estado;
 }
 
@@ -787,7 +791,7 @@ export default async function AlmacenPage({
                 <option value="clasificado">clasificado</option>
                 <option value="asignado">asignado</option>
                 <option value="liquidado">liquidado</option>
-                <option value="cancelado">cancelado</option>
+                <option value="cancelado">descartados</option>
               </select>
 
               <select
@@ -1119,6 +1123,9 @@ export default async function AlmacenPage({
             <p className="mb-3 text-xs text-slate-500">
               Mostrando {fromItem}-{toItem} de {totalRows} lote(s)
             </p>
+            <p className="mb-3 text-xs text-slate-500">
+              La vista general oculta los lotes descartados; para revisarlos usa el filtro de estado `descartados`.
+            </p>
             <div className="sx-table-wrap">
               <table className="sx-table">
                 <thead>
@@ -1217,6 +1224,22 @@ export default async function AlmacenPage({
                           >
                             Editar
                           </Link>
+                          {lote.estado === "sin_clasificar" ? (
+                            <form action={descartarLoteAction}>
+                              <input type="hidden" name="lote_id" value={String(lote.id)} />
+                              <input
+                                type="hidden"
+                                name="motivo_descarte"
+                                value="Ingreso descartado desde almacen antes de clasificar."
+                              />
+                              <ConfirmSubmitButton
+                                className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 outline-none transition hover:bg-red-100 focus:border-red-500 focus:ring-2 focus:ring-red-200"
+                                confirmMessage={`Estas seguro de descartar el lote ${lote.numero_lote}? Se movera a la lista de descartados y ya no aparecera en clasificacion.`}
+                              >
+                                Marcar fallido
+                              </ConfirmSubmitButton>
+                            </form>
+                          ) : null}
                         </div>
                       </td>
                     </tr>

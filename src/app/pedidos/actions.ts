@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { ensureWriteAccess } from "@/lib/auth/server";
 import { ensureCategoriaActivaCompat } from "@/lib/categorias";
+import { getClasificacionVigenteErrorMessage } from "@/lib/lote-clasificacion-vigente";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type Producto = "Jengibre" | "Curcuma";
@@ -132,45 +133,75 @@ async function getPedidoKgAsignados(pedidoId: number) {
 async function getStockDisponibleLoteCategoria(loteId: number, categoriaId: number) {
   const supabase = getSupabaseServerClient();
 
-  const { data: clasif } = await supabase
+  const { data: clasif, error: clasifError } = await supabase
     .from("vw_lote_clasificacion_vigente")
     .select("peso_neto")
     .eq("lote_id", loteId)
     .eq("categoria_id", categoriaId)
     .maybeSingle();
 
-  if (!clasif) return 0;
+  if (clasifError) {
+    return {
+      stock: 0,
+      errorMessage: getClasificacionVigenteErrorMessage(clasifError),
+    };
+  }
 
-  const { data: asignaciones } = await supabase
+  if (!clasif) {
+    return {
+      stock: 0,
+      errorMessage: "",
+    };
+  }
+
+  const { data: asignaciones, error: asignacionesError } = await supabase
     .from("pedido_asignaciones")
     .select("kg_asignados")
     .eq("lote_id", loteId)
     .eq("categoria_id", categoriaId);
+
+  if (asignacionesError) {
+    return {
+      stock: 0,
+      errorMessage: `No se pudieron cargar las asignaciones actuales: ${asignacionesError.message}`,
+    };
+  }
 
   const asignado = (asignaciones ?? []).reduce(
     (acc, row) => acc + Number(row.kg_asignados ?? 0),
     0
   );
 
-  return round2(Number(clasif.peso_neto) - asignado);
+  return {
+    stock: round2(Number(clasif.peso_neto) - asignado),
+    errorMessage: "",
+  };
 }
 
 async function recalculateAndUpdateLoteEstado(loteId: number) {
   const supabase = getSupabaseServerClient();
 
-  const { data: clasificaciones } = await supabase
+  const { data: clasificaciones, error: clasificacionesError } = await supabase
     .from("vw_lote_clasificacion_vigente")
     .select("categoria_id,peso_neto")
     .eq("lote_id", loteId);
 
-  if (!clasificaciones || clasificaciones.length === 0) {
-    return;
+  if (clasificacionesError) {
+    return getClasificacionVigenteErrorMessage(clasificacionesError);
   }
 
-  const { data: asignaciones } = await supabase
+  if (!clasificaciones || clasificaciones.length === 0) {
+    return "";
+  }
+
+  const { data: asignaciones, error: asignacionesError } = await supabase
     .from("pedido_asignaciones")
     .select("categoria_id,kg_asignados")
     .eq("lote_id", loteId);
+
+  if (asignacionesError) {
+    return `No se pudieron cargar las asignaciones actuales: ${asignacionesError.message}`;
+  }
 
   const asignadoMap = new Map<number, number>();
   for (const row of asignaciones ?? []) {
@@ -192,7 +223,8 @@ async function recalculateAndUpdateLoteEstado(loteId: number) {
   }
 
   const estadoNuevo = hayStock ? "clasificado" : "asignado";
-  await supabase.from("lotes").update({ estado: estadoNuevo }).eq("id", loteId);
+  const { error: updateError } = await supabase.from("lotes").update({ estado: estadoNuevo }).eq("id", loteId);
+  return updateError?.message ?? "";
 }
 
 async function recalculateAndUpdatePedidoEstado(pedidoId: number) {
@@ -428,7 +460,12 @@ export async function asignarLotePedidoAction(formData: FormData) {
   // Regla actualizada: el pedido conserva categoría referencial, pero la asignación
   // puede realizarse con cualquier categoría del mismo producto.
 
-  const stockDisponible = await getStockDisponibleLoteCategoria(loteId, categoriaId);
+  const stockDisponibleResult = await getStockDisponibleLoteCategoria(loteId, categoriaId);
+  if (stockDisponibleResult.errorMessage) {
+    redirectWithMessage("error", stockDisponibleResult.errorMessage);
+  }
+
+  const stockDisponible = stockDisponibleResult.stock;
   if (stockDisponible <= 0.01) {
     redirectWithMessage("error", "Ese lote/categoría no tiene stock disponible.");
   }
@@ -527,7 +564,10 @@ export async function asignarLotePedidoAction(formData: FormData) {
     redirectWithMessage("error", `Asignación creada, pero falló kardex: ${kardexError.message}`);
   }
 
-  await recalculateAndUpdateLoteEstado(loteId);
+  const loteEstadoError = await recalculateAndUpdateLoteEstado(loteId);
+  if (loteEstadoError) {
+    redirectWithMessage("error", `Asignacion creada, pero no se pudo recalcular el estado del lote: ${loteEstadoError}`);
+  }
 
   revalidatePath("/pedidos");
   revalidatePath("/almacen");
@@ -571,10 +611,15 @@ export async function updateAsignacionPedidoAction(formData: FormData) {
     redirectWithMessage("error", "Pedido o lote no disponibles para actualizar asignación.");
   }
 
-  const stockSinEstaFila = await getStockDisponibleLoteCategoria(
+  const stockSinEstaFilaResult = await getStockDisponibleLoteCategoria(
     Number(asignacionActual.lote_id),
     Number(asignacionActual.categoria_id)
   );
+  if (stockSinEstaFilaResult.errorMessage) {
+    redirectWithMessage("error", stockSinEstaFilaResult.errorMessage);
+  }
+
+  const stockSinEstaFila = stockSinEstaFilaResult.stock;
   const stockMaximo = round2(stockSinEstaFila + Number(asignacionActual.kg_asignados ?? 0));
   if (kgAsignados > stockMaximo + 0.01) {
     redirectWithMessage("error", `Kg asignados exceden el máximo disponible (${stockMaximo} kg).`);
@@ -623,7 +668,10 @@ export async function updateAsignacionPedidoAction(formData: FormData) {
   }
 
   await recalculateAndUpdatePedidoEstado(Number(asignacionActual.pedido_id));
-  await recalculateAndUpdateLoteEstado(Number(asignacionActual.lote_id));
+  const loteEstadoError = await recalculateAndUpdateLoteEstado(Number(asignacionActual.lote_id));
+  if (loteEstadoError) {
+    redirectWithMessage("error", `Asignacion actualizada, pero no se pudo recalcular el estado del lote: ${loteEstadoError}`);
+  }
 
   revalidatePath("/pedidos");
   revalidatePath("/almacen");
@@ -675,7 +723,10 @@ export async function deleteAsignacionPedidoAction(formData: FormData) {
   }
 
   await recalculateAndUpdatePedidoEstado(Number(asignacionActual.pedido_id));
-  await recalculateAndUpdateLoteEstado(Number(asignacionActual.lote_id));
+  const loteEstadoError = await recalculateAndUpdateLoteEstado(Number(asignacionActual.lote_id));
+  if (loteEstadoError) {
+    redirectWithMessage("error", `Asignacion eliminada, pero no se pudo recalcular el estado del lote: ${loteEstadoError}`);
+  }
 
   revalidatePath("/pedidos");
   revalidatePath("/almacen");

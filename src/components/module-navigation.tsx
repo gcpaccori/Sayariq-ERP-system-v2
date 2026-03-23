@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { type ComponentType, useEffect, useState } from "react";
+import { type ComponentType, useState } from "react";
 import {
   Home,
   LayoutDashboard,
@@ -60,11 +60,7 @@ function getRoleFromCookie(): SystemRole {
 export default function ModuleNavigation({ currentModule }: ModuleNavigationProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
-  const [role, setRole] = useState<SystemRole>("visualizador");
-
-  useEffect(() => {
-    setRole(getRoleFromCookie());
-  }, []);
+  const [role] = useState<SystemRole>(() => getRoleFromCookie());
 
   const visibleModules = modules.filter((module) => {
     if (!module.moduleKey) {

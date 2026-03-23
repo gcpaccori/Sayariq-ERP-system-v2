@@ -27,11 +27,17 @@ type CategoriaSeedRow = {
 };
 
 const DEFAULT_CATEGORIAS_SEED: CategoriaSeedRow[] = [
-  { nombre: "Exportable +20 gr", codigo: "EXP20", orden: 1, estado: "activo" },
-  { nombre: "Exportable", codigo: "EXP", orden: 2, estado: "activo" },
-  { nombre: "Nacional", codigo: "NAC", orden: 3, estado: "activo" },
-  { nombre: "Industrial", codigo: "IND", orden: 4, estado: "activo" },
-  { nombre: "Al barrer", codigo: "BAR", orden: 5, estado: "activo" },
+  { nombre: "Exportable", codigo: "exportable", orden: 1, estado: "activo" },
+  { nombre: "Industrial", codigo: "industrial", orden: 2, estado: "activo" },
+  { nombre: "Nacional", codigo: "nacional", orden: 3, estado: "activo" },
+  { nombre: "Jugo", codigo: "jugo", orden: 4, estado: "activo" },
+  { nombre: "Descarte", codigo: "descarte", orden: 5, estado: "activo" },
+  { nombre: "Primera", codigo: "primera", orden: 6, estado: "activo" },
+  { nombre: "Segunda", codigo: "segunda", orden: 7, estado: "activo" },
+  { nombre: "Tercera", codigo: "tercera", orden: 8, estado: "activo" },
+  { nombre: "Cuarta", codigo: "cuarta", orden: 9, estado: "activo" },
+  { nombre: "Quinta", codigo: "quinta", orden: 10, estado: "activo" },
+  { nombre: "Dedos", codigo: "dedos", orden: 11, estado: "activo" },
 ];
 
 function buildErrorText(error: MaybePostgrestError) {
