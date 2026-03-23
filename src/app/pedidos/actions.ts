@@ -6,17 +6,26 @@ import { redirect } from "next/navigation";
 import { ensureWriteAccess } from "@/lib/auth/server";
 import { ensureCategoriaActivaCompat } from "@/lib/categorias";
 import { getClasificacionVigenteErrorMessage } from "@/lib/lote-clasificacion-vigente";
+import {
+  extractPedidoDetalleForm,
+  replacePedidoDetalle,
+  resolvePedidoEstadoFromDetalle,
+  summarizePedidoDetalle,
+  syncPedidoDetalleAsignado,
+  type PedidoCompatRow,
+} from "@/lib/pedido-detalle";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 type Producto = "Jengibre" | "Curcuma";
 
-type Pedido = {
-  id: number;
+type Pedido = PedidoCompatRow & {
   numero_pedido: string;
   cliente_id: number;
   producto: string;
-  categoria_id: number | null;
-  kg_solicitados: number;
+  precio_kg: number;
+  total_estimado: number;
+  fecha_pedido: string;
+  fecha_entrega: string | null;
   estado: "pendiente" | "en_proceso" | "completado" | "cancelado";
 };
 
@@ -25,7 +34,22 @@ type Lote = {
   numero_lote: string;
   productor_id: number;
   producto: string;
+  categoria_id: number | null;
+  peso_bruto_ingreso: number;
   estado: "sin_clasificar" | "clasificado" | "asignado" | "liquidado" | "cancelado";
+};
+
+type PedidoAsignacion = {
+  id: number;
+  pedido_id: number;
+  pedido_detalle_id: number | null;
+  lote_id: number;
+  categoria_id: number;
+  sin_clasificacion_neta: boolean;
+  kg_asignados: number;
+  precio_kg: number;
+  subtotal: number;
+  fecha_asignacion: string;
 };
 
 function getField(formData: FormData, key: string) {
@@ -42,22 +66,6 @@ function toDecimal(value: string) {
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
-}
-
-function extractCategoriaIds(formData: FormData) {
-  const values = formData
-    .getAll("categoria_ids")
-    .map((value) => Number(String(value)))
-    .filter((value) => Number.isFinite(value) && value > 0);
-
-  return [...new Set(values)];
-}
-
-function buildObservacionesConCategorias(observacionesInput: string, categoriaIds: number[]) {
-  const clean = (observacionesInput || "").replace(/\s*\[CATS:[^\]]*\]\s*/g, "").trim();
-  if (categoriaIds.length === 0) return clean || null;
-  const marker = `[CATS:${categoriaIds.join(",")}]`;
-  return clean ? `${clean} ${marker}` : marker;
 }
 
 function redirectWithMessage(type: "ok" | "error", message: string): never {
@@ -101,7 +109,9 @@ async function getPedidoById(pedidoId: number): Promise<Pedido | null> {
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
     .from("pedidos")
-    .select("id,numero_pedido,cliente_id,producto,categoria_id,kg_solicitados,estado")
+    .select(
+      "id,numero_pedido,cliente_id,producto,categoria_id,kg_solicitados,precio_kg,total_estimado,fecha_pedido,fecha_entrega,estado,observaciones",
+    )
     .eq("id", pedidoId)
     .maybeSingle();
 
@@ -112,7 +122,7 @@ async function getLoteById(loteId: number): Promise<Lote | null> {
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
     .from("lotes")
-    .select("id,numero_lote,productor_id,producto,estado")
+    .select("id,numero_lote,productor_id,producto,categoria_id,peso_bruto_ingreso,estado")
     .eq("id", loteId)
     .maybeSingle();
 
@@ -130,107 +140,204 @@ async function getPedidoKgAsignados(pedidoId: number) {
   return round2(total);
 }
 
-async function getStockDisponibleLoteCategoria(loteId: number, categoriaId: number) {
+async function getPedidoAsignacionById(asignacionId: number): Promise<PedidoAsignacion | null> {
   const supabase = getSupabaseServerClient();
-
-  const { data: clasif, error: clasifError } = await supabase
-    .from("vw_lote_clasificacion_vigente")
-    .select("peso_neto")
-    .eq("lote_id", loteId)
-    .eq("categoria_id", categoriaId)
+  const { data } = await supabase
+    .from("pedido_asignaciones")
+    .select("id,pedido_id,pedido_detalle_id,lote_id,categoria_id,sin_clasificacion_neta,kg_asignados,precio_kg,subtotal,fecha_asignacion")
+    .eq("id", asignacionId)
     .maybeSingle();
 
-  if (clasifError) {
-    return {
-      stock: 0,
-      errorMessage: getClasificacionVigenteErrorMessage(clasifError),
-    };
+  return (data ?? null) as PedidoAsignacion | null;
+}
+
+async function getPedidoDetalleMap(pedidoId: number) {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("pedido_detalle")
+    .select("id,categoria_id,kg_solicitados,kg_asignados,permite_sustitucion")
+    .eq("pedido_id", pedidoId)
+    .order("prioridad", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
   }
 
-  if (!clasif) {
-    return {
-      stock: 0,
-      errorMessage: "",
-    };
+  const byId = new Map<
+    number,
+    {
+      id: number;
+      categoria_id: number;
+      kg_solicitados: number;
+      kg_asignados: number;
+      permite_sustitucion: boolean;
+    }
+  >();
+
+  for (const row of data ?? []) {
+    byId.set(Number(row.id), {
+      id: Number(row.id),
+      categoria_id: Number(row.categoria_id),
+      kg_solicitados: round2(Number(row.kg_solicitados ?? 0)),
+      kg_asignados: round2(Number(row.kg_asignados ?? 0)),
+      permite_sustitucion: Boolean(row.permite_sustitucion),
+    });
   }
 
-  const { data: asignaciones, error: asignacionesError } = await supabase
+  return byId;
+}
+
+async function getRawAssignedKgForLote(loteId: number, excludingAsignacionId?: number) {
+  const supabase = getSupabaseServerClient();
+  let query = supabase
     .from("pedido_asignaciones")
-    .select("kg_asignados")
+    .select("id,kg_asignados")
     .eq("lote_id", loteId)
-    .eq("categoria_id", categoriaId);
+    .eq("sin_clasificacion_neta", true);
 
-  if (asignacionesError) {
-    return {
-      stock: 0,
-      errorMessage: `No se pudieron cargar las asignaciones actuales: ${asignacionesError.message}`,
-    };
+  if (excludingAsignacionId && excludingAsignacionId > 0) {
+    query = query.neq("id", excludingAsignacionId);
   }
 
-  const asignado = (asignaciones ?? []).reduce(
-    (acc, row) => acc + Number(row.kg_asignados ?? 0),
-    0
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return round2((data ?? []).reduce((acc, row) => acc + Number(row.kg_asignados ?? 0), 0));
+}
+
+async function getClassifiedAssignedMapForLote(loteId: number, excludingAsignacionId?: number) {
+  const supabase = getSupabaseServerClient();
+  let query = supabase
+    .from("pedido_asignaciones")
+    .select("id,categoria_id,kg_asignados")
+    .eq("lote_id", loteId)
+    .eq("sin_clasificacion_neta", false);
+
+  if (excludingAsignacionId && excludingAsignacionId > 0) {
+    query = query.neq("id", excludingAsignacionId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(`No se pudieron cargar las asignaciones actuales: ${error.message}`);
+  }
+
+  const byCategoria = new Map<number, number>();
+  let total = 0;
+  for (const row of data ?? []) {
+    const categoriaId = Number(row.categoria_id);
+    const kg = Number(row.kg_asignados ?? 0);
+    total += kg;
+    byCategoria.set(categoriaId, round2((byCategoria.get(categoriaId) ?? 0) + kg));
+  }
+
+  return { byCategoria, total: round2(total) };
+}
+
+async function getClasificacionVigenteByLote(loteId: number) {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("vw_lote_clasificacion_vigente")
+    .select("lote_id,categoria_id,peso_neto")
+    .eq("lote_id", loteId);
+
+  if (error) {
+    throw new Error(getClasificacionVigenteErrorMessage(error));
+  }
+
+  return (data ?? []).map((row) => ({
+    lote_id: Number(row.lote_id),
+    categoria_id: Number(row.categoria_id),
+    peso_neto: round2(Number(row.peso_neto ?? 0)),
+  }));
+}
+async function getStockDisponibleLoteCategoria(loteId: number, categoriaId: number, excludingAsignacionId?: number) {
+  const clasificaciones = await getClasificacionVigenteByLote(loteId);
+  if (clasificaciones.length === 0) {
+    return { stock: 0, errorMessage: "" };
+  }
+
+  const categoriaRow = clasificaciones.find((row) => Number(row.categoria_id) === categoriaId);
+  if (!categoriaRow) {
+    return { stock: 0, errorMessage: "" };
+  }
+
+  const rawAsignado = await getRawAssignedKgForLote(loteId, excludingAsignacionId);
+  const asignadoClasificado = await getClassifiedAssignedMapForLote(loteId, excludingAsignacionId);
+  const totalNeto = round2(clasificaciones.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0));
+  const disponibleGlobal = round2(totalNeto - asignadoClasificado.total - rawAsignado);
+  const disponibleCategoria = round2(
+    Number(categoriaRow.peso_neto ?? 0) - (asignadoClasificado.byCategoria.get(categoriaId) ?? 0),
   );
 
   return {
-    stock: round2(Number(clasif.peso_neto) - asignado),
+    stock: round2(Math.max(0, Math.min(disponibleCategoria, disponibleGlobal))),
     errorMessage: "",
   };
 }
 
+async function getStockDisponibleLoteSinClasificacion(loteId: number, excludingAsignacionId?: number) {
+  const lote = await getLoteById(loteId);
+  if (!lote) {
+    throw new Error("El lote no existe.");
+  }
+
+  const rawAsignado = await getRawAssignedKgForLote(loteId, excludingAsignacionId);
+  return round2(Math.max(0, Number(lote.peso_bruto_ingreso ?? 0) - rawAsignado));
+}
+
 async function recalculateAndUpdateLoteEstado(loteId: number) {
   const supabase = getSupabaseServerClient();
-
-  const { data: clasificaciones, error: clasificacionesError } = await supabase
-    .from("vw_lote_clasificacion_vigente")
-    .select("categoria_id,peso_neto")
-    .eq("lote_id", loteId);
-
-  if (clasificacionesError) {
-    return getClasificacionVigenteErrorMessage(clasificacionesError);
+  const lote = await getLoteById(loteId);
+  if (!lote) {
+    return "No se encontro el lote para recalcular estado.";
   }
 
-  if (!clasificaciones || clasificaciones.length === 0) {
-    return "";
+  let clasificaciones: Array<{ categoria_id: number; peso_neto: number }> = [];
+  try {
+    clasificaciones = await getClasificacionVigenteByLote(loteId);
+  } catch (error) {
+    return error instanceof Error ? error.message : "No se pudo consultar la clasificacion vigente.";
   }
 
-  const { data: asignaciones, error: asignacionesError } = await supabase
-    .from("pedido_asignaciones")
-    .select("categoria_id,kg_asignados")
-    .eq("lote_id", loteId);
-
-  if (asignacionesError) {
-    return `No se pudieron cargar las asignaciones actuales: ${asignacionesError.message}`;
-  }
-
-  const asignadoMap = new Map<number, number>();
-  for (const row of asignaciones ?? []) {
-    const categoriaId = Number(row.categoria_id);
-    const current = asignadoMap.get(categoriaId) ?? 0;
-    asignadoMap.set(categoriaId, current + Number(row.kg_asignados ?? 0));
-  }
-
-  let hayStock = false;
-  for (const row of clasificaciones) {
-    const categoriaId = Number(row.categoria_id);
-    const neto = Number(row.peso_neto ?? 0);
-    const asignado = asignadoMap.get(categoriaId) ?? 0;
-    const disponible = round2(neto - asignado);
-    if (disponible > 0.01) {
-      hayStock = true;
-      break;
+  if (clasificaciones.length === 0) {
+    try {
+      const rawAsignado = await getRawAssignedKgForLote(loteId);
+      const restanteBruto = round2(Number(lote.peso_bruto_ingreso ?? 0) - rawAsignado);
+      const estadoNuevo = restanteBruto <= 0.01 ? "asignado" : "sin_clasificar";
+      const { error: updateError } = await supabase.from("lotes").update({ estado: estadoNuevo }).eq("id", loteId);
+      return updateError?.message ?? "";
+    } catch (error) {
+      return error instanceof Error ? error.message : "No se pudo consultar el stock bruto asignado.";
     }
   }
 
-  const estadoNuevo = hayStock ? "clasificado" : "asignado";
-  const { error: updateError } = await supabase.from("lotes").update({ estado: estadoNuevo }).eq("id", loteId);
-  return updateError?.message ?? "";
+  try {
+    const rawAsignado = await getRawAssignedKgForLote(loteId);
+    const asignadoClasificado = await getClassifiedAssignedMapForLote(loteId);
+    const totalNeto = round2(clasificaciones.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0));
+    const disponibleGlobal = round2(totalNeto - asignadoClasificado.total - rawAsignado);
+    const estadoNuevo = disponibleGlobal > 0.01 ? "clasificado" : "asignado";
+    const { error: updateError } = await supabase.from("lotes").update({ estado: estadoNuevo }).eq("id", loteId);
+    return updateError?.message ?? "";
+  } catch (error) {
+    return error instanceof Error ? error.message : "No se pudo recalcular el estado del lote.";
+  }
 }
 
 async function recalculateAndUpdatePedidoEstado(pedidoId: number) {
   const supabase = getSupabaseServerClient();
   const pedido = await getPedidoById(pedidoId);
   if (!pedido || pedido.estado === "cancelado") return;
+
+  const estadoPorDetalle = await resolvePedidoEstadoFromDetalle(supabase, pedidoId);
+  if (estadoPorDetalle) {
+    await supabase.from("pedidos").update({ estado: estadoPorDetalle }).eq("id", pedidoId);
+    return;
+  }
 
   const asignado = await getPedidoKgAsignados(pedidoId);
   const solicitado = Number(pedido.kg_solicitados ?? 0);
@@ -245,34 +352,34 @@ async function recalculateAndUpdatePedidoEstado(pedidoId: number) {
   await supabase.from("pedidos").update({ estado: estadoNuevo }).eq("id", pedidoId);
 }
 
-export async function createPedidoAction(formData: FormData) {
-  await ensureWriteAccess("pedidos");
-
+async function validatePedidoHeaderAndDetalle(formData: FormData) {
   const clienteId = Number(getField(formData, "cliente_id"));
   const producto = getField(formData, "producto") as Producto;
-  const categoriaIds = extractCategoriaIds(formData);
-  const categoriaId = categoriaIds.length === 1 ? categoriaIds[0] : null;
-  const kgSolicitados = toDecimal(getField(formData, "kg_solicitados"));
-  const precioKg = toDecimal(getField(formData, "precio_kg"));
   const fechaPedido = getField(formData, "fecha_pedido");
+  const fechaEntrega = getField(formData, "fecha_entrega") || null;
+  const observaciones = getField(formData, "observaciones") || null;
+  const detalle = extractPedidoDetalleForm(formData);
 
   if (!clienteId || Number.isNaN(clienteId)) {
-    redirectWithMessage("error", "Selecciona un cliente válido.");
+    redirectWithMessage("error", "Selecciona un cliente valido.");
   }
 
   const productosValidos: Producto[] = ["Jengibre", "Curcuma"];
   if (!productosValidos.includes(producto)) {
-    redirectWithMessage("error", "Producto inválido. Solo se permite Jengibre o Curcuma.");
+    redirectWithMessage("error", "Producto invalido. Solo se permite Jengibre o Curcuma.");
   }
 
-  if (
-    Number.isNaN(kgSolicitados) ||
-    Number.isNaN(precioKg) ||
-    kgSolicitados <= 0 ||
-    precioKg <= 0 ||
-    !fechaPedido
-  ) {
-    redirectWithMessage("error", "Kg solicitados, precio y fecha son obligatorios y válidos.");
+  if (!fechaPedido) {
+    redirectWithMessage("error", "La fecha del pedido es obligatoria.");
+  }
+
+  if (detalle.length === 0) {
+    redirectWithMessage("error", "Debes registrar al menos una linea valida con categoria, kg y precio.");
+  }
+
+  const categoriaIds = detalle.map((line) => Number(line.categoria_id));
+  if (new Set(categoriaIds).size !== categoriaIds.length) {
+    redirectWithMessage("error", "No repitas la misma categoria en dos lineas del pedido.");
   }
 
   const isCliente = await ensureCliente(clienteId);
@@ -280,27 +387,108 @@ export async function createPedidoAction(formData: FormData) {
     redirectWithMessage("error", "La persona seleccionada no tiene rol cliente.");
   }
 
-  for (const categoriaIdIter of categoriaIds) {
-    const isCategoriaValida = await ensureCategoriaActiva(categoriaIdIter);
+  for (const categoriaId of categoriaIds) {
+    const isCategoriaValida = await ensureCategoriaActiva(categoriaId);
     if (!isCategoriaValida) {
-      redirectWithMessage("error", "Una categoría seleccionada no existe o está inactiva.");
+      redirectWithMessage("error", "Una categoria seleccionada no existe o esta inactiva.");
     }
   }
 
+  const resumen = summarizePedidoDetalle(
+    detalle.map((line, index) => ({
+      id: index + 1,
+      pedido_id: 0,
+      categoria_id: line.categoria_id,
+      categoria_nombre: "",
+      categoria_codigo: "",
+      kg_solicitados: line.kg_solicitados,
+      precio_kg: line.precio_kg,
+      kg_asignados: 0,
+      prioridad: line.prioridad,
+      permite_sustitucion: line.permite_sustitucion,
+      observaciones: line.observaciones,
+      requiere_revision: false,
+    })),
+  );
+
+  const precioPromedio = resumen.kgSolicitados > 0 ? round2(resumen.totalEstimado / resumen.kgSolicitados) : 0;
+
+  return {
+    clienteId,
+    producto,
+    fechaPedido,
+    fechaEntrega,
+    observaciones,
+    detalle,
+    resumen,
+    precioPromedio,
+  };
+}
+
+async function rebindAsignacionesDetalle(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  pedidoId: number,
+  targetCategoriaByAsignacionId?: Map<number, number>,
+) {
+  const { data: detailRows, error: detailError } = await supabase
+    .from("pedido_detalle")
+    .select("id,categoria_id")
+    .eq("pedido_id", pedidoId);
+
+  if (detailError) {
+    throw new Error(detailError.message);
+  }
+
+  const detailByCategoria = new Map<number, number>();
+  for (const row of detailRows ?? []) {
+    detailByCategoria.set(Number(row.categoria_id), Number(row.id));
+  }
+
+  const { data: asignaciones, error: asignacionesError } = await supabase
+    .from("pedido_asignaciones")
+    .select("id,categoria_id,pedido_detalle_id")
+    .eq("pedido_id", pedidoId);
+
+  if (asignacionesError) {
+    throw new Error(asignacionesError.message);
+  }
+
+  for (const row of asignaciones ?? []) {
+    const categoriaId = targetCategoriaByAsignacionId?.get(Number(row.id)) ?? Number(row.categoria_id);
+    const detalleId = detailByCategoria.get(categoriaId) ?? null;
+    if (!detalleId) continue;
+    if (Number(row.pedido_detalle_id ?? 0) === detalleId) continue;
+
+    const { error: updateError } = await supabase
+      .from("pedido_asignaciones")
+      .update({ pedido_detalle_id: detalleId })
+      .eq("id", Number(row.id));
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+  }
+}
+export async function createPedidoAction(formData: FormData) {
+  await ensureWriteAccess("pedidos");
+
+  const { clienteId, producto, fechaPedido, fechaEntrega, observaciones, detalle, resumen, precioPromedio } =
+    await validatePedidoHeaderAndDetalle(formData);
+
   const numeroPedido = getField(formData, "numero_pedido") || (await buildNumeroPedido());
-  const totalEstimado = round2(kgSolicitados * precioKg);
+  const categoriaId = detalle.length === 1 ? detalle[0].categoria_id : null;
 
   const payload = {
     numero_pedido: numeroPedido,
     cliente_id: clienteId,
     producto,
     categoria_id: categoriaId,
-    kg_solicitados: round2(kgSolicitados),
-    precio_kg: round2(precioKg),
-    total_estimado: totalEstimado,
+    kg_solicitados: resumen.kgSolicitados,
+    precio_kg: precioPromedio,
+    total_estimado: resumen.totalEstimado,
     fecha_pedido: fechaPedido,
-    fecha_entrega: getField(formData, "fecha_entrega") || null,
-    observaciones: buildObservacionesConCategorias(getField(formData, "observaciones"), categoriaIds),
+    fecha_entrega: fechaEntrega,
+    observaciones,
     estado: "pendiente",
   };
 
@@ -308,11 +496,18 @@ export async function createPedidoAction(formData: FormData) {
   const { data: pedidoCreado, error } = await supabase
     .from("pedidos")
     .insert(payload)
-    .select("numero_pedido")
+    .select("id,numero_pedido")
     .single();
 
   if (error || !pedidoCreado) {
     redirectWithMessage("error", error?.message ?? "No se pudo crear el pedido.");
+  }
+
+  try {
+    await replacePedidoDetalle(supabase, Number(pedidoCreado.id), detalle);
+  } catch (detailError) {
+    const message = detailError instanceof Error ? detailError.message : "No se pudo guardar el detalle del pedido.";
+    redirectWithMessage("error", message);
   }
 
   revalidatePath("/pedidos");
@@ -323,64 +518,65 @@ export async function updatePedidoAction(formData: FormData) {
   await ensureWriteAccess("pedidos");
 
   const pedidoId = Number(getField(formData, "pedido_id"));
-  const clienteId = Number(getField(formData, "cliente_id"));
-  const producto = getField(formData, "producto") as Producto;
-  const categoriaIds = extractCategoriaIds(formData);
-  const categoriaId = categoriaIds.length === 1 ? categoriaIds[0] : null;
-  const kgSolicitados = toDecimal(getField(formData, "kg_solicitados"));
-  const precioKg = toDecimal(getField(formData, "precio_kg"));
-  const fechaPedido = getField(formData, "fecha_pedido");
-
   if (!pedidoId || Number.isNaN(pedidoId)) {
-    redirectWithMessage("error", "Pedido inválido para editar.");
+    redirectWithMessage("error", "Pedido invalido para editar.");
   }
 
-  if (!clienteId || Number.isNaN(clienteId)) {
-    redirectWithMessage("error", "Selecciona un cliente válido.");
+  const { clienteId, producto, fechaPedido, fechaEntrega, observaciones, detalle, resumen, precioPromedio } =
+    await validatePedidoHeaderAndDetalle(formData);
+
+  const supabase = getSupabaseServerClient();
+  const pedido = await getPedidoById(pedidoId);
+  if (!pedido) {
+    redirectWithMessage("error", "El pedido no existe.");
   }
 
-  const productosValidos: Producto[] = ["Jengibre", "Curcuma"];
-  if (!productosValidos.includes(producto)) {
-    redirectWithMessage("error", "Producto inválido. Solo se permite Jengibre o Curcuma.");
+  if (pedido.estado === "cancelado") {
+    redirectWithMessage("error", "No se puede editar un pedido cancelado.");
   }
 
-  if (
-    Number.isNaN(kgSolicitados) ||
-    Number.isNaN(precioKg) ||
-    kgSolicitados <= 0 ||
-    precioKg <= 0 ||
-    !fechaPedido
-  ) {
-    redirectWithMessage("error", "Kg solicitados, precio y fecha son obligatorios y válidos.");
+  const { data: asignacionesExistentes, error: asignacionesError } = await supabase
+    .from("pedido_asignaciones")
+    .select("id,categoria_id,pedido_detalle_id")
+    .eq("pedido_id", pedidoId);
+
+  if (asignacionesError) {
+    redirectWithMessage("error", asignacionesError.message);
   }
 
-  const isCliente = await ensureCliente(clienteId);
-  if (!isCliente) {
-    redirectWithMessage("error", "La persona seleccionada no tiene rol cliente.");
-  }
-
-  for (const categoriaIdIter of categoriaIds) {
-    const isCategoriaValida = await ensureCategoriaActiva(categoriaIdIter);
-    if (!isCategoriaValida) {
-      redirectWithMessage("error", "Una categoría seleccionada no existe o está inactiva.");
+  const categoriasNuevas = new Set(detalle.map((line) => Number(line.categoria_id)));
+  const detalleActualMap = await getPedidoDetalleMap(pedidoId);
+  const targetCategoriaByAsignacionId = new Map<number, number>();
+  for (const row of asignacionesExistentes ?? []) {
+    const detalleId = Number(row.pedido_detalle_id ?? 0);
+    const categoriaId = Number(row.categoria_id);
+    if (detalleId > 0) {
+      const detalleActual = detalleActualMap.get(detalleId);
+      if (detalleActual) {
+        targetCategoriaByAsignacionId.set(Number(row.id), Number(detalleActual.categoria_id));
+      }
+    }
+    if (detalleId <= 0 && !categoriasNuevas.has(categoriaId)) {
+      redirectWithMessage(
+        "error",
+        "Hay asignaciones antiguas ligadas a categorias que ya no estan en el pedido. Ajustalas primero o conserva esa linea.",
+      );
     }
   }
 
-  const totalEstimado = round2(kgSolicitados * precioKg);
-  const supabase = getSupabaseServerClient();
-
+  const categoriaId = detalle.length === 1 ? detalle[0].categoria_id : null;
   const { error } = await supabase
     .from("pedidos")
     .update({
       cliente_id: clienteId,
       producto,
       categoria_id: categoriaId,
-      kg_solicitados: round2(kgSolicitados),
-      precio_kg: round2(precioKg),
-      total_estimado: totalEstimado,
+      kg_solicitados: resumen.kgSolicitados,
+      precio_kg: precioPromedio,
+      total_estimado: resumen.totalEstimado,
       fecha_pedido: fechaPedido,
-      fecha_entrega: getField(formData, "fecha_entrega") || null,
-      observaciones: buildObservacionesConCategorias(getField(formData, "observaciones"), categoriaIds),
+      fecha_entrega: fechaEntrega,
+      observaciones,
       updated_at: new Date().toISOString(),
     })
     .eq("id", pedidoId)
@@ -390,42 +586,37 @@ export async function updatePedidoAction(formData: FormData) {
     redirectWithMessage("error", error.message);
   }
 
-  revalidatePath("/pedidos");
-  redirectWithMessage("ok", `Pedido ${pedidoId} actualizado correctamente.`);
-}
+  try {
+    await replacePedidoDetalle(supabase, pedidoId, detalle);
+    await rebindAsignacionesDetalle(supabase, pedidoId, targetCategoriaByAsignacionId);
+    await syncPedidoDetalleAsignado(supabase, pedidoId);
+    await recalculateAndUpdatePedidoEstado(pedidoId);
+  } catch (detailError) {
+    const message = detailError instanceof Error ? detailError.message : "No se pudo actualizar el detalle del pedido.";
+    redirectWithMessage("error", message);
+  }
 
+  revalidatePath("/pedidos");
+  redirectWithMessage("ok", `Pedido ${pedido.numero_pedido} actualizado correctamente.`);
+}
 export async function asignarLotePedidoAction(formData: FormData) {
   await ensureWriteAccess("pedidos");
 
   const pedidoId = Number(getField(formData, "pedido_id"));
+  const pedidoDetalleId = Number(getField(formData, "pedido_detalle_id"));
   const loteId = Number(getField(formData, "lote_id"));
   const categoriaId = Number(getField(formData, "categoria_id"));
+  const sinClasificacionNeta = getField(formData, "sin_clasificacion_neta") === "1";
   const kgAsignados = toDecimal(getField(formData, "kg_asignados"));
   const precioKg = toDecimal(getField(formData, "precio_kg"));
   const fechaAsignacion = getField(formData, "fecha_asignacion");
 
-  if (
-    !pedidoId ||
-    !loteId ||
-    !categoriaId ||
-    Number.isNaN(pedidoId) ||
-    Number.isNaN(loteId) ||
-    Number.isNaN(categoriaId)
-  ) {
-    redirectWithMessage("error", "Datos inválidos para la asignación.");
+  if (!pedidoId || !pedidoDetalleId || !loteId || !categoriaId) {
+    redirectWithMessage("error", "Datos invalidos para la asignacion.");
   }
 
-  if (
-    Number.isNaN(kgAsignados) ||
-    Number.isNaN(precioKg) ||
-    kgAsignados <= 0 ||
-    precioKg <= 0 ||
-    !fechaAsignacion
-  ) {
-    redirectWithMessage(
-      "error",
-      "Kg asignados, precio y fecha de asignación son obligatorios y válidos."
-    );
+  if (Number.isNaN(kgAsignados) || Number.isNaN(precioKg) || kgAsignados <= 0 || precioKg <= 0 || !fechaAsignacion) {
+    redirectWithMessage("error", "Kg asignados, precio y fecha de asignacion son obligatorios y validos.");
   }
 
   const pedido = await getPedidoById(pedidoId);
@@ -438,7 +629,7 @@ export async function asignarLotePedidoAction(formData: FormData) {
   }
 
   if (pedido.estado === "completado") {
-    redirectWithMessage("error", "El pedido ya está completado.");
+    redirectWithMessage("error", "El pedido ya esta completado.");
   }
 
   const lote = await getLoteById(loteId);
@@ -446,58 +637,84 @@ export async function asignarLotePedidoAction(formData: FormData) {
     redirectWithMessage("error", "El lote no existe.");
   }
 
-  if (lote.estado !== "clasificado" && lote.estado !== "asignado") {
-    redirectWithMessage("error", "El lote debe estar en estado clasificado o asignado.");
-  }
-
   if (lote.producto !== pedido.producto) {
-    redirectWithMessage(
-      "error",
-      `El lote (${lote.producto}) no coincide con el producto del pedido (${pedido.producto}).`
-    );
+    redirectWithMessage("error", `El lote (${lote.producto}) no coincide con el producto del pedido (${pedido.producto}).`);
   }
 
-  // Regla actualizada: el pedido conserva categoría referencial, pero la asignación
-  // puede realizarse con cualquier categoría del mismo producto.
-
-  const stockDisponibleResult = await getStockDisponibleLoteCategoria(loteId, categoriaId);
-  if (stockDisponibleResult.errorMessage) {
-    redirectWithMessage("error", stockDisponibleResult.errorMessage);
+  if (sinClasificacionNeta) {
+    if (lote.estado !== "sin_clasificar") {
+      redirectWithMessage("error", "Solo puedes asignar sin clasificacion neta desde lotes que siguen en almacen sin_clasificar.");
+    }
+  } else if (lote.estado !== "clasificado" && lote.estado !== "asignado") {
+    redirectWithMessage("error", "El lote clasificado debe estar en estado clasificado o asignado.");
   }
 
-  const stockDisponible = stockDisponibleResult.stock;
+  let detailMap: Awaited<ReturnType<typeof getPedidoDetalleMap>>;
+  try {
+    detailMap = await getPedidoDetalleMap(pedidoId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo cargar el detalle del pedido.";
+    redirectWithMessage("error", message);
+  }
+
+  const detalle = detailMap.get(pedidoDetalleId);
+  if (!detalle) {
+    redirectWithMessage("error", "La linea del pedido ya no existe o requiere migracion.");
+  }
+
+  const pendienteLinea = round2(Number(detalle.kg_solicitados ?? 0) - Number(detalle.kg_asignados ?? 0));
+  if (pendienteLinea <= 0.01) {
+    redirectWithMessage("error", "Esa linea del pedido ya no tiene kg pendientes.");
+  }
+
+  if (!sinClasificacionNeta && categoriaId !== Number(detalle.categoria_id) && !detalle.permite_sustitucion) {
+    redirectWithMessage("error", "La linea solo acepta su categoria exacta. Activa sustitucion para usar otra categoria clasificada.");
+  }
+
+  let stockDisponible = 0;
+  try {
+    if (sinClasificacionNeta) {
+      stockDisponible = await getStockDisponibleLoteSinClasificacion(loteId);
+    } else {
+      const stockDisponibleResult = await getStockDisponibleLoteCategoria(loteId, categoriaId);
+      if (stockDisponibleResult.errorMessage) {
+        redirectWithMessage("error", stockDisponibleResult.errorMessage);
+      }
+      stockDisponible = stockDisponibleResult.stock;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo calcular el stock disponible.";
+    redirectWithMessage("error", message);
+  }
+
   if (stockDisponible <= 0.01) {
-    redirectWithMessage("error", "Ese lote/categoría no tiene stock disponible.");
-  }
-
-  const pedidoKgAsignados = await getPedidoKgAsignados(pedidoId);
-  const pedidoFaltante = round2(Number(pedido.kg_solicitados) - pedidoKgAsignados);
-
-  if (pedidoFaltante <= 0.01) {
-    redirectWithMessage("error", "El pedido ya no tiene kg pendientes.");
-  }
-
-  if (kgAsignados > stockDisponible) {
     redirectWithMessage(
       "error",
-      `Kg asignados exceden stock disponible (${stockDisponible} kg).`
+      sinClasificacionNeta
+        ? "Ese lote de almacen ya no tiene peso bruto disponible para asignar sin clasificacion neta."
+        : "Ese lote/categoria no tiene stock disponible.",
     );
   }
 
-  if (kgAsignados > pedidoFaltante) {
-    redirectWithMessage("error", `Kg asignados exceden faltante del pedido (${pedidoFaltante} kg).`);
+  if (kgAsignados > stockDisponible + 0.01) {
+    redirectWithMessage("error", `Kg asignados exceden stock disponible (${stockDisponible} kg).`);
+  }
+
+  if (kgAsignados > pendienteLinea + 0.01) {
+    redirectWithMessage("error", `Kg asignados exceden faltante de la linea (${pendienteLinea} kg).`);
   }
 
   const subtotal = round2(kgAsignados * precioKg);
   const supabase = getSupabaseServerClient();
-
   const { data: asignacionCreada, error: insertError } = await supabase
     .from("pedido_asignaciones")
     .insert({
       pedido_id: pedidoId,
+      pedido_detalle_id: pedidoDetalleId,
       lote_id: loteId,
       categoria_id: categoriaId,
       codigo_division: null,
+      sin_clasificacion_neta: sinClasificacionNeta,
       kg_asignados: round2(kgAsignados),
       precio_kg: round2(precioKg),
       subtotal,
@@ -508,32 +725,18 @@ export async function asignarLotePedidoAction(formData: FormData) {
     .single();
 
   if (insertError || !asignacionCreada) {
-    redirectWithMessage("error", insertError?.message ?? "No se pudo registrar la asignación.");
+    redirectWithMessage("error", insertError?.message ?? "No se pudo registrar la asignacion.");
   }
 
   const codeYear = new Date().getFullYear();
   const codigoDivision = `DIV-${codeYear}-${String(asignacionCreada.id).padStart(8, "0")}`;
-
   const { error: codeError } = await supabase
     .from("pedido_asignaciones")
     .update({ codigo_division: codigoDivision })
     .eq("id", asignacionCreada.id);
 
   if (codeError) {
-    redirectWithMessage("error", `Asignación creada, pero falló código de división: ${codeError.message}`);
-  }
-
-  const nuevoAsignadoPedido = round2(pedidoKgAsignados + kgAsignados);
-  const nuevoEstadoPedido =
-    nuevoAsignadoPedido >= Number(pedido.kg_solicitados) - 0.01 ? "completado" : "en_proceso";
-
-  const { error: updatePedidoError } = await supabase
-    .from("pedidos")
-    .update({ estado: nuevoEstadoPedido })
-    .eq("id", pedidoId);
-
-  if (updatePedidoError) {
-    redirectWithMessage("error", updatePedidoError.message);
+    redirectWithMessage("error", `Asignacion creada, pero fallo codigo de division: ${codeError.message}`);
   }
 
   const { data: categoriaData } = await supabase
@@ -542,9 +745,14 @@ export async function asignarLotePedidoAction(formData: FormData) {
     .eq("id", categoriaId)
     .maybeSingle();
 
-  const concepto = `Salida lote ${lote.numero_lote} -> Pedido ${pedido.numero_pedido} -- ${
-    categoriaData?.nombre ?? "Categoria"
-  }: ${round2(kgAsignados)} kg`;
+  const concepto = sinClasificacionNeta
+    ? `Salida lote ${lote.numero_lote} -> Pedido ${pedido.numero_pedido} sin clasificacion neta (${round2(kgAsignados)} kg)`
+    : `Salida lote ${lote.numero_lote} -> Pedido ${pedido.numero_pedido} -- ${categoriaData?.nombre ?? "Categoria"}: ${round2(kgAsignados)} kg`;
+
+  const observacionKardex =
+    [getField(formData, "observaciones") || null, sinClasificacionNeta ? "Asignacion desde almacen sin clasificacion neta." : null]
+      .filter(Boolean)
+      .join(" | ") || null;
 
   const { error: kardexError } = await supabase.from("kardex").insert({
     tipo_kardex: "producto",
@@ -557,11 +765,19 @@ export async function asignarLotePedidoAction(formData: FormData) {
     peso_kg: round2(kgAsignados),
     persona_id: pedido.cliente_id,
     concepto,
-    observaciones: getField(formData, "observaciones") || null,
+    observaciones: observacionKardex,
   });
 
   if (kardexError) {
-    redirectWithMessage("error", `Asignación creada, pero falló kardex: ${kardexError.message}`);
+    redirectWithMessage("error", `Asignacion creada, pero fallo kardex: ${kardexError.message}`);
+  }
+
+  try {
+    await syncPedidoDetalleAsignado(supabase, pedidoId);
+    await recalculateAndUpdatePedidoEstado(pedidoId);
+  } catch (syncError) {
+    const message = syncError instanceof Error ? syncError.message : "No se pudo recalcular el pedido.";
+    redirectWithMessage("error", message);
   }
 
   const loteEstadoError = await recalculateAndUpdateLoteEstado(loteId);
@@ -571,13 +787,15 @@ export async function asignarLotePedidoAction(formData: FormData) {
 
   revalidatePath("/pedidos");
   revalidatePath("/almacen");
+  revalidatePath("/clasificacion-neta");
 
   redirectWithMessage(
     "ok",
-    `Asignación registrada (${round2(kgAsignados)} kg). Estado pedido: ${nuevoEstadoPedido}.`
+    sinClasificacionNeta
+      ? `Asignacion registrada desde almacen sin clasificacion neta (${round2(kgAsignados)} kg).`
+      : `Asignacion registrada (${round2(kgAsignados)} kg).`,
   );
 }
-
 export async function updateAsignacionPedidoAction(formData: FormData) {
   await ensureWriteAccess("pedidos");
 
@@ -587,51 +805,71 @@ export async function updateAsignacionPedidoAction(formData: FormData) {
   const fechaAsignacion = getField(formData, "fecha_asignacion");
 
   if (!asignacionId || Number.isNaN(asignacionId)) {
-    redirectWithMessage("error", "Asignación inválida para editar.");
+    redirectWithMessage("error", "Asignacion invalida para editar.");
   }
 
   if (Number.isNaN(kgAsignados) || Number.isNaN(precioKg) || kgAsignados <= 0 || precioKg <= 0 || !fechaAsignacion) {
-    redirectWithMessage("error", "Kg, precio y fecha son obligatorios y válidos.");
+    redirectWithMessage("error", "Kg, precio y fecha son obligatorios y validos.");
   }
 
-  const supabase = getSupabaseServerClient();
-  const { data: asignacionActual } = await supabase
-    .from("pedido_asignaciones")
-    .select("id,pedido_id,lote_id,categoria_id,kg_asignados,precio_kg")
-    .eq("id", asignacionId)
-    .maybeSingle();
-
+  const asignacionActual = await getPedidoAsignacionById(asignacionId);
   if (!asignacionActual) {
-    redirectWithMessage("error", "No se encontró la asignación.");
+    redirectWithMessage("error", "No se encontro la asignacion.");
   }
 
   const pedido = await getPedidoById(Number(asignacionActual.pedido_id));
   const lote = await getLoteById(Number(asignacionActual.lote_id));
   if (!pedido || !lote) {
-    redirectWithMessage("error", "Pedido o lote no disponibles para actualizar asignación.");
+    redirectWithMessage("error", "Pedido o lote no disponibles para actualizar asignacion.");
   }
 
-  const stockSinEstaFilaResult = await getStockDisponibleLoteCategoria(
-    Number(asignacionActual.lote_id),
-    Number(asignacionActual.categoria_id)
+  let detailMap: Awaited<ReturnType<typeof getPedidoDetalleMap>>;
+  try {
+    detailMap = await getPedidoDetalleMap(Number(asignacionActual.pedido_id));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo cargar el detalle del pedido.";
+    redirectWithMessage("error", message);
+  }
+
+  const detalle = detailMap.get(Number(asignacionActual.pedido_detalle_id ?? 0));
+  if (!detalle) {
+    redirectWithMessage("error", "La linea vinculada a esta asignacion ya no existe. Revisa el detalle del pedido.");
+  }
+
+  const pendienteMaximoLinea = round2(
+    Number(detalle.kg_solicitados ?? 0) - Number(detalle.kg_asignados ?? 0) + Number(asignacionActual.kg_asignados ?? 0),
   );
-  if (stockSinEstaFilaResult.errorMessage) {
-    redirectWithMessage("error", stockSinEstaFilaResult.errorMessage);
+  if (kgAsignados > pendienteMaximoLinea + 0.01) {
+    redirectWithMessage("error", `Con ese cambio excedes el faltante de la linea (${pendienteMaximoLinea} kg).`);
   }
 
-  const stockSinEstaFila = stockSinEstaFilaResult.stock;
-  const stockMaximo = round2(stockSinEstaFila + Number(asignacionActual.kg_asignados ?? 0));
+  let stockMaximo = 0;
+  try {
+    if (asignacionActual.sin_clasificacion_neta) {
+      stockMaximo = await getStockDisponibleLoteSinClasificacion(Number(asignacionActual.lote_id), asignacionId);
+    } else {
+      const stockSinEstaFilaResult = await getStockDisponibleLoteCategoria(
+        Number(asignacionActual.lote_id),
+        Number(asignacionActual.categoria_id),
+        asignacionId,
+      );
+      if (stockSinEstaFilaResult.errorMessage) {
+        redirectWithMessage("error", stockSinEstaFilaResult.errorMessage);
+      }
+      stockMaximo = stockSinEstaFilaResult.stock;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo calcular el stock disponible.";
+    redirectWithMessage("error", message);
+  }
+
+  stockMaximo = round2(stockMaximo + Number(asignacionActual.kg_asignados ?? 0));
   if (kgAsignados > stockMaximo + 0.01) {
-    redirectWithMessage("error", `Kg asignados exceden el máximo disponible (${stockMaximo} kg).`);
-  }
-
-  const totalAsignadoPedido = await getPedidoKgAsignados(Number(asignacionActual.pedido_id));
-  const maxPedido = round2(totalAsignadoPedido - Number(asignacionActual.kg_asignados ?? 0) + kgAsignados);
-  if (maxPedido > Number(pedido.kg_solicitados) + 0.01) {
-    redirectWithMessage("error", "Con ese cambio excede los kg solicitados del pedido.");
+    redirectWithMessage("error", `Kg asignados exceden el maximo disponible (${stockMaximo} kg).`);
   }
 
   const subtotal = round2(kgAsignados * precioKg);
+  const supabase = getSupabaseServerClient();
   const { error } = await supabase
     .from("pedido_asignaciones")
     .update({
@@ -659,15 +897,24 @@ export async function updateAsignacionPedidoAction(formData: FormData) {
       categoria_id: Number(asignacionActual.categoria_id),
       peso_kg: deltaKg,
       persona_id: pedido.cliente_id,
-      concepto: `Ajuste asignación pedido ${pedido.numero_pedido}`,
-      observaciones: "Edición de asignación",
+      concepto: asignacionActual.sin_clasificacion_neta
+        ? `Ajuste asignacion sin clasificacion neta pedido ${pedido.numero_pedido}`
+        : `Ajuste asignacion pedido ${pedido.numero_pedido}`,
+      observaciones: asignacionActual.sin_clasificacion_neta ? "Ajuste de salida desde almacen sin clasificacion neta." : "Edicion de asignacion",
     });
     if (kardexError) {
-      redirectWithMessage("error", `Asignación editada, pero falló kardex: ${kardexError.message}`);
+      redirectWithMessage("error", `Asignacion editada, pero fallo kardex: ${kardexError.message}`);
     }
   }
 
-  await recalculateAndUpdatePedidoEstado(Number(asignacionActual.pedido_id));
+  try {
+    await syncPedidoDetalleAsignado(supabase, Number(asignacionActual.pedido_id));
+    await recalculateAndUpdatePedidoEstado(Number(asignacionActual.pedido_id));
+  } catch (syncError) {
+    const message = syncError instanceof Error ? syncError.message : "No se pudo recalcular el pedido.";
+    redirectWithMessage("error", message);
+  }
+
   const loteEstadoError = await recalculateAndUpdateLoteEstado(Number(asignacionActual.lote_id));
   if (loteEstadoError) {
     redirectWithMessage("error", `Asignacion actualizada, pero no se pudo recalcular el estado del lote: ${loteEstadoError}`);
@@ -675,7 +922,8 @@ export async function updateAsignacionPedidoAction(formData: FormData) {
 
   revalidatePath("/pedidos");
   revalidatePath("/almacen");
-  redirectWithMessage("ok", "Asignación actualizada correctamente.");
+  revalidatePath("/clasificacion-neta");
+  redirectWithMessage("ok", "Asignacion actualizada correctamente.");
 }
 
 export async function deleteAsignacionPedidoAction(formData: FormData) {
@@ -683,22 +931,16 @@ export async function deleteAsignacionPedidoAction(formData: FormData) {
 
   const asignacionId = Number(getField(formData, "asignacion_id"));
   if (!asignacionId || Number.isNaN(asignacionId)) {
-    redirectWithMessage("error", "Asignación inválida para quitar.");
+    redirectWithMessage("error", "Asignacion invalida para quitar.");
   }
 
-  const supabase = getSupabaseServerClient();
-  const { data: asignacionActual } = await supabase
-    .from("pedido_asignaciones")
-    .select("id,pedido_id,lote_id,categoria_id,kg_asignados")
-    .eq("id", asignacionId)
-    .maybeSingle();
-
+  const asignacionActual = await getPedidoAsignacionById(asignacionId);
   if (!asignacionActual) {
-    redirectWithMessage("error", "No se encontró la asignación.");
+    redirectWithMessage("error", "No se encontro la asignacion.");
   }
 
   const pedido = await getPedidoById(Number(asignacionActual.pedido_id));
-
+  const supabase = getSupabaseServerClient();
   const { error } = await supabase.from("pedido_asignaciones").delete().eq("id", asignacionId);
   if (error) {
     redirectWithMessage("error", error.message);
@@ -714,15 +956,24 @@ export async function deleteAsignacionPedidoAction(formData: FormData) {
     categoria_id: Number(asignacionActual.categoria_id),
     peso_kg: round2(-Number(asignacionActual.kg_asignados ?? 0)),
     persona_id: pedido?.cliente_id ?? null,
-    concepto: `Anulación asignación pedido ${pedido?.numero_pedido ?? asignacionId}`,
-    observaciones: "Se quitó asignación",
+    concepto: asignacionActual.sin_clasificacion_neta
+      ? `Anulacion asignacion sin clasificacion neta ${pedido?.numero_pedido ?? asignacionId}`
+      : `Anulacion asignacion pedido ${pedido?.numero_pedido ?? asignacionId}`,
+    observaciones: asignacionActual.sin_clasificacion_neta ? "Se quito una asignacion desde almacen sin clasificacion neta." : "Se quito asignacion",
   });
 
   if (kardexError) {
-    redirectWithMessage("error", `Asignación eliminada, pero falló kardex: ${kardexError.message}`);
+    redirectWithMessage("error", `Asignacion eliminada, pero fallo kardex: ${kardexError.message}`);
   }
 
-  await recalculateAndUpdatePedidoEstado(Number(asignacionActual.pedido_id));
+  try {
+    await syncPedidoDetalleAsignado(supabase, Number(asignacionActual.pedido_id));
+    await recalculateAndUpdatePedidoEstado(Number(asignacionActual.pedido_id));
+  } catch (syncError) {
+    const message = syncError instanceof Error ? syncError.message : "No se pudo recalcular el pedido.";
+    redirectWithMessage("error", message);
+  }
+
   const loteEstadoError = await recalculateAndUpdateLoteEstado(Number(asignacionActual.lote_id));
   if (loteEstadoError) {
     redirectWithMessage("error", `Asignacion eliminada, pero no se pudo recalcular el estado del lote: ${loteEstadoError}`);
@@ -730,5 +981,6 @@ export async function deleteAsignacionPedidoAction(formData: FormData) {
 
   revalidatePath("/pedidos");
   revalidatePath("/almacen");
-  redirectWithMessage("ok", "Asignación eliminada correctamente.");
+  revalidatePath("/clasificacion-neta");
+  redirectWithMessage("ok", "Asignacion eliminada correctamente.");
 }

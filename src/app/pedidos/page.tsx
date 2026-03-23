@@ -10,11 +10,18 @@ import {
 } from "./actions";
 import { selectCategoriasActivasCompat } from "@/lib/categorias";
 import { getClasificacionVigenteErrorMessage } from "@/lib/lote-clasificacion-vigente";
+import {
+  buildPedidoDetalleLabel,
+  loadPedidoDetalleByPedidosCompat,
+  loadPedidoDetalleCompat,
+  summarizePedidoDetalle,
+  type PedidoDetalleLine,
+} from "@/lib/pedido-detalle";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ModuleNavigation from "@/components/module-navigation";
 import ModuleFormModal from "@/components/module-form-modal";
-import PersonSearchField from "@/components/person-search-field";
+import PedidoEditor from "@/components/pedido-editor";
 
 type SearchParams = {
   q?: string;
@@ -59,8 +66,10 @@ type Pedido = {
 type Asignacion = {
   id: number;
   pedido_id: number;
+  pedido_detalle_id: number | null;
   lote_id: number;
   categoria_id: number;
+  sin_clasificacion_neta: boolean;
   kg_asignados: number;
   precio_kg: number;
   subtotal: number;
@@ -71,9 +80,15 @@ type LoteDisponible = {
   lote_id: number;
   numero_lote: string;
   productor_nombre: string;
+  pedido_detalle_id: number;
+  pedido_categoria_id: number;
+  pedido_categoria_nombre: string;
   categoria_id: number;
   categoria_nombre: string;
   kg_disponibles: number;
+  sin_clasificacion_neta: boolean;
+  es_sustitucion: boolean;
+  stock_badge: string;
 };
 
 type LotesDisponiblesResult = {
@@ -87,15 +102,6 @@ function escapeLike(input: string) {
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
-}
-
-function extractCategoriaIdsFromObs(observaciones: string | null) {
-  const match = (observaciones ?? "").match(/\[CATS:([^\]]+)\]/);
-  if (!match) return [] as number[];
-  return match[1]
-    .split(",")
-    .map((value) => Number(String(value).trim()))
-    .filter((value) => Number.isFinite(value) && value > 0);
 }
 
 async function getClientesActivos() {
@@ -197,7 +203,7 @@ async function getAsignacionesByPedidos(pedidoIds: number[]) {
   const { data } = await supabase
     .from("pedido_asignaciones")
     .select(
-      "id,pedido_id,lote_id,categoria_id,kg_asignados,precio_kg,subtotal,fecha_asignacion",
+      "id,pedido_id,pedido_detalle_id,lote_id,categoria_id,sin_clasificacion_neta,kg_asignados,precio_kg,subtotal,fecha_asignacion",
     )
     .in("pedido_id", pedidoIds);
 
@@ -263,15 +269,71 @@ async function getPedidoById(id: number) {
   return (data ?? null) as Pedido | null;
 }
 
+async function getStockReferencialByCategoria() {
+  const supabase = getSupabaseServerClient();
+  const { data: clasificaciones } = await supabase
+    .from("vw_lote_clasificacion_vigente")
+    .select("lote_id,categoria_id,peso_neto");
+
+  const { data: asignaciones } = await supabase
+    .from("pedido_asignaciones")
+    .select("lote_id,categoria_id,kg_asignados,sin_clasificacion_neta");
+
+  const asignadoMap = new Map<string, number>();
+  const rawAsignadoPorLote = new Map<number, number>();
+
+  for (const row of asignaciones ?? []) {
+    const loteId = Number(row.lote_id);
+    const categoriaId = Number(row.categoria_id);
+    const kg = Number(row.kg_asignados ?? 0);
+    if (row.sin_clasificacion_neta) {
+      rawAsignadoPorLote.set(loteId, round2((rawAsignadoPorLote.get(loteId) ?? 0) + kg));
+      continue;
+    }
+
+    const key = `${loteId}-${categoriaId}`;
+    asignadoMap.set(key, round2((asignadoMap.get(key) ?? 0) + kg));
+  }
+
+  const totalNetoPorLote = new Map<number, number>();
+  const asignadoClasificadoPorLote = new Map<number, number>();
+  for (const row of clasificaciones ?? []) {
+    const loteId = Number(row.lote_id);
+    totalNetoPorLote.set(loteId, round2((totalNetoPorLote.get(loteId) ?? 0) + Number(row.peso_neto ?? 0)));
+    const key = `${loteId}-${Number(row.categoria_id)}`;
+    asignadoClasificadoPorLote.set(
+      loteId,
+      round2((asignadoClasificadoPorLote.get(loteId) ?? 0) + (asignadoMap.get(key) ?? 0)),
+    );
+  }
+
+  const result = new Map<number, number>();
+  for (const row of clasificaciones ?? []) {
+    const loteId = Number(row.lote_id);
+    const categoriaId = Number(row.categoria_id);
+    const totalNeto = totalNetoPorLote.get(loteId) ?? 0;
+    const rawAsignado = rawAsignadoPorLote.get(loteId) ?? 0;
+    const asignadoClasificado = asignadoClasificadoPorLote.get(loteId) ?? 0;
+    const disponibleGlobal = round2(totalNeto - asignadoClasificado - rawAsignado);
+    const disponibleCategoria = round2(Number(row.peso_neto ?? 0) - (asignadoMap.get(`${loteId}-${categoriaId}`) ?? 0));
+    const disponible = round2(Math.max(0, Math.min(disponibleCategoria, disponibleGlobal)));
+    if (disponible <= 0.01) continue;
+    result.set(categoriaId, round2((result.get(categoriaId) ?? 0) + disponible));
+  }
+
+  return result;
+}
+
 async function getAvailableLotesForPedido(
   pedido: Pedido,
+  detalle: PedidoDetalleLine[],
 ): Promise<LotesDisponiblesResult> {
   const supabase = getSupabaseServerClient();
 
   const { data: lotes, error: lotesError } = await supabase
     .from("lotes")
-    .select("id,numero_lote,productor_id")
-    .in("estado", ["clasificado", "asignado"])
+    .select("id,numero_lote,productor_id,peso_bruto_ingreso,estado")
+    .in("estado", ["sin_clasificar", "clasificado", "asignado"])
     .eq("producto", pedido.producto);
 
   if (lotesError) {
@@ -299,18 +361,15 @@ async function getAvailableLotesForPedido(
     };
   }
 
-  if (!clasificaciones || clasificaciones.length === 0) {
-    return { lotes: [], errorMessage: "" };
-  }
-
   const categoriaIds = [
-    ...new Set(clasificaciones.map((row) => Number(row.categoria_id))),
+    ...new Set((clasificaciones ?? []).map((row) => Number(row.categoria_id))),
   ];
 
-  const { data: categorias, error: categoriasError } = await supabase
-    .from("categorias")
-    .select("id,nombre")
-    .in("id", categoriaIds);
+  const categoriasResult =
+    categoriaIds.length > 0
+      ? await supabase.from("categorias").select("id,nombre").in("id", categoriaIds)
+      : { data: [], error: null };
+  const { data: categorias, error: categoriasError } = categoriasResult;
 
   if (categoriasError) {
     return {
@@ -333,9 +392,8 @@ async function getAvailableLotesForPedido(
 
   const { data: asignaciones, error: asignacionesError } = await supabase
     .from("pedido_asignaciones")
-    .select("lote_id,categoria_id,kg_asignados")
-    .in("lote_id", loteIds)
-    .in("categoria_id", categoriaIds);
+    .select("lote_id,categoria_id,kg_asignados,sin_clasificacion_neta")
+    .in("lote_id", loteIds);
 
   if (asignacionesError) {
     return {
@@ -344,13 +402,18 @@ async function getAvailableLotesForPedido(
     };
   }
 
-  const asignadoMap = new Map<string, number>();
+  const asignadoClasificadoMap = new Map<string, number>();
+  const rawAsignadoPorLote = new Map<number, number>();
   for (const row of asignaciones ?? []) {
+    const loteId = Number(row.lote_id);
+    const kg = Number(row.kg_asignados ?? 0);
+    if (row.sin_clasificacion_neta) {
+      rawAsignadoPorLote.set(loteId, round2((rawAsignadoPorLote.get(loteId) ?? 0) + kg));
+      continue;
+    }
+
     const key = `${row.lote_id}-${row.categoria_id}`;
-    asignadoMap.set(
-      key,
-      (asignadoMap.get(key) ?? 0) + Number(row.kg_asignados ?? 0),
-    );
+    asignadoClasificadoMap.set(key, round2((asignadoClasificadoMap.get(key) ?? 0) + kg));
   }
 
   const categoriaMap = new Map<number, string>();
@@ -365,42 +428,109 @@ async function getAvailableLotesForPedido(
 
   const lotesMap = new Map<
     number,
-    { numero_lote: string; productor_id: number }
+    { numero_lote: string; productor_id: number; peso_bruto_ingreso: number; estado: string }
   >();
   for (const row of lotes) {
     lotesMap.set(Number(row.id), {
       numero_lote: String(row.numero_lote),
       productor_id: Number(row.productor_id),
+      peso_bruto_ingreso: Number(row.peso_bruto_ingreso ?? 0),
+      estado: String(row.estado),
     });
   }
 
   const resultado: LoteDisponible[] = [];
+  const pendientes = new Map<number, number>();
+  for (const line of detalle) {
+    const faltante = round2(Number(line.kg_solicitados ?? 0) - Number(line.kg_asignados ?? 0));
+    if (faltante > 0.01) {
+      pendientes.set(Number(line.id), faltante);
+    }
+  }
 
-  for (const row of clasificaciones) {
+  const totalNetoPorLote = new Map<number, number>();
+  for (const row of clasificaciones ?? []) {
+    const loteId = Number(row.lote_id);
+    totalNetoPorLote.set(loteId, round2((totalNetoPorLote.get(loteId) ?? 0) + Number(row.peso_neto ?? 0)));
+  }
+
+  for (const row of clasificaciones ?? []) {
     const loteId = Number(row.lote_id);
     const categoriaId = Number(row.categoria_id);
     const neto = Number(row.peso_neto ?? 0);
-    const asignado = asignadoMap.get(`${loteId}-${categoriaId}`) ?? 0;
-    const disponible = round2(neto - asignado);
+    const asignado = asignadoClasificadoMap.get(`${loteId}-${categoriaId}`) ?? 0;
+    const loteTotal = totalNetoPorLote.get(loteId) ?? 0;
+    const rawAsignado = rawAsignadoPorLote.get(loteId) ?? 0;
+    const asignadoClasificadoLote = (clasificaciones ?? []).reduce((acc, current) => {
+      const key = `${current.lote_id}-${current.categoria_id}`;
+      return Number(current.lote_id) === loteId ? acc + (asignadoClasificadoMap.get(key) ?? 0) : acc;
+    }, 0);
+    const disponibleGlobal = round2(loteTotal - asignadoClasificadoLote - rawAsignado);
+    const disponible = round2(Math.max(0, Math.min(neto - asignado, disponibleGlobal)));
     if (disponible <= 0.01) continue;
 
     const loteData = lotesMap.get(loteId);
     if (!loteData) continue;
 
-    resultado.push({
-      lote_id: loteId,
-      numero_lote: loteData.numero_lote,
-      productor_nombre:
-        productorMap.get(loteData.productor_id) ??
-        String(loteData.productor_id),
-      categoria_id: categoriaId,
-      categoria_nombre: categoriaMap.get(categoriaId) ?? String(categoriaId),
-      kg_disponibles: disponible,
-    });
+    for (const line of detalle) {
+      const faltante = pendientes.get(Number(line.id)) ?? 0;
+      if (faltante <= 0.01) continue;
+      const esSustitucion = categoriaId !== Number(line.categoria_id);
+      if (esSustitucion && !line.permite_sustitucion) continue;
+
+      resultado.push({
+        lote_id: loteId,
+        numero_lote: loteData.numero_lote,
+        productor_nombre: productorMap.get(loteData.productor_id) ?? String(loteData.productor_id),
+        pedido_detalle_id: Number(line.id),
+        pedido_categoria_id: Number(line.categoria_id),
+        pedido_categoria_nombre: line.categoria_nombre,
+        categoria_id: categoriaId,
+        categoria_nombre: categoriaMap.get(categoriaId) ?? String(categoriaId),
+        kg_disponibles: round2(Math.min(disponible, faltante)),
+        sin_clasificacion_neta: false,
+        es_sustitucion: esSustitucion,
+        stock_badge: esSustitucion ? "Sustitucion" : "Clasificacion neta",
+      });
+    }
+  }
+
+  for (const lote of lotes) {
+    if (String(lote.estado) !== "sin_clasificar") continue;
+    const disponibleBruto = round2(Number(lote.peso_bruto_ingreso ?? 0) - (rawAsignadoPorLote.get(Number(lote.id)) ?? 0));
+    if (disponibleBruto <= 0.01) continue;
+
+    for (const line of detalle) {
+      const faltante = pendientes.get(Number(line.id)) ?? 0;
+      if (faltante <= 0.01) continue;
+
+      resultado.push({
+        lote_id: Number(lote.id),
+        numero_lote: String(lote.numero_lote),
+        productor_nombre: productorMap.get(Number(lote.productor_id)) ?? String(lote.productor_id),
+        pedido_detalle_id: Number(line.id),
+        pedido_categoria_id: Number(line.categoria_id),
+        pedido_categoria_nombre: line.categoria_nombre,
+        categoria_id: Number(line.categoria_id),
+        categoria_nombre: line.categoria_nombre,
+        kg_disponibles: round2(Math.min(disponibleBruto, faltante)),
+        sin_clasificacion_neta: true,
+        es_sustitucion: false,
+        stock_badge: "Sin clasificacion neta",
+      });
+    }
   }
 
   return {
-    lotes: resultado.sort((a, b) => b.kg_disponibles - a.kg_disponibles),
+    lotes: resultado.sort((a, b) => {
+      if (a.sin_clasificacion_neta !== b.sin_clasificacion_neta) {
+        return a.sin_clasificacion_neta ? 1 : -1;
+      }
+      if (a.es_sustitucion !== b.es_sustitucion) {
+        return a.es_sustitucion ? 1 : -1;
+      }
+      return b.kg_disponibles - a.kg_disponibles;
+    }),
     errorMessage: "",
   };
 }
@@ -446,16 +576,21 @@ export default async function PedidosPage({
   searchParams: Promise<SearchParams>;
 }) {
   const search = await searchParams;
+  const supabase = getSupabaseServerClient();
 
-  const [clientes, categorias, pedidosData, resumen] = await Promise.all([
+  const [clientes, categorias, pedidosData, resumen, stockReferencialMap] = await Promise.all([
     getClientesActivos(),
     getCategoriasActivas(),
     getPedidos(search),
     getResumenPedidos(),
+    getStockReferencialByCategoria(),
   ]);
 
   const pedidoIds = pedidosData.pedidos.map((pedido) => Number(pedido.id));
-  const asignaciones = await getAsignacionesByPedidos(pedidoIds);
+  const [asignaciones, detalleByPedido] = await Promise.all([
+    getAsignacionesByPedidos(pedidoIds),
+    loadPedidoDetalleByPedidosCompat(supabase, pedidosData.pedidos),
+  ]);
 
   const kgAsignadosMap = new Map<number, number>();
   for (const row of asignaciones) {
@@ -469,6 +604,12 @@ export default async function PedidosPage({
   const categoriaMap = new Map(
     categorias.map((categoria) => [categoria.id, categoria.nombre]),
   );
+  const detalleLineMap = new Map<number, PedidoDetalleLine>();
+  for (const lines of detalleByPedido.values()) {
+    for (const line of lines) {
+      detalleLineMap.set(Number(line.id), line);
+    }
+  }
 
   const asignarId = Number(search.asignar ?? "0");
   const editarId = Number(search.editar ?? "0");
@@ -502,9 +643,16 @@ export default async function PedidosPage({
   const pedidoSeleccionado =
     asignarId > 0 ? await getPedidoById(asignarId) : null;
   const pedidoEditar = editarId > 0 ? await getPedidoById(editarId) : null;
+  const detallePedidoSeleccionado = pedidoSeleccionado
+    ? await loadPedidoDetalleCompat(supabase, pedidoSeleccionado)
+    : [];
+  const detallePedidoEditar = pedidoEditar
+    ? await loadPedidoDetalleCompat(supabase, pedidoEditar)
+    : [];
+  const resumenDetalleSeleccionado = summarizePedidoDetalle(detallePedidoSeleccionado);
 
   const loteDisponiblesResult = pedidoSeleccionado
-    ? await getAvailableLotesForPedido(pedidoSeleccionado)
+    ? await getAvailableLotesForPedido(pedidoSeleccionado, detallePedidoSeleccionado)
     : { lotes: [], errorMessage: "" };
   const loteDisponibles = loteDisponiblesResult.lotes;
 
@@ -524,12 +672,7 @@ export default async function PedidosPage({
     : 0;
 
   const kgFaltanteSeleccionado = pedidoSeleccionado
-    ? round2(
-      Math.max(
-        0,
-        Number(pedidoSeleccionado.kg_solicitados) - kgAsignadoSeleccionado,
-      ),
-    )
+    ? round2(Math.max(0, Number(resumenDetalleSeleccionado.kgSolicitados || pedidoSeleccionado.kg_solicitados) - kgAsignadoSeleccionado))
     : 0;
 
   const loteIdsSel = [
@@ -537,7 +680,6 @@ export default async function PedidosPage({
       asignacionesPedidoSeleccionado.map((row) => Number(row.lote_id)),
     ),
   ];
-  const supabase = getSupabaseServerClient();
   const { data: lotesSelData } =
     loteIdsSel.length > 0
       ? await supabase
@@ -550,6 +692,13 @@ export default async function PedidosPage({
   for (const row of lotesSelData ?? []) {
     loteMapSel.set(Number(row.id), String(row.numero_lote));
   }
+
+  const categoriasEditor = categorias.map((categoria) => ({
+    id: categoria.id,
+    codigo: categoria.codigo,
+    nombre: categoria.nombre,
+    stockReferencial: round2(stockReferencialMap.get(Number(categoria.id)) ?? 0),
+  }));
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 lg:flex">
@@ -582,136 +731,20 @@ export default async function PedidosPage({
                 <ModuleFormModal
                   buttonLabel="Registrar Pedido"
                   title="Registrar Pedido"
-                  description="Completa los datos y crea el pedido sin salir de este módulo."
+                  description="Usa el nuevo editor por lineas para definir categorias, kg, prioridades y sustituciones."
                 >
-                  <form action={createPedidoAction} className="grid gap-3">
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <label className="grid gap-1">
-                        <span className="text-sm font-semibold text-gray-700">
-                          Número pedido (opcional, auto)
-                        </span>
-                        <input
-                          name="numero_pedido"
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                        />
-                      </label>
-
-                      <PersonSearchField
-                        name="cliente_id"
-                        label="Cliente"
-                        people={clientes}
-                        required
-                        placeholder="Buscar cliente por nombre o DNI"
-                      />
-
-                      <label className="grid gap-1">
-                        <span className="text-sm font-semibold text-gray-700">
-                          Producto *
-                        </span>
-                        <select
-                          name="producto"
-                          defaultValue="Jengibre"
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                          required
-                        >
-                          <option value="Jengibre">Jengibre</option>
-                          <option value="Curcuma">Curcuma</option>
-                        </select>
-                      </label>
-
-                      <label className="grid gap-1 sm:col-span-3">
-                        <span className="text-sm font-semibold text-gray-700">
-                          Categorías solicitadas (puedes elegir varias)
-                        </span>
-                        <select
-                          name="categoria_ids"
-                          multiple
-                          className="min-h-28 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                        >
-                          {categorias.map((categoria) => (
-                            <option key={categoria.id} value={String(categoria.id)}>
-                              {categoria.nombre}
-                            </option>
-                          ))}
-                        </select>
-                        {categorias.length === 0 ? (
-                          <span className="text-xs text-amber-700">
-                            No hay categorías visibles en Supabase para este entorno. Si la tabla está vacía y existe
-                            `SUPABASE_SERVICE_ROLE_KEY`, la app intentará sembrar categorías base automáticamente.
-                          </span>
-                        ) : null}
-                      </label>
-
-                      <label className="grid gap-1">
-                        <span className="text-sm font-semibold text-gray-700">
-                          Kg solicitados *
-                        </span>
-                        <input
-                          name="kg_solicitados"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                          required
-                        />
-                      </label>
-
-                      <label className="grid gap-1">
-                        <span className="text-sm font-semibold text-gray-700">
-                          Precio por kg *
-                        </span>
-                        <input
-                          name="precio_kg"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                          required
-                        />
-                      </label>
-
-                      <label className="grid gap-1">
-                        <span className="text-sm font-semibold text-gray-700">
-                          Fecha pedido *
-                        </span>
-                        <input
-                          name="fecha_pedido"
-                          type="date"
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                          required
-                        />
-                      </label>
-
-                      <label className="grid gap-1">
-                        <span className="text-sm font-semibold text-gray-700">
-                          Fecha entrega
-                        </span>
-                        <input
-                          name="fecha_entrega"
-                          type="date"
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                        />
-                      </label>
-
-                      <label className="grid gap-1 sm:col-span-3">
-                        <span className="text-sm font-semibold text-gray-700">
-                          Observaciones
-                        </span>
-                        <textarea
-                          name="observaciones"
-                          className="min-h-20 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                        />
-                      </label>
-                    </div>
-
-                    <div>
-                      <button
-                        type="submit"
-                        className="rounded-lg bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1765CC]"
-                      >
-                        Crear Pedido
-                      </button>
-                    </div>
+                  <form action={createPedidoAction}>
+                    <PedidoEditor
+                      clientes={clientes}
+                      categorias={categoriasEditor}
+                      initial={{
+                        producto: "Jengibre",
+                        fecha_pedido: new Date().toISOString().slice(0, 10),
+                        lineas: [],
+                      }}
+                      submitLabel="Crear pedido"
+                      showNumeroPedido
+                    />
                   </form>
                 </ModuleFormModal>
 
@@ -849,95 +882,35 @@ export default async function PedidosPage({
               isOpen={true}
               closeHref={listBaseUrl}
               title={`Editar Pedido ${pedidoEditar.numero_pedido}`}
-              description="Modifica los datos del pedido y guarda los cambios."
-              maxWidth="4xl"
+              description="Edita cliente, lineas, prioridades y faltantes por categoria desde un unico editor."
+              maxWidth="5xl"
             >
-              {(() => {
-                const categoriasPedido = pedidoEditar.categoria_id
-                  ? [Number(pedidoEditar.categoria_id)]
-                  : extractCategoriaIdsFromObs(pedidoEditar.observaciones);
-
-                return (
-                  <form action={updatePedidoAction} className="grid gap-4">
-                    <input type="hidden" name="pedido_id" value={pedidoEditar.id} />
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <label className="grid gap-1.5">
-                        <span className="text-sm font-semibold text-gray-900">Cliente *</span>
-                        <select name="cliente_id" defaultValue={String(pedidoEditar.cliente_id)} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required>
-                          {clientes.map((cliente) => (
-                            <option key={cliente.id} value={String(cliente.id)}>
-                              {cliente.nombre_completo}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="grid gap-1.5">
-                        <span className="text-sm font-semibold text-gray-900">Producto *</span>
-                        <select name="producto" defaultValue={pedidoEditar.producto} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required>
-                          <option value="Jengibre">Jengibre</option>
-                          <option value="Curcuma">Curcuma</option>
-                        </select>
-                      </label>
-
-                      <label className="grid gap-1.5 sm:col-span-3">
-                        <span className="text-sm font-semibold text-gray-900">Categorías solicitadas (varias)</span>
-                        <select
-                          name="categoria_ids"
-                          multiple
-                          defaultValue={categoriasPedido.map((value) => String(value))}
-                          className="min-h-24 rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
-                        >
-                          {categorias.map((categoria) => (
-                            <option key={categoria.id} value={String(categoria.id)}>
-                              {categoria.nombre}
-                            </option>
-                          ))}
-                        </select>
-                        {categorias.length === 0 ? (
-                          <span className="text-xs text-amber-700">
-                            No hay categorías visibles en Supabase para este entorno.
-                          </span>
-                        ) : null}
-                      </label>
-
-                      <label className="grid gap-1.5">
-                        <span className="text-sm font-semibold text-gray-900">Kg solicitados *</span>
-                        <input name="kg_solicitados" type="number" min="0" step="0.01" defaultValue={pedidoEditar.kg_solicitados} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required />
-                      </label>
-
-                      <label className="grid gap-1.5">
-                        <span className="text-sm font-semibold text-gray-900">Precio por kg *</span>
-                        <input name="precio_kg" type="number" min="0" step="0.01" defaultValue={pedidoEditar.precio_kg} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required />
-                      </label>
-
-                      <label className="grid gap-1.5">
-                        <span className="text-sm font-semibold text-gray-900">Fecha pedido *</span>
-                        <input name="fecha_pedido" type="date" defaultValue={pedidoEditar.fecha_pedido} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" required />
-                      </label>
-
-                      <label className="grid gap-1.5">
-                        <span className="text-sm font-semibold text-gray-900">Fecha entrega</span>
-                        <input name="fecha_entrega" type="date" defaultValue={pedidoEditar.fecha_entrega ?? ""} className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
-                      </label>
-
-                      <label className="grid gap-1.5 sm:col-span-3">
-                        <span className="text-sm font-semibold text-gray-900">Observaciones</span>
-                        <textarea name="observaciones" defaultValue={pedidoEditar.observaciones ?? ""} className="min-h-20 rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20" />
-                      </label>
-                    </div>
-
-                    <div className="flex flex-col-reverse gap-3 border-t border-gray-200 pt-5 sm:flex-row">
-                      <button type="submit" className="flex-1 rounded-lg border border-[#1A73E8] bg-[#1A73E8] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1765CC] hover:shadow-md">
-                        Guardar cambios pedido
-                      </button>
-                      <Link href={listBaseUrl} className="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-center text-sm font-semibold text-gray-700 transition duration-200 hover:bg-gray-50 hover:border-gray-400">
-                        Cancelar
-                      </Link>
-                    </div>
-                  </form>
-                );
-              })()}
+              <form action={updatePedidoAction}>
+                <input type="hidden" name="pedido_id" value={pedidoEditar.id} />
+                <PedidoEditor
+                  clientes={clientes}
+                  categorias={categoriasEditor}
+                  initial={{
+                    numero_pedido: pedidoEditar.numero_pedido,
+                    cliente_id: pedidoEditar.cliente_id,
+                    producto: pedidoEditar.producto as "Jengibre" | "Curcuma",
+                    fecha_pedido: pedidoEditar.fecha_pedido,
+                    fecha_entrega: pedidoEditar.fecha_entrega,
+                    observaciones: pedidoEditar.observaciones,
+                    lineas: detallePedidoEditar.map((line) => ({
+                      key: `detalle-${line.id}`,
+                      categoria_id: Number(line.categoria_id),
+                      kg_solicitados: Number(line.kg_solicitados ?? 0),
+                      precio_kg: Number(line.precio_kg ?? 0),
+                      prioridad: Number(line.prioridad ?? 1),
+                      permite_sustitucion: Boolean(line.permite_sustitucion),
+                      observaciones: line.observaciones ?? "",
+                      requiere_revision: Boolean(line.requiere_revision),
+                    })),
+                  }}
+                  submitLabel="Guardar cambios pedido"
+                />
+              </form>
             </ModuleFormModal>
           ) : null}
 
@@ -946,45 +919,69 @@ export default async function PedidosPage({
               isOpen={true}
               closeHref={listBaseUrl}
               title={`Asignar lotes al pedido ${pedidoSeleccionado.numero_pedido}`}
-              description={`Cliente: ${pedidosData.clienteMap.get(pedidoSeleccionado.cliente_id) ?? pedidoSeleccionado.cliente_id} | Producto: ${pedidoSeleccionado.producto} | Categoría: ${pedidoSeleccionado.categoria_id ? categoriaMap.get(pedidoSeleccionado.categoria_id) : "Varias"}`}
+              description={`Cliente: ${pedidosData.clienteMap.get(pedidoSeleccionado.cliente_id) ?? pedidoSeleccionado.cliente_id} | Producto: ${pedidoSeleccionado.producto} | Lineas: ${detallePedidoSeleccionado.length}`}
               maxWidth="5xl"
             >
-              <p className="mb-4 text-xs text-blue-700">
-                Nota: puedes asignar cualquier categoría disponible del mismo producto.
+              <p className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                Primero te mostramos el faltante real por linea. Ademas ya puedes asignar lotes en estado <code>sin_clasificar</code> desde Almacen; cuando eso ocurra queda marcado como &quot;sin clasificacion neta&quot;.
               </p>
 
               <div className="mb-6 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-lg border border-gray-200 bg-blue-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-                    Kg solicitados
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-[#1A73E8]">
-                    {pedidoSeleccionado.kg_solicitados}
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Kg solicitados</p>
+                  <p className="mt-2 text-2xl font-bold text-[#1A73E8]">{resumenDetalleSeleccionado.kgSolicitados}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 bg-green-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-                    Kg asignados
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-green-700">
-                    {kgAsignadoSeleccionado}
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Kg asignados</p>
+                  <p className="mt-2 text-2xl font-bold text-green-700">{resumenDetalleSeleccionado.kgAsignados}</p>
                 </div>
                 <div className="rounded-lg border border-gray-200 bg-red-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
-                    Kg faltantes
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-red-700">
-                    {kgFaltanteSeleccionado}
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">Kg faltantes</p>
+                  <p className="mt-2 text-2xl font-bold text-red-700">{kgFaltanteSeleccionado}</p>
                 </div>
               </div>
 
-              <h3 className="mb-2 text-base font-semibold text-gray-900">
-                Lotes disponibles
-              </h3>
+              <div className="mb-6 grid gap-3 lg:grid-cols-2">
+                {detallePedidoSeleccionado.map((line) => {
+                  const faltante = round2(Number(line.kg_solicitados ?? 0) - Number(line.kg_asignados ?? 0));
+                  return (
+                    <div key={line.id} className="rounded-xl border border-gray-200 bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{line.categoria_nombre}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Prioridad {line.prioridad} | Precio {line.precio_kg} | {line.permite_sustitucion ? "Acepta sustitucion" : "Solo categoria exacta"}
+                          </p>
+                        </div>
+                        {line.requiere_revision ? (
+                          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-800">
+                            Requiere revision
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Solicitado</p>
+                          <p className="mt-1 text-base font-bold text-slate-900">{line.kg_solicitados} kg</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Asignado</p>
+                          <p className="mt-1 text-base font-bold text-emerald-700">{line.kg_asignados} kg</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Pendiente</p>
+                          <p className={`mt-1 text-base font-bold ${faltante > 0.01 ? "text-red-700" : "text-emerald-700"}`}>{faltante} kg</p>
+                        </div>
+                      </div>
+                      {line.observaciones ? <p className="mt-3 text-xs text-slate-600">{line.observaciones}</p> : null}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <h3 className="mb-2 text-base font-semibold text-gray-900">Lotes disponibles</h3>
               <p className="mb-4 text-sm text-gray-600">
-                Selecciona lotes para asignar kg a este pedido:
+                Ahora la asignacion se filtra por linea pedida. Si una fila viene desde almacen sin pasar por clasificacion neta, lo veras marcado antes de asignar.
               </p>
               {loteDisponiblesResult.errorMessage ? (
                 <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 shadow-sm">
@@ -995,30 +992,19 @@ export default async function PedidosPage({
                 <table className="sx-table">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
-                        Lote
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
-                        Productor
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
-                        Categoría
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">
-                        Kg disponibles
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
-                        Asignación
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Linea destino</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Lote</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Productor</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Origen stock</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Categoria origen</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">Kg disponibles</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Asignacion</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loteDisponibles.length === 0 ? (
                       <tr>
-                        <td
-                          colSpan={5}
-                          className="p-4 text-center text-gray-500"
-                        >
+                        <td colSpan={7} className="p-4 text-center text-gray-500">
                           {loteDisponiblesResult.errorMessage
                             ? "No se pudieron cargar los lotes disponibles para este pedido."
                             : "No hay lotes disponibles para este pedido."}
@@ -1027,44 +1013,35 @@ export default async function PedidosPage({
                     ) : null}
 
                     {loteDisponibles.map((row) => (
-                      <tr
-                        key={`${row.lote_id}-${row.categoria_id}`}
-                        className="border-b border-gray-200 hover:bg-gray-50"
-                      >
-                        <td className="px-4 py-3 font-medium text-gray-900">
-                          {row.numero_lote}
-                        </td>
-                        <td className="px-4 py-3">{row.productor_nombre}</td>
-                        <td className="px-4 py-3">{row.categoria_nombre}</td>
-                        <td className="px-4 py-3 text-right font-medium">
-                          {row.kg_disponibles}
-                        </td>
+                      <tr key={`${row.lote_id}-${row.pedido_detalle_id}-${row.categoria_id}-${row.stock_badge}`} className="border-b border-gray-200 align-top hover:bg-gray-50">
                         <td className="px-4 py-3">
-                          <form
-                            action={asignarLotePedidoAction}
-                            className="grid gap-2 sm:grid-cols-5"
-                          >
-                            <input
-                              type="hidden"
-                              name="pedido_id"
-                              value={String(pedidoSeleccionado.id)}
-                            />
-                            <input
-                              type="hidden"
-                              name="lote_id"
-                              value={String(row.lote_id)}
-                            />
-                            <input
-                              type="hidden"
-                              name="categoria_id"
-                              value={String(row.categoria_id)}
-                            />
-
+                          <p className="font-medium text-gray-900">{row.pedido_categoria_nombre}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {detalleLineMap.get(Number(row.pedido_detalle_id))?.permite_sustitucion ? "Acepta sustitucion" : "Exacta"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-gray-900">{row.numero_lote}</td>
+                        <td className="px-4 py-3">{row.productor_nombre}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${row.sin_clasificacion_neta ? "bg-amber-100 text-amber-800" : row.es_sustitucion ? "bg-violet-100 text-violet-800" : "bg-emerald-100 text-emerald-800"}`}>
+                            {row.stock_badge}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">{row.categoria_nombre}</td>
+                        <td className="px-4 py-3 text-right font-medium">{row.kg_disponibles}</td>
+                        <td className="px-4 py-3">
+                          <form action={asignarLotePedidoAction} className="grid gap-2 xl:grid-cols-[100px_110px_130px_1fr_auto]">
+                            <input type="hidden" name="pedido_id" value={String(pedidoSeleccionado.id)} />
+                            <input type="hidden" name="pedido_detalle_id" value={String(row.pedido_detalle_id)} />
+                            <input type="hidden" name="lote_id" value={String(row.lote_id)} />
+                            <input type="hidden" name="categoria_id" value={String(row.categoria_id)} />
+                            <input type="hidden" name="sin_clasificacion_neta" value={row.sin_clasificacion_neta ? "1" : "0"} />
                             <input
                               name="kg_asignados"
                               type="number"
                               min="0"
                               step="0.01"
+                              max={String(row.kg_disponibles)}
                               placeholder="Kg"
                               className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
                               required
@@ -1074,30 +1051,23 @@ export default async function PedidosPage({
                               type="number"
                               min="0"
                               step="0.01"
-                              defaultValue={String(
-                                pedidoSeleccionado.precio_kg,
-                              )}
+                              defaultValue={String(detalleLineMap.get(Number(row.pedido_detalle_id))?.precio_kg ?? pedidoSeleccionado.precio_kg)}
                               className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
                               required
                             />
                             <input
                               name="fecha_asignacion"
                               type="date"
-                              defaultValue={new Date()
-                                .toISOString()
-                                .slice(0, 10)}
+                              defaultValue={new Date().toISOString().slice(0, 10)}
                               className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
                               required
                             />
                             <input
                               name="observaciones"
-                              placeholder="Obs"
+                              placeholder={row.sin_clasificacion_neta ? "Obs. ej. despacho directo desde almacen" : "Obs"}
                               className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
                             />
-                            <button
-                              type="submit"
-                              className="rounded bg-[#1A73E8] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#1765CC]"
-                            >
+                            <button type="submit" className="rounded bg-[#1A73E8] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#1765CC]">
                               Asignar
                             </button>
                           </form>
@@ -1108,122 +1078,91 @@ export default async function PedidosPage({
                 </table>
               </div>
 
-              <h3 className="mb-2 text-base font-semibold text-gray-900">
-                Asignaciones registradas
-              </h3>
-              <p className="mb-4 text-sm text-gray-600">
-                Historial de cortes realizados para este pedido:
-              </p>
+              <h3 className="mb-2 text-base font-semibold text-gray-900">Asignaciones registradas</h3>
+              <p className="mb-4 text-sm text-gray-600">Historial por lote y linea del pedido.</p>
               <div className="sx-table-wrap">
                 <table className="sx-table">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
-                        Lote
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
-                        Categoría
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">
-                        Kg asignados
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">
-                        Precio/kg
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">
-                        Subtotal
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">
-                        Fecha
-                      </th>
-                      <th className="sticky right-0 bg-gray-50 px-4 py-3 text-center text-xs font-semibold uppercase text-gray-600 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] z-10">
-                        Acciones
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Lote</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Linea pedido</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Categoria origen</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">Kg asignados</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">Precio/kg</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">Subtotal</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Fecha</th>
+                      <th className="sticky right-0 z-10 bg-gray-50 px-4 py-3 text-center text-xs font-semibold uppercase text-gray-600 shadow-[-4px_0_8px_rgba(0,0,0,0.05)]">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {asignacionesPedidoSeleccionado.length === 0 ? (
                       <tr>
-                        <td
-                          colSpan={7}
-                          className="p-4 text-center text-gray-500"
-                        >
-                          Sin asignaciones para este pedido.
-                        </td>
+                        <td colSpan={8} className="p-4 text-center text-gray-500">Sin asignaciones para este pedido.</td>
                       </tr>
                     ) : null}
 
-                    {asignacionesPedidoSeleccionado.map((row) => (
-                      <tr
-                        key={row.id}
-                        className="group border-b border-gray-200 hover:bg-gray-50"
-                      >
-                        <td className="px-4 py-3 font-medium">
-                          {loteMapSel.get(Number(row.lote_id)) ?? row.lote_id}
-                        </td>
-                        <td className="px-4 py-3">
-                          {categoriaMap.get(Number(row.categoria_id)) ??
-                            row.categoria_id}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {row.kg_asignados}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {row.precio_kg}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium">
-                          {row.subtotal}
-                        </td>
-                        <td className="px-4 py-3">{row.fecha_asignacion}</td>
-                        <td className="sticky right-0 bg-white px-4 py-3 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-gray-50 z-10">
-                          <div className="flex flex-wrap items-start justify-center gap-2">
-                            <form action={updateAsignacionPedidoAction} className="flex flex-wrap items-center gap-2">
-                              <input type="hidden" name="asignacion_id" value={String(row.id)} />
-                              <input
-                                name="kg_asignados"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                defaultValue={String(row.kg_asignados)}
-                                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
-                                required
-                              />
-                              <input
-                                name="precio_kg"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                defaultValue={String(row.precio_kg)}
-                                className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
-                                required
-                              />
-                              <input
-                                name="fecha_asignacion"
-                                type="date"
-                                defaultValue={row.fecha_asignacion}
-                                className="rounded border border-gray-300 px-2 py-1 text-xs"
-                                required
-                              />
-                              <input
-                                name="observaciones"
-                                placeholder="Obs"
-                                className="w-28 rounded border border-gray-300 px-2 py-1 text-xs"
-                              />
-                              <button type="submit" className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700">
-                                Modificar
-                              </button>
-                            </form>
+                    {asignacionesPedidoSeleccionado.map((row) => {
+                      const linea = detalleLineMap.get(Number(row.pedido_detalle_id ?? 0));
+                      return (
+                        <tr key={row.id} className="group border-b border-gray-200 hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium">{loteMapSel.get(Number(row.lote_id)) ?? row.lote_id}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-1">
+                              <span>{linea?.categoria_nombre ?? "Linea sin vinculo"}</span>
+                              {row.sin_clasificacion_neta ? (
+                                <span className="inline-flex w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                                  Sin clasificacion neta
+                                </span>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">{categoriaMap.get(Number(row.categoria_id)) ?? row.categoria_id}</td>
+                          <td className="px-4 py-3 text-right">{row.kg_asignados}</td>
+                          <td className="px-4 py-3 text-right">{row.precio_kg}</td>
+                          <td className="px-4 py-3 text-right font-medium">{row.subtotal}</td>
+                          <td className="px-4 py-3">{row.fecha_asignacion}</td>
+                          <td className="sticky right-0 z-10 bg-white px-4 py-3 shadow-[-4px_0_8px_rgba(0,0,0,0.05)] transition-colors group-hover:bg-gray-50">
+                            <div className="flex flex-wrap items-start justify-center gap-2">
+                              <form action={updateAsignacionPedidoAction} className="flex flex-wrap items-center gap-2">
+                                <input type="hidden" name="asignacion_id" value={String(row.id)} />
+                                <input
+                                  name="kg_asignados"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  defaultValue={String(row.kg_asignados)}
+                                  className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                  required
+                                />
+                                <input
+                                  name="precio_kg"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  defaultValue={String(row.precio_kg)}
+                                  className="w-20 rounded border border-gray-300 px-2 py-1 text-xs"
+                                  required
+                                />
+                                <input
+                                  name="fecha_asignacion"
+                                  type="date"
+                                  defaultValue={row.fecha_asignacion}
+                                  className="rounded border border-gray-300 px-2 py-1 text-xs"
+                                  required
+                                />
+                                <input name="observaciones" placeholder="Obs" className="w-28 rounded border border-gray-300 px-2 py-1 text-xs" />
+                                <button type="submit" className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white hover:bg-amber-700">Modificar</button>
+                              </form>
 
-                            <form action={deleteAsignacionPedidoAction}>
-                              <input type="hidden" name="asignacion_id" value={String(row.id)} />
-                              <button type="submit" className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700">
-                                Quitar
-                              </button>
-                            </form>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              <form action={deleteAsignacionPedidoAction}>
+                                <input type="hidden" name="asignacion_id" value={String(row.id)} />
+                                <button type="submit" className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700">Quitar</button>
+                              </form>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1301,7 +1240,9 @@ export default async function PedidosPage({
                     const asignados = round2(
                       kgAsignadosMap.get(Number(pedido.id)) ?? 0,
                     );
-                    const solicitados = Number(pedido.kg_solicitados ?? 0);
+                    const lineasPedido = detalleByPedido.get(Number(pedido.id)) ?? [];
+                    const resumenPedido = summarizePedidoDetalle(lineasPedido);
+                    const solicitados = Number(resumenPedido.kgSolicitados || pedido.kg_solicitados || 0);
                     const cumplimiento =
                       solicitados > 0
                         ? round2((asignados / solicitados) * 100)
@@ -1327,12 +1268,15 @@ export default async function PedidosPage({
                         </td>
                         <td className="px-4 py-3">{pedido.producto}</td>
                         <td className="px-4 py-3">
-                          {pedido.categoria_id
-                            ? categoriaMap.get(pedido.categoria_id)
-                            : "Varias"}
+                          <div className="flex flex-col gap-1">
+                            <span>{buildPedidoDetalleLabel(lineasPedido)}</span>
+                            <span className="text-xs text-slate-500">
+                              {lineasPedido.length} linea(s)
+                            </span>
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {pedido.kg_solicitados}
+                          {solicitados}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-green-700">
                           {asignados}
@@ -1344,10 +1288,12 @@ export default async function PedidosPage({
                           {cumplimiento}%
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {pedido.precio_kg}
+                          {resumenPedido.kgSolicitados > 0
+                            ? round2(resumenPedido.totalEstimado / resumenPedido.kgSolicitados)
+                            : pedido.precio_kg}
                         </td>
                         <td className="px-4 py-3 text-right font-medium">
-                          {pedido.total_estimado}
+                          {resumenPedido.totalEstimado || pedido.total_estimado}
                         </td>
                         <td className="px-4 py-3">{pedido.fecha_pedido}</td>
                         <td className="px-4 py-3">

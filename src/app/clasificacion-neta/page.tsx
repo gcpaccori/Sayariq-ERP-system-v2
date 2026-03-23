@@ -60,11 +60,12 @@ type Lote = {
   numero_lote: string;
   productor_id: number;
   peso_bruto_ingreso: number;
+  numero_jabas: number;
   estado: string;
 };
 
 type Persona = { id: number; nombre_completo: string };
-type Proceso = { lote_id: number; total_modificaciones: number };
+type Proceso = { lote_id: number; total_modificaciones: number; numero_jabas_ingreso: number; numero_jabas_clasificacion: number };
 
 function round3(value: number) {
   return Math.round(value * 1000) / 1000;
@@ -109,13 +110,13 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
     selectCategoriasActivasCompat<Categoria>(supabase, "id,nombre,codigo,orden"),
     supabase
       .from("lotes")
-      .select("id,numero_lote,productor_id,peso_bruto_ingreso,estado")
+      .select("id,numero_lote,productor_id,peso_bruto_ingreso,numero_jabas,estado")
       .in("estado", ["sin_clasificar", "clasificado", "asignado"])
       .order("id", { ascending: false }),
     supabase
       .from("vw_lote_clasificacion_vigente")
       .select("lote_id,categoria_id,categoria_nombre,numero_lote,productor_id,peso_neto,peso_bruto,numero_jabas,peso_jabas,porcentaje_humedad,fecha_clasificacion,version_no"),
-    supabase.from("clasificacion_neta_proceso").select("lote_id,total_modificaciones"),
+    supabase.from("clasificacion_neta_proceso").select("lote_id,total_modificaciones,numero_jabas_ingreso,numero_jabas_clasificacion"),
     supabase.from("personas").select("id,nombre_completo"),
   ]);
 
@@ -315,6 +316,9 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                         <th className="p-2">Lote</th>
                         <th className="p-2">Productor</th>
                         <th className="p-2">Ingreso</th>
+                        <th className="p-2">Jabas almacen</th>
+                        <th className="p-2">Jabas clasificacion</th>
+                        <th className="p-2">Saldo jabas</th>
                         <th className="p-2">Neto vigente</th>
                         <th className="p-2">Modificaciones</th>
                         <th className="p-2">Estado</th>
@@ -325,6 +329,10 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                       {lotesPage.map((lote) => {
                         const rowsLote = vigentes.filter((row) => Number(row.lote_id) === Number(lote.id));
                         const netoActual = rowsLote.reduce((acc, row) => acc + Number(row.peso_neto ?? 0), 0);
+                        const jabasClasificadas = rowsLote.reduce((acc, row) => acc + Number(row.numero_jabas ?? 0), 0);
+                        const proceso = procesos.find((row) => Number(row.lote_id) === Number(lote.id));
+                        const jabasIngreso = Number(proceso?.numero_jabas_ingreso ?? lote.numero_jabas ?? 0);
+                        const saldoJabas = jabasIngreso - jabasClasificadas;
                         const isSelected = Number(selectedLote?.id) === Number(lote.id);
 
                         return (
@@ -332,6 +340,9 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                             <td className="p-2">{lote.numero_lote}</td>
                             <td className="p-2">{productorMap.get(Number(lote.productor_id)) ?? "N/D"}</td>
                             <td className="p-2">{Number(lote.peso_bruto_ingreso ?? 0).toFixed(2)} kg</td>
+                            <td className="p-2">{jabasIngreso}</td>
+                            <td className="p-2">{jabasClasificadas}</td>
+                            <td className={`p-2 ${saldoJabas < 0 ? "text-rose-700" : ""}`}>{saldoJabas}</td>
                             <td className="p-2">{netoActual.toFixed(2)} kg</td>
                             <td className="p-2">{procesoMap.get(Number(lote.id)) ?? 0}</td>
                             <td className="p-2">{lote.estado}</td>
@@ -396,7 +407,7 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
               isOpen={true}
               closeHref={listBaseUrl}
               title={`Reclasificación: Lote ${selectedLote.numero_lote}`}
-              description={`Ingreso: ${Number(selectedLote.peso_bruto_ingreso ?? 0).toFixed(2)} kg | Versión actual: v${versionActual}`}
+              description={`Ingreso: ${Number(selectedLote.peso_bruto_ingreso ?? 0).toFixed(2)} kg | Jabas almacen: ${Number(selectedLote.numero_jabas ?? 0)} | Version actual: v${versionActual}`}
               maxWidth="5xl"
             >
               {(() => {
@@ -406,8 +417,10 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
 
                 return (
                   <>
-                    <div className="mb-4 grid gap-3 rounded-xl bg-gray-50 p-4 shadow-inner text-sm sm:grid-cols-3">
+                    <div className="mb-4 grid gap-3 rounded-xl bg-gray-50 p-4 shadow-inner text-sm sm:grid-cols-4">
                       <p><strong className="text-gray-900">Neto clasificado:</strong> {netoActual.toFixed(2)} kg</p>
+                      <p><strong className="text-gray-900">Jabas almacen:</strong> {Number(selectedLote.numero_jabas ?? 0)}</p>
+                      <p><strong className="text-gray-900">Jabas clasificacion:</strong> {selectedRowsVigentes.reduce((acc, row) => acc + Number(row.numero_jabas ?? 0), 0)}</p>
                       <p><strong className="text-gray-900">Variación:</strong> <span className={variacion > 0 ? "text-amber-700" : variacion < 0 ? "text-sky-700" : "text-emerald-700"}>{variacion > 0 ? "+" : ""}{variacion.toFixed(2)} kg</span></p>
                       <p><strong className="text-gray-900">Modificaciones:</strong> {procesoMap.get(Number(selectedLote.id)) ?? 0}</p>
                     </div>
@@ -564,6 +577,7 @@ export default async function ClasificacionNetaPage({ searchParams }: { searchPa
                             peso_neto: Number(row.peso_neto ?? 0),
                           }))}
                           pesoIngreso={Number(selectedLote.peso_bruto_ingreso ?? 0)}
+                          numeroJabasIngreso={Number(selectedLote.numero_jabas ?? 0)}
                         />
 
                         <div className="grid gap-3 md:grid-cols-2">

@@ -112,12 +112,16 @@ export async function editarClasificacionNetaAction(formData: FormData) {
   const causaVariacion = getField(formData, "causa_variacion") || "proceso";
   const detalleCausa = getField(formData, "detalle_causa") || null;
   const observaciones = getField(formData, "observaciones") || null;
+  const numeroJabasIngreso = Number(getField(formData, "numero_jabas_ingreso") || "0") || 0;
 
   if (!loteId) {
     redirectWithMessage("error", "Falta lote a reclasificar.");
   }
   if (!motivo) {
     redirectWithMessage("error", "El motivo es obligatorio.", loteId);
+  }
+  if (numeroJabasIngreso < 0) {
+    redirectWithMessage("error", "Las jabas de almacen no pueden ser negativas.", loteId);
   }
   const { data: lote, error: loteError } = await supabase
     .from("lotes")
@@ -175,7 +179,7 @@ export async function editarClasificacionNetaAction(formData: FormData) {
         total_modificaciones: 0,
         estado: "abierto",
         peso_bruto_ingreso: Number(lote.peso_bruto_ingreso ?? 0),
-        numero_jabas_ingreso: Number(lote.numero_jabas ?? 0),
+        numero_jabas_ingreso: numeroJabasIngreso,
         created_by_persona_id: actorPersonaId,
         updated_by_persona_id: actorPersonaId,
       })
@@ -284,7 +288,7 @@ export async function editarClasificacionNetaAction(formData: FormData) {
       peso_bruto_ingreso: ingresoKg,
       peso_bruto_clasificado: totalBrutoClasificado,
       peso_neto_clasificado: pesoNetoClasificado,
-      numero_jabas_ingreso: Number(lote.numero_jabas ?? 0),
+      numero_jabas_ingreso: numeroJabasIngreso,
       numero_jabas_clasificacion: jabasClasificadas,
       variacion_kg: variacionKg,
       variacion_pct: variacionPct,
@@ -306,7 +310,7 @@ export async function editarClasificacionNetaAction(formData: FormData) {
 
   const { error: updEstadoLoteError } = await supabase
     .from("lotes")
-    .update({ estado: estadoLoteNuevo })
+    .update({ estado: estadoLoteNuevo, numero_jabas: numeroJabasIngreso })
     .eq("id", loteId)
     .in("estado", ["sin_clasificar", "clasificado", "asignado"]);
 

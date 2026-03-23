@@ -17,6 +17,7 @@ type Props = {
   categorias: Categoria[];
   rowsIniciales: RowInicial[];
   pesoIngreso: number;
+  numeroJabasIngreso: number;
 };
 
 type FormRow = {
@@ -31,7 +32,12 @@ function round3(value: number) {
   return Math.round(value * 1000) / 1000;
 }
 
-export default function ClasificacionNetaEditor({ categorias, rowsIniciales, pesoIngreso }: Props) {
+export default function ClasificacionNetaEditor({
+  categorias,
+  rowsIniciales,
+  pesoIngreso,
+  numeroJabasIngreso,
+}: Props) {
   const initialState = useMemo(() => {
     const map = new Map<number, RowInicial>(rowsIniciales.map((row) => [Number(row.categoria_id), row]));
     const base: Record<number, FormRow> = {};
@@ -54,6 +60,7 @@ export default function ClasificacionNetaEditor({ categorias, rowsIniciales, pes
   }, [categorias, rowsIniciales]);
 
   const [rows, setRows] = useState<Record<number, FormRow>>(initialState);
+  const [jabasIngreso, setJabasIngreso] = useState<number>(Math.max(0, Number(numeroJabasIngreso ?? 0)));
 
   const resumen = useMemo(() => {
     let totalBruto = 0;
@@ -80,6 +87,7 @@ export default function ClasificacionNetaEditor({ categorias, rowsIniciales, pes
     });
 
     const variacion = round3(totalNetoEstimado - pesoIngreso);
+    const saldoJabas = Math.round((jabasIngreso - totalJabas) * 1000) / 1000;
 
     return {
       totalBruto: round3(totalBruto),
@@ -87,13 +95,42 @@ export default function ClasificacionNetaEditor({ categorias, rowsIniciales, pes
       totalPesoJabas: round3(totalPesoJabas),
       totalNetoEstimado: round3(totalNetoEstimado),
       variacion,
+      saldoJabas,
       promedioBrutoPorJaba: totalJabas > 0 ? round3(totalBruto / totalJabas) : 0,
       promedioTaraPorJaba: totalJabas > 0 ? round3(totalPesoJabas / totalJabas) : 0,
     };
-  }, [categorias, rows, pesoIngreso]);
+  }, [categorias, jabasIngreso, rows, pesoIngreso]);
 
   return (
     <>
+      <div className="mb-4 grid gap-3 rounded-xl border border-gray-200 bg-white p-4 md:grid-cols-[220px_1fr]">
+        <label className="grid gap-1.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Jabas registradas en almacen</span>
+          <input
+            name="numero_jabas_ingreso"
+            type="number"
+            min={0}
+            value={jabasIngreso}
+            onChange={(event) => setJabasIngreso(Number(event.target.value || 0))}
+            className="rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+          />
+        </label>
+        <div className="grid gap-2 rounded-xl bg-slate-50 p-4 text-xs text-slate-600 sm:grid-cols-3">
+          <div>
+            <p className="font-semibold uppercase tracking-wide text-slate-500">Jabas ingreso</p>
+            <p className="mt-1 text-base font-bold text-slate-900">{jabasIngreso}</p>
+          </div>
+          <div>
+            <p className="font-semibold uppercase tracking-wide text-slate-500">Jabas clasificadas</p>
+            <p className="mt-1 text-base font-bold text-slate-900">{resumen.totalJabas}</p>
+          </div>
+          <div>
+            <p className="font-semibold uppercase tracking-wide text-slate-500">Saldo jabas</p>
+            <p className={`mt-1 text-base font-bold ${resumen.saldoJabas < 0 ? "text-rose-700" : "text-slate-900"}`}>{resumen.saldoJabas}</p>
+          </div>
+        </div>
+      </div>
+
       <div className="mb-4 grid gap-3 rounded-xl bg-gray-50 p-4 shadow-inner text-xs text-slate-700 md:grid-cols-5">
         <div className="flex flex-col"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total bruto asignado</span><span className="text-sm font-bold">{resumen.totalBruto.toFixed(3)} kg</span></div>
         <div className="flex flex-col"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total jabas</span><span className="text-sm font-bold">{resumen.totalJabas}</span></div>
