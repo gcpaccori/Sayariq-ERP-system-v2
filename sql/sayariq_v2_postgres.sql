@@ -223,6 +223,7 @@ CREATE TABLE IF NOT EXISTS pedido_asignaciones (
   codigo_division VARCHAR(80),
   sin_clasificacion_neta BOOLEAN NOT NULL DEFAULT FALSE,
   kg_asignados NUMERIC(10,2) NOT NULL,
+  numero_jabas_estimadas INT NOT NULL DEFAULT 0,
   precio_kg NUMERIC(10,2) NOT NULL,
   subtotal NUMERIC(10,2) NOT NULL,
   fecha_asignacion DATE NOT NULL,

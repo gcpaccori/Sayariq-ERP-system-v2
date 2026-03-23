@@ -36,6 +36,7 @@ type Lote = {
   producto: string;
   categoria_id: number | null;
   peso_bruto_ingreso: number;
+  numero_jabas: number;
   estado: "sin_clasificar" | "clasificado" | "asignado" | "liquidado" | "cancelado";
 };
 
@@ -47,6 +48,7 @@ type PedidoAsignacion = {
   categoria_id: number;
   sin_clasificacion_neta: boolean;
   kg_asignados: number;
+  numero_jabas_estimadas: number;
   precio_kg: number;
   subtotal: number;
   fecha_asignacion: string;
@@ -122,7 +124,7 @@ async function getLoteById(loteId: number): Promise<Lote | null> {
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
     .from("lotes")
-    .select("id,numero_lote,productor_id,producto,categoria_id,peso_bruto_ingreso,estado")
+    .select("id,numero_lote,productor_id,producto,categoria_id,peso_bruto_ingreso,numero_jabas,estado")
     .eq("id", loteId)
     .maybeSingle();
 
@@ -144,7 +146,7 @@ async function getPedidoAsignacionById(asignacionId: number): Promise<PedidoAsig
   const supabase = getSupabaseServerClient();
   const { data } = await supabase
     .from("pedido_asignaciones")
-    .select("id,pedido_id,pedido_detalle_id,lote_id,categoria_id,sin_clasificacion_neta,kg_asignados,precio_kg,subtotal,fecha_asignacion")
+    .select("id,pedido_id,pedido_detalle_id,lote_id,categoria_id,sin_clasificacion_neta,kg_asignados,numero_jabas_estimadas,precio_kg,subtotal,fecha_asignacion")
     .eq("id", asignacionId)
     .maybeSingle();
 
@@ -287,6 +289,87 @@ async function getStockDisponibleLoteSinClasificacion(loteId: number, excludingA
 
   const rawAsignado = await getRawAssignedKgForLote(loteId, excludingAsignacionId);
   return round2(Math.max(0, Number(lote.peso_bruto_ingreso ?? 0) - rawAsignado));
+}
+
+async function estimateAssignedJabas(params: {
+  loteId: number;
+  categoriaId: number;
+  kgAsignados: number;
+  sinClasificacionNeta: boolean;
+}) {
+  const { loteId, categoriaId, kgAsignados, sinClasificacionNeta } = params;
+  if (kgAsignados <= 0.01) return 0;
+
+  if (sinClasificacionNeta) {
+    const lote = await getLoteById(loteId);
+    const totalJabas = Number(lote?.numero_jabas ?? 0);
+    const totalPeso = Number(lote?.peso_bruto_ingreso ?? 0);
+    if (!lote || totalJabas <= 0 || totalPeso <= 0) return 0;
+
+    const promedioKgPorJaba = totalPeso / totalJabas;
+    if (!Number.isFinite(promedioKgPorJaba) || promedioKgPorJaba <= 0) return 0;
+    return Math.max(1, Math.ceil((kgAsignados - 0.000001) / promedioKgPorJaba));
+  }
+
+  const clasificaciones = await getClasificacionVigenteByLote(loteId);
+  const categoriaRow = clasificaciones.find((row) => Number(row.categoria_id) === categoriaId);
+  if (!categoriaRow) return 0;
+
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("vw_lote_clasificacion_vigente")
+    .select("numero_jabas,peso_neto")
+    .eq("lote_id", loteId)
+    .eq("categoria_id", categoriaId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(getClasificacionVigenteErrorMessage(error));
+  }
+
+  const totalJabas = Number(data?.numero_jabas ?? 0);
+  const totalPeso = Number(data?.peso_neto ?? categoriaRow.peso_neto ?? 0);
+  if (totalJabas <= 0 || totalPeso <= 0) return 0;
+
+  const promedioKgPorJaba = totalPeso / totalJabas;
+  if (!Number.isFinite(promedioKgPorJaba) || promedioKgPorJaba <= 0) return 0;
+
+  return Math.max(1, Math.ceil((kgAsignados - 0.000001) / promedioKgPorJaba));
+}
+
+async function getPromedioKgPorJaba(params: {
+  loteId: number;
+  categoriaId: number;
+  sinClasificacionNeta: boolean;
+}) {
+  const { loteId, categoriaId, sinClasificacionNeta } = params;
+
+  if (sinClasificacionNeta) {
+    const lote = await getLoteById(loteId);
+    const totalJabas = Number(lote?.numero_jabas ?? 0);
+    const totalPeso = Number(lote?.peso_bruto_ingreso ?? 0);
+    if (!lote || totalJabas <= 0 || totalPeso <= 0) return 0;
+    return totalPeso / totalJabas;
+  }
+
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("vw_lote_clasificacion_vigente")
+    .select("numero_jabas,peso_neto")
+    .eq("lote_id", loteId)
+    .eq("categoria_id", categoriaId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(getClasificacionVigenteErrorMessage(error));
+  }
+
+  const totalJabas = Number(data?.numero_jabas ?? 0);
+  const totalPeso = Number(data?.peso_neto ?? 0);
+  if (totalJabas <= 0 || totalPeso <= 0) return 0;
+  return totalPeso / totalJabas;
 }
 
 async function recalculateAndUpdateLoteEstado(loteId: number) {
@@ -608,7 +691,8 @@ export async function asignarLotePedidoAction(formData: FormData) {
   const categoriaOrigenId = Number(getField(formData, "categoria_id"));
   const categoriaDestinoId = Number(getField(formData, "categoria_destino_id") || getField(formData, "categoria_id"));
   const sinClasificacionNeta = getField(formData, "sin_clasificacion_neta") === "1";
-  const kgAsignados = toDecimal(getField(formData, "kg_asignados"));
+  const ajustarKgExacto = getField(formData, "ajustar_kg_exacto") === "1";
+  const kgSolicitados = toDecimal(getField(formData, "kg_asignados"));
   const precioKg = toDecimal(getField(formData, "precio_kg"));
   const fechaAsignacion = getField(formData, "fecha_asignacion");
   const categoriaRegistroId = categoriaOrigenId > 0 ? categoriaOrigenId : categoriaDestinoId;
@@ -617,7 +701,7 @@ export async function asignarLotePedidoAction(formData: FormData) {
     redirectWithMessage("error", "Datos invalidos para la asignacion.");
   }
 
-  if (Number.isNaN(kgAsignados) || Number.isNaN(precioKg) || kgAsignados <= 0 || precioKg <= 0 || !fechaAsignacion) {
+  if (Number.isNaN(kgSolicitados) || Number.isNaN(precioKg) || kgSolicitados <= 0 || precioKg <= 0 || !fechaAsignacion) {
     redirectWithMessage("error", "Kg asignados, precio y fecha de asignacion son obligatorios y validos.");
   }
 
@@ -703,12 +787,51 @@ export async function asignarLotePedidoAction(formData: FormData) {
     );
   }
 
-  if (kgAsignados > stockDisponible + 0.01) {
-    redirectWithMessage("error", `Kg asignados exceden stock disponible (${stockDisponible} kg).`);
+  let kgAsignados = round2(kgSolicitados);
+  let numeroJabasEstimadas = 0;
+  let promedioKgPorJaba = 0;
+  try {
+    promedioKgPorJaba = await getPromedioKgPorJaba({
+      loteId,
+      categoriaId: categoriaRegistroId,
+      sinClasificacionNeta,
+    });
+
+    if (!ajustarKgExacto) {
+      if (promedioKgPorJaba <= 0) {
+        redirectWithMessage("error", "Este origen no tiene promedio kg/jaba suficiente. Activa el ajuste exacto por kg para continuar.");
+      }
+
+      numeroJabasEstimadas = Math.max(1, Math.ceil((kgSolicitados - 0.000001) / promedioKgPorJaba));
+      kgAsignados = round2(numeroJabasEstimadas * promedioKgPorJaba);
+    } else {
+      numeroJabasEstimadas = await estimateAssignedJabas({
+        loteId,
+        categoriaId: categoriaRegistroId,
+        kgAsignados,
+        sinClasificacionNeta,
+      });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo calcular el encuadre de jabas.";
+    redirectWithMessage("error", message);
   }
 
-  if (kgAsignados > pendienteLinea + 0.01) {
-    redirectWithMessage("error", `Kg asignados exceden faltante de la linea (${pendienteLinea} kg).`);
+  if (kgAsignados > stockDisponible + 0.01) {
+    redirectWithMessage(
+      "error",
+      ajustarKgExacto
+        ? `Kg asignados exceden stock disponible (${stockDisponible} kg).`
+        : `Con jabas completas necesitas aprox. ${numeroJabasEstimadas} jabas (~${kgAsignados} kg), pero el origen solo tiene ${stockDisponible} kg disponibles.`,
+    );
+  }
+
+  if (ajustarKgExacto) {
+    if (kgAsignados > pendienteLinea + 0.01) {
+      redirectWithMessage("error", `Kg asignados exceden faltante de la linea (${pendienteLinea} kg).`);
+    }
+  } else if (kgSolicitados > pendienteLinea + 0.01) {
+    redirectWithMessage("error", `El objetivo minimo excede el faltante de la linea (${pendienteLinea} kg).`);
   }
 
   const subtotal = round2(kgAsignados * precioKg);
@@ -723,6 +846,7 @@ export async function asignarLotePedidoAction(formData: FormData) {
       codigo_division: null,
       sin_clasificacion_neta: sinClasificacionNeta,
       kg_asignados: round2(kgAsignados),
+      numero_jabas_estimadas: numeroJabasEstimadas,
       precio_kg: round2(precioKg),
       subtotal,
       fecha_asignacion: fechaAsignacion,
@@ -799,8 +923,8 @@ export async function asignarLotePedidoAction(formData: FormData) {
   redirectWithMessage(
     "ok",
     sinClasificacionNeta
-      ? `Asignacion registrada desde almacen sin clasificacion neta (${round2(kgAsignados)} kg).`
-      : `Asignacion registrada (${round2(kgAsignados)} kg).`,
+      ? `Asignacion registrada desde almacen sin clasificacion neta (${round2(kgAsignados)} kg${numeroJabasEstimadas > 0 ? ` / ~${numeroJabasEstimadas} jabas` : ""}).`
+      : `Asignacion registrada (${round2(kgAsignados)} kg${numeroJabasEstimadas > 0 ? ` / ~${numeroJabasEstimadas} jabas` : ""}).`,
   );
 }
 export async function updateAsignacionPedidoAction(formData: FormData) {
@@ -879,12 +1003,26 @@ export async function updateAsignacionPedidoAction(formData: FormData) {
     redirectWithMessage("error", `Kg asignados exceden el maximo disponible (${stockMaximo} kg).`);
   }
 
+  let numeroJabasEstimadas = 0;
+  try {
+    numeroJabasEstimadas = await estimateAssignedJabas({
+      loteId: Number(asignacionActual.lote_id),
+      categoriaId: Number(asignacionActual.categoria_id),
+      kgAsignados,
+      sinClasificacionNeta: Boolean(asignacionActual.sin_clasificacion_neta),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo estimar las jabas de la asignacion.";
+    redirectWithMessage("error", message);
+  }
+
   const subtotal = round2(kgAsignados * precioKg);
   const supabase = getSupabaseServerClient();
   const { error } = await supabase
     .from("pedido_asignaciones")
     .update({
       kg_asignados: round2(kgAsignados),
+      numero_jabas_estimadas: numeroJabasEstimadas,
       precio_kg: round2(precioKg),
       subtotal,
       fecha_asignacion: fechaAsignacion,
