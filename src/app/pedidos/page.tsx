@@ -29,6 +29,11 @@ type SearchParams = {
   cliente?: string;
   page?: string;
   asignar?: string;
+  asignar_q?: string;
+  asignar_tipo?: "todos" | "exacta" | "sustitucion" | "sin_clasificar";
+  asignar_antiguedad?: "todas" | "0_7" | "8_30" | "31_plus";
+  asignar_categoria?: string;
+  asignar_orden?: "stock_desc" | "stock_asc" | "fecha_antigua" | "fecha_reciente";
   editar?: string;
   ok?: string;
   error?: string;
@@ -80,11 +85,17 @@ type LoteDisponible = {
   lote_id: number;
   numero_lote: string;
   productor_nombre: string;
+  fecha_ingreso: string;
+  guia_ingreso: string | null;
+  chofer: string | null;
+  numero_jabas: number;
+  estado_lote: string;
+  antiguedad_dias: number;
   pedido_detalle_id: number;
   pedido_categoria_id: number;
   pedido_categoria_nombre: string;
   categoria_id: number;
-  categoria_nombre: string;
+  categoria_origen_nombre: string;
   kg_disponibles: number;
   sin_clasificacion_neta: boolean;
   es_sustitucion: boolean;
@@ -96,12 +107,92 @@ type LotesDisponiblesResult = {
   errorMessage: string;
 };
 
+type AsignacionFilters = {
+  q: string;
+  tipo: "todos" | "exacta" | "sustitucion" | "sin_clasificar";
+  antiguedad: "todas" | "0_7" | "8_30" | "31_plus";
+  categoria: string;
+  orden: "stock_desc" | "stock_asc" | "fecha_antigua" | "fecha_reciente";
+};
+
 function escapeLike(input: string) {
   return input.replaceAll("%", "").replaceAll(",", " ").trim();
 }
 
 function round2(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+function getAgeInDays(dateValue: string) {
+  const parsed = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.max(0, Math.floor((today.getTime() - parsed.getTime()) / 86_400_000));
+}
+
+function buildAsignacionFilters(search: SearchParams): AsignacionFilters {
+  const tipo = search.asignar_tipo ?? "todos";
+  const antiguedad = search.asignar_antiguedad ?? "todas";
+  const orden = search.asignar_orden ?? "stock_desc";
+
+  return {
+    q: (search.asignar_q ?? "").trim(),
+    tipo:
+      tipo === "exacta" || tipo === "sustitucion" || tipo === "sin_clasificar"
+        ? tipo
+        : "todos",
+    antiguedad:
+      antiguedad === "0_7" || antiguedad === "8_30" || antiguedad === "31_plus"
+        ? antiguedad
+        : "todas",
+    categoria: (search.asignar_categoria ?? "").trim(),
+    orden:
+      orden === "stock_asc" || orden === "fecha_antigua" || orden === "fecha_reciente"
+        ? orden
+        : "stock_desc",
+  };
+}
+
+function filterLotesDisponibles(rows: LoteDisponible[], filters: AsignacionFilters) {
+  const query = filters.q.toLowerCase();
+  const filtered = rows.filter((row) => {
+    if (filters.tipo === "exacta" && (row.sin_clasificacion_neta || row.es_sustitucion)) return false;
+    if (filters.tipo === "sustitucion" && (row.sin_clasificacion_neta || !row.es_sustitucion)) return false;
+    if (filters.tipo === "sin_clasificar" && !row.sin_clasificacion_neta) return false;
+
+    if (filters.antiguedad === "0_7" && row.antiguedad_dias > 7) return false;
+    if (filters.antiguedad === "8_30" && (row.antiguedad_dias < 8 || row.antiguedad_dias > 30)) return false;
+    if (filters.antiguedad === "31_plus" && row.antiguedad_dias < 31) return false;
+
+    if (filters.categoria && String(row.categoria_id) !== filters.categoria && String(row.pedido_categoria_id) !== filters.categoria) {
+      return false;
+    }
+
+    if (query) {
+      const haystack = [
+        row.numero_lote,
+        row.productor_nombre,
+        row.guia_ingreso ?? "",
+        row.chofer ?? "",
+        row.categoria_origen_nombre,
+        row.pedido_categoria_nombre,
+        row.fecha_ingreso,
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(query)) return false;
+    }
+
+    return true;
+  });
+
+  return filtered.sort((a, b) => {
+    if (filters.orden === "stock_asc") return a.kg_disponibles - b.kg_disponibles;
+    if (filters.orden === "fecha_antigua") return b.antiguedad_dias - a.antiguedad_dias;
+    if (filters.orden === "fecha_reciente") return a.antiguedad_dias - b.antiguedad_dias;
+    return b.kg_disponibles - a.kg_disponibles;
+  });
 }
 
 async function getClientesActivos() {
@@ -332,7 +423,7 @@ async function getAvailableLotesForPedido(
 
   const { data: lotes, error: lotesError } = await supabase
     .from("lotes")
-    .select("id,numero_lote,productor_id,peso_bruto_ingreso,estado")
+    .select("id,numero_lote,productor_id,fecha_ingreso,guia_ingreso,peso_bruto_ingreso,numero_jabas,chofer,estado")
     .in("estado", ["sin_clasificar", "clasificado", "asignado"])
     .eq("producto", pedido.producto);
 
@@ -428,13 +519,26 @@ async function getAvailableLotesForPedido(
 
   const lotesMap = new Map<
     number,
-    { numero_lote: string; productor_id: number; peso_bruto_ingreso: number; estado: string }
+    {
+      numero_lote: string;
+      productor_id: number;
+      fecha_ingreso: string;
+      guia_ingreso: string | null;
+      peso_bruto_ingreso: number;
+      numero_jabas: number;
+      chofer: string | null;
+      estado: string;
+    }
   >();
   for (const row of lotes) {
     lotesMap.set(Number(row.id), {
       numero_lote: String(row.numero_lote),
       productor_id: Number(row.productor_id),
+      fecha_ingreso: String(row.fecha_ingreso),
+      guia_ingreso: row.guia_ingreso ? String(row.guia_ingreso) : null,
       peso_bruto_ingreso: Number(row.peso_bruto_ingreso ?? 0),
+      numero_jabas: Number(row.numero_jabas ?? 0),
+      chofer: row.chofer ? String(row.chofer) : null,
       estado: String(row.estado),
     });
   }
@@ -486,11 +590,17 @@ async function getAvailableLotesForPedido(
         lote_id: loteId,
         numero_lote: loteData.numero_lote,
         productor_nombre: productorMap.get(loteData.productor_id) ?? String(loteData.productor_id),
+        fecha_ingreso: loteData.fecha_ingreso,
+        guia_ingreso: loteData.guia_ingreso,
+        chofer: loteData.chofer,
+        numero_jabas: loteData.numero_jabas,
+        estado_lote: loteData.estado,
+        antiguedad_dias: getAgeInDays(loteData.fecha_ingreso),
         pedido_detalle_id: Number(line.id),
         pedido_categoria_id: targetCategoriaId,
         pedido_categoria_nombre: pedidoCategoriaNombre,
         categoria_id: categoriaId,
-        categoria_nombre: categoriaMap.get(categoriaId) ?? String(categoriaId),
+        categoria_origen_nombre: categoriaMap.get(categoriaId) ?? String(categoriaId),
         kg_disponibles: round2(Math.min(disponible, faltante)),
         sin_clasificacion_neta: false,
         es_sustitucion: esSustitucion,
@@ -522,11 +632,17 @@ async function getAvailableLotesForPedido(
         lote_id: Number(lote.id),
         numero_lote: String(lote.numero_lote),
         productor_nombre: productorMap.get(Number(lote.productor_id)) ?? String(lote.productor_id),
+        fecha_ingreso: String(lote.fecha_ingreso),
+        guia_ingreso: lote.guia_ingreso ? String(lote.guia_ingreso) : null,
+        chofer: lote.chofer ? String(lote.chofer) : null,
+        numero_jabas: Number(lote.numero_jabas ?? 0),
+        estado_lote: String(lote.estado),
+        antiguedad_dias: getAgeInDays(String(lote.fecha_ingreso)),
         pedido_detalle_id: Number(line.id),
         pedido_categoria_id: targetCategoriaId,
         pedido_categoria_nombre: pedidoCategoriaNombre,
         categoria_id: targetCategoriaId,
-        categoria_nombre: pedidoCategoriaNombre,
+        categoria_origen_nombre: "Sin clasificar",
         kg_disponibles: round2(Math.min(disponibleBruto, faltante)),
         sin_clasificacion_neta: true,
         es_sustitucion: false,
@@ -686,7 +802,15 @@ export default async function PedidosPage({
   const loteDisponiblesResult = pedidoSeleccionado
     ? await getAvailableLotesForPedido(pedidoSeleccionado, detallePedidoSeleccionado)
     : { lotes: [], errorMessage: "" };
-  const loteDisponibles = loteDisponiblesResult.lotes;
+  const asignacionFilters = buildAsignacionFilters(search);
+  const loteDisponibles = filterLotesDisponibles(loteDisponiblesResult.lotes, asignacionFilters);
+  const categoriasDisponiblesAsignacion = Array.from(
+    new Map(
+      loteDisponiblesResult.lotes
+        .filter((row) => Number(row.categoria_id) > 0)
+        .map((row) => [Number(row.categoria_id), row.categoria_origen_nombre]),
+    ).entries(),
+  );
 
   const asignacionesPedidoSeleccionado = pedidoSeleccionado
     ? asignaciones.filter(
@@ -1015,91 +1139,235 @@ export default async function PedidosPage({
               <p className="mb-4 text-sm text-gray-600">
                 Aqui ves todos los lotes del mismo producto con stock util: clasificados exactos, clasificados de otra categoria y tambien lotes de almacen sin clasificacion neta. Cada caso queda marcado antes de asignar.
               </p>
+              <form method="get" className="mb-4 grid gap-3 rounded-xl border border-gray-200 bg-slate-50 p-4 lg:grid-cols-2 xl:grid-cols-6">
+                {search.q ? <input type="hidden" name="q" value={search.q} /> : null}
+                {search.estado ? <input type="hidden" name="estado" value={search.estado} /> : null}
+                {search.cliente ? <input type="hidden" name="cliente" value={search.cliente} /> : null}
+                {currentPage > 1 ? <input type="hidden" name="page" value={String(currentPage)} /> : null}
+                <input type="hidden" name="asignar" value={String(pedidoSeleccionado.id)} />
+
+                <label className="grid gap-1 xl:col-span-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Buscar</span>
+                  <input
+                    name="asignar_q"
+                    defaultValue={asignacionFilters.q}
+                    placeholder="Lote, productor, chofer, guia..."
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                  />
+                </label>
+
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tipo</span>
+                  <select
+                    name="asignar_tipo"
+                    defaultValue={asignacionFilters.tipo}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="exacta">Solo misma categoria</option>
+                    <option value="sustitucion">Solo categoria distinta</option>
+                    <option value="sin_clasificar">Solo sin clasificar</option>
+                  </select>
+                </label>
+
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Antiguedad</span>
+                  <select
+                    name="asignar_antiguedad"
+                    defaultValue={asignacionFilters.antiguedad}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                  >
+                    <option value="todas">Todas</option>
+                    <option value="0_7">0 a 7 dias</option>
+                    <option value="8_30">8 a 30 dias</option>
+                    <option value="31_plus">31+ dias</option>
+                  </select>
+                </label>
+
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Categoria</span>
+                  <select
+                    name="asignar_categoria"
+                    defaultValue={asignacionFilters.categoria}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                  >
+                    <option value="">Todas</option>
+                    {categoriasDisponiblesAsignacion.map(([categoriaId, categoriaNombre]) => (
+                      <option key={categoriaId} value={String(categoriaId)}>
+                        {categoriaNombre}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-1">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Orden</span>
+                  <select
+                    name="asignar_orden"
+                    defaultValue={asignacionFilters.orden}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#1A73E8] focus:ring-2 focus:ring-[#1A73E8]/20"
+                  >
+                    <option value="stock_desc">Mas stock primero</option>
+                    <option value="stock_asc">Menos stock primero</option>
+                    <option value="fecha_antigua">Mas antiguos primero</option>
+                    <option value="fecha_reciente">Mas recientes primero</option>
+                  </select>
+                </label>
+
+                <div className="flex flex-wrap items-end gap-2 xl:justify-end">
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-[#1A73E8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1765CC]"
+                  >
+                    Aplicar filtros
+                  </button>
+                  <Link
+                    href={buildPedidosUrl({
+                      q: search.q,
+                      estado: search.estado,
+                      cliente: search.cliente,
+                      page: currentPage,
+                      asignar: pedidoSeleccionado.id,
+                    })}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                  >
+                    Limpiar
+                  </Link>
+                </div>
+              </form>
+
+              <div className="mb-4 flex flex-wrap gap-2 text-xs text-slate-600">
+                <span className="rounded-full bg-slate-100 px-3 py-1">Lotes visibles: {loteDisponibles.length}</span>
+                <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">
+                  Exactos: {loteDisponibles.filter((row) => !row.sin_clasificacion_neta && !row.es_sustitucion).length}
+                </span>
+                <span className="rounded-full bg-violet-100 px-3 py-1 text-violet-800">
+                  Categoria distinta: {loteDisponibles.filter((row) => row.es_sustitucion).length}
+                </span>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-800">
+                  Sin clasificar: {loteDisponibles.filter((row) => row.sin_clasificacion_neta).length}
+                </span>
+              </div>
+
               {loteDisponiblesResult.errorMessage ? (
                 <div className="mb-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 shadow-sm">
                   ! {loteDisponiblesResult.errorMessage}
                 </div>
               ) : null}
-              <div className="mb-8 sx-table-wrap">
-                <table className="sx-table">
-                  <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Linea destino</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Lote</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Productor</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Origen stock</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Categoria origen</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-600">Kg disponibles</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-600">Asignacion</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loteDisponibles.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} className="p-4 text-center text-gray-500">
-                          {loteDisponiblesResult.errorMessage
-                            ? "No se pudieron cargar los lotes disponibles para este pedido."
-                            : "No hay lotes disponibles para este pedido."}
-                        </td>
-                      </tr>
-                    ) : null}
+              <div className="mb-8 grid gap-3">
+                {loteDisponibles.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500">
+                    {loteDisponiblesResult.errorMessage
+                      ? "No se pudieron cargar los lotes disponibles para este pedido."
+                      : "No hay lotes visibles con los filtros actuales para este pedido."}
+                  </div>
+                ) : null}
 
-                    {loteDisponibles.map((row) => (
-                      <tr key={`${row.lote_id}-${row.pedido_detalle_id}-${row.categoria_id}-${row.stock_badge}`} className="border-b border-gray-200 align-top hover:bg-gray-50">
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-gray-900">{row.pedido_categoria_nombre}</p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {Number(row.pedido_detalle_id) <= 0
-                              ? "Pedido legado sin detalle: el destino se define al asignar."
-                              : detalleLineMap.get(Number(row.pedido_detalle_id))?.permite_sustitucion
-                                ? "Acepta sustitucion"
-                                : "Exacta"}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 font-medium text-gray-900">{row.numero_lote}</td>
-                        <td className="px-4 py-3">{row.productor_nombre}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${row.sin_clasificacion_neta ? "bg-amber-100 text-amber-800" : row.es_sustitucion ? "bg-violet-100 text-violet-800" : "bg-emerald-100 text-emerald-800"}`}>
+                {loteDisponibles.map((row) => (
+                  <article
+                    key={`${row.lote_id}-${row.pedido_detalle_id}-${row.categoria_id}-${row.stock_badge}`}
+                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="text-sm font-semibold text-gray-900">{row.numero_lote}</h4>
+                          <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${row.sin_clasificacion_neta ? "bg-amber-100 text-amber-800" : row.es_sustitucion ? "bg-violet-100 text-violet-800" : "bg-emerald-100 text-emerald-800"}`}>
                             {row.stock_badge}
                           </span>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {row.sin_clasificacion_neta
-                              ? "Se descuenta desde almacen sin clasificacion neta."
+                          <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                            {row.sin_clasificacion_neta ? "Sin clasificar" : "Clasificado"}
+                          </span>
+                          <span className="inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
+                            {row.antiguedad_dias} d
+                          </span>
+                        </div>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Linea destino</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">{row.pedido_categoria_nombre}</p>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categoria origen</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">{row.categoria_origen_nombre}</p>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Productor</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">{row.productor_nombre}</p>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Ingreso</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">{row.fecha_ingreso}</p>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Chofer</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">{row.chofer ?? "No registrado"}</p>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Guia</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">{row.guia_ingreso ?? "Sin guia"}</p>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Jabas</p>
+                            <p className="mt-1 text-xs font-medium text-slate-900">{row.numero_jabas}</p>
+                          </div>
+                          <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Kg disponibles</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900">{row.kg_disponibles} kg</p>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-xs text-slate-500">
+                          {Number(row.pedido_detalle_id) <= 0
+                            ? "Pedido legado sin detalle: puedes asignar el lote, pero conviene editar el pedido para dejar el destino bien definido."
+                            : row.sin_clasificacion_neta
+                              ? `Lote en ${row.estado_lote}; saldra directo desde almacen sin clasificacion neta.`
                               : row.es_sustitucion
-                                ? "Categoria distinta a la linea pedida; revisar antes de confirmar."
-                                : "Coincide con la categoria de la linea."}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">{row.categoria_nombre}</td>
-                        <td className="px-4 py-3 text-right font-medium">{row.kg_disponibles}</td>
-                        <td className="px-4 py-3">
-                          <form action={asignarLotePedidoAction} className="grid gap-2 xl:grid-cols-[160px_100px_110px_130px_1fr_auto]">
-                            <input type="hidden" name="pedido_id" value={String(pedidoSeleccionado.id)} />
-                            <input type="hidden" name="pedido_detalle_id" value={String(row.pedido_detalle_id)} />
-                            <input type="hidden" name="lote_id" value={String(row.lote_id)} />
-                            <input type="hidden" name="sin_clasificacion_neta" value={row.sin_clasificacion_neta ? "1" : "0"} />
-                            <input type="hidden" name="categoria_id" value={String(row.categoria_id || 0)} />
-                            {row.sin_clasificacion_neta && row.pedido_categoria_id <= 0 ? (
+                                ? "Categoria distinta a la linea pedida; revisa antes de confirmar la sustitucion."
+                                : "Coincide con la categoria de la linea pedida."}
+                        </p>
+                      </div>
+
+                      <div className="w-full xl:max-w-[520px]">
+                        <form action={asignarLotePedidoAction} className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 xl:grid-cols-6">
+                          <input type="hidden" name="pedido_id" value={String(pedidoSeleccionado.id)} />
+                          <input type="hidden" name="pedido_detalle_id" value={String(row.pedido_detalle_id)} />
+                          <input type="hidden" name="lote_id" value={String(row.lote_id)} />
+                          <input type="hidden" name="sin_clasificacion_neta" value={row.sin_clasificacion_neta ? "1" : "0"} />
+                          <input type="hidden" name="categoria_id" value={String(row.categoria_id || 0)} />
+
+                          {row.sin_clasificacion_neta && row.pedido_categoria_id <= 0 ? (
+                            <label className="grid gap-1 sm:col-span-2 xl:col-span-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categoria destino</span>
                               <select
                                 name="categoria_destino_id"
                                 defaultValue=""
-                                className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
+                                className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                                 required
                               >
-                                <option value="">Categoria destino</option>
+                                <option value="">Selecciona destino</option>
                                 {categorias.map((categoria) => (
                                   <option key={categoria.id} value={String(categoria.id)}>
                                     {categoria.codigo} | {categoria.nombre}
                                   </option>
                                 ))}
                               </select>
-                            ) : (
+                            </label>
+                          ) : (
+                            <>
                               <input
                                 type="hidden"
                                 name="categoria_destino_id"
                                 value={String(row.pedido_categoria_id || row.categoria_id || "")}
                               />
-                            )}
+                              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 sm:col-span-2 xl:col-span-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Categoria destino</p>
+                                <p className="mt-1 text-xs font-medium text-slate-900">{row.pedido_categoria_nombre}</p>
+                              </div>
+                            </>
+                          )}
+
+                          <label className="grid gap-1 xl:col-span-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Kg asignar</span>
                             <input
                               name="kg_asignados"
                               type="number"
@@ -1107,39 +1375,55 @@ export default async function PedidosPage({
                               step="0.01"
                               max={String(row.kg_disponibles)}
                               placeholder="Kg"
-                              className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
+                              className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                               required
                             />
+                          </label>
+
+                          <label className="grid gap-1 xl:col-span-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Precio/kg</span>
                             <input
                               name="precio_kg"
                               type="number"
                               min="0"
                               step="0.01"
                               defaultValue={String(detalleLineMap.get(Number(row.pedido_detalle_id))?.precio_kg ?? pedidoSeleccionado.precio_kg)}
-                              className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
+                              className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                               required
                             />
+                          </label>
+
+                          <label className="grid gap-1 xl:col-span-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Fecha asignacion</span>
                             <input
                               name="fecha_asignacion"
                               type="date"
                               defaultValue={new Date().toISOString().slice(0, 10)}
-                              className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
+                              className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                               required
                             />
+                          </label>
+
+                          <label className="grid gap-1 sm:col-span-2 xl:col-span-4">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Observaciones</span>
                             <input
                               name="observaciones"
-                              placeholder={row.sin_clasificacion_neta ? "Obs. ej. despacho directo desde almacen" : "Obs"}
-                              className="rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-[#1A73E8]"
+                              placeholder={row.sin_clasificacion_neta ? "Ej. despacho directo desde almacen" : "Observacion opcional"}
+                              className="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs outline-none focus:border-[#1A73E8]"
                             />
-                            <button type="submit" className="rounded bg-[#1A73E8] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#1765CC]">
-                              Asignar
-                            </button>
-                          </form>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </label>
+
+                          <button
+                            type="submit"
+                            className="rounded-lg bg-[#1A73E8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1765CC] sm:col-span-2 xl:col-span-2"
+                          >
+                            Asignar lote
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  </article>
+                ))}
               </div>
 
               <h3 className="mb-2 text-base font-semibold text-gray-900">Asignaciones registradas</h3>
