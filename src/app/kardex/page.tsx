@@ -3,7 +3,6 @@ import Link from "next/link";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import BackToDashboardButton from "@/components/back-to-dashboard-button";
 import ModuleNavigation from "@/components/module-navigation";
-import ModuleFormModal from "@/components/module-form-modal";
 import PersonSearchField from "@/components/person-search-field";
 
 type Tab = "stock" | "lotes" | "dinero";
@@ -88,6 +87,13 @@ function buildFilterQuery(base: URLSearchParams, tab: Tab) {
   const params = new URLSearchParams(base);
   params.set("tab", tab);
   return `/kardex?${params.toString()}`;
+}
+
+function buildAlmacenLoteDetailUrl(loteId: number) {
+  const params = new URLSearchParams();
+  params.set("ver", String(loteId));
+  params.set("page", "1");
+  return `/almacen?${params.toString()}`;
 }
 
 function toIsoDate(value: Date) {
@@ -928,7 +934,7 @@ export default async function KardexPage({
 
           {tab === "stock" ? (
             <section className="rounded-xl bg-white p-5 shadow-sm">
-              <p className="mb-2 text-xs">Qué muestra esta tabla: en la misma categoría se separa lo clasificado, lo salido desde almacén sin clasificación y los lotes que sostienen el stock neto visible.</p>
+              <p className="mb-2 text-xs">Qué muestra esta tabla: en la misma categoría se separa lo clasificado, lo salido desde almacén sin clasificación y los lotes que sostienen el stock disponible real.</p>
               <div className="sx-table-wrap">
                 <table className="sx-table">
                   <thead>
@@ -940,7 +946,7 @@ export default async function KardexPage({
                       <th className="p-2">Salidas de clasificado</th>
                       <th className="p-2">Salidas desde almacén</th>
                       <th className="p-2">Stock neto disponible</th>
-                      <th className="p-2">Lotes que componen la suma</th>
+                      <th className="p-2">Lotes que componen el stock disponible</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -962,11 +968,26 @@ export default async function KardexPage({
                         <td className="p-2">{row.kg_salidas_almacen}</td>
                         <td className="p-2">{row.kg_disponibles}</td>
                         <td className="p-2">
-                          {row.lotes_detalle.length > 0
-                            ? row.lotes_detalle
-                              .map((item) => `${loteMap.get(item.lote_id) ?? item.lote_id} (${item.kg_disponible} kg)`)
-                              .join(", ")
-                            : "-"}
+                          {row.lotes_detalle.length > 0 ? (
+                            <div className="space-y-2">
+                              {row.lotes_detalle.map((item) => (
+                                <div key={`${row.categoria_id}-${item.lote_id}`} className="flex flex-wrap items-center gap-2">
+                                  <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
+                                    {loteMap.get(item.lote_id) ?? item.lote_id}
+                                  </span>
+                                  <span className="text-xs text-slate-600">{item.kg_disponible} kg disponibles</span>
+                                  <Link
+                                    href={buildAlmacenLoteDetailUrl(item.lote_id)}
+                                    className="inline-flex rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                  >
+                                    Ver detalle
+                                  </Link>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            "-"
+                          )}
                         </td>
                       </tr>
                     ))}
