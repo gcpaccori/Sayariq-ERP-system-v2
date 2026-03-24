@@ -50,7 +50,8 @@ type KardexRow = {
 type StockRow = {
   categoria_id: number;
   categoria: string;
-  kg_entrados: number;
+  kg_clasificacion_inicial: number;
+  kg_ajuste_neto: number;
   kg_salidos: number;
   kg_disponibles: number;
   lotes_con_stock: number;
@@ -60,7 +61,9 @@ type MonthlySeriesRow = {
   month: string;
   dinero_ingreso: number;
   dinero_egreso: number;
-  carga_entrada: number;
+  carga_almacen: number;
+  carga_clasificada: number;
+  carga_ajustada: number;
   carga_salida: number;
 };
 
@@ -92,6 +95,53 @@ function toIsoDate(value: Date) {
 function loteCategoriaKey(loteId: number | null, categoriaId: number | null) {
   if (!loteId || !categoriaId) return null;
   return `${loteId}:${categoriaId}`;
+}
+
+function normalizeText(value: string | null | undefined) {
+  return String(value ?? "").toLowerCase();
+}
+
+function isSinClasificacionNeta(row: KardexRow) {
+  const text = `${normalizeText(row.concepto)} ${normalizeText(row.observaciones)}`;
+  return text.includes("sin clasificacion neta");
+}
+
+function getProductoEtapa(row: KardexRow) {
+  if (row.tipo_kardex !== "producto") return "-";
+
+  if (row.tipo_movimiento === "entrada" && row.origen === "lote_ingreso") {
+    return "Producto de almacen";
+  }
+
+  if (row.tipo_movimiento === "clasificacion" && row.origen === "clasificacion") {
+    return "Producto clasificado";
+  }
+
+  if (row.tipo_movimiento === "clasificacion" && row.origen === "ajuste") {
+    return "Ajuste clasificacion neta";
+  }
+
+  if (row.tipo_movimiento === "salida") {
+    return isSinClasificacionNeta(row) ? "Salida desde almacen" : "Salida de clasificado";
+  }
+
+  return row.tipo_movimiento;
+}
+
+function getOrigenDetalle(row: KardexRow) {
+  if (row.tipo_kardex === "producto") {
+    if (row.origen === "lote_ingreso") return "Ingreso bruto desde almacen";
+    if (row.origen === "clasificacion") return "Clasificacion inicial de almacen";
+    if (row.origen === "asignacion_pedido") {
+      return isSinClasificacionNeta(row) ? "Asignacion tomada desde almacen" : "Asignacion tomada desde clasificado";
+    }
+    if (row.origen === "ajuste") {
+      if (row.tipo_movimiento === "clasificacion") return "Reclasificacion o ajuste del modulo 10";
+      return isSinClasificacionNeta(row) ? "Ajuste de salida desde almacen" : "Ajuste de salida de clasificado";
+    }
+  }
+
+  return row.origen;
 }
 
 function sanitizeDate(search: SearchParams, minDate: string | null) {
@@ -271,20 +321,25 @@ async function getAsignacionesContext(rows: KardexRow[]) {
 function computeStockByCategoria(rows: KardexRow[], categorias: Categoria[]): StockRow[] {
   const onlyProducto = rows.filter((row) => row.tipo_kardex === "producto");
 
-  const map = new Map<number, { entrados: number; salidos: number; lotes: Set<number> }>();
+  const map = new Map<number, { clasificacionInicial: number; ajusteNeto: number; salidos: number; lotes: Set<number> }>();
 
   for (const categoria of categorias) {
-    map.set(categoria.id, { entrados: 0, salidos: 0, lotes: new Set<number>() });
+    map.set(categoria.id, { clasificacionInicial: 0, ajusteNeto: 0, salidos: 0, lotes: new Set<number>() });
   }
 
   for (const row of onlyProducto) {
     if (!row.categoria_id) continue;
-    const entry = map.get(Number(row.categoria_id)) ?? { entrados: 0, salidos: 0, lotes: new Set<number>() };
+    const entry = map.get(Number(row.categoria_id)) ?? { clasificacionInicial: 0, ajusteNeto: 0, salidos: 0, lotes: new Set<number>() };
 
     const peso = Number(row.peso_kg ?? 0);
 
-    if (row.tipo_movimiento === "clasificacion") {
-      entry.entrados += peso;
+    if (row.tipo_movimiento === "clasificacion" && row.origen === "clasificacion") {
+      entry.clasificacionInicial += peso;
+      if (row.lote_id) entry.lotes.add(Number(row.lote_id));
+    }
+
+    if (row.tipo_movimiento === "clasificacion" && row.origen === "ajuste") {
+      entry.ajusteNeto += peso;
       if (row.lote_id) entry.lotes.add(Number(row.lote_id));
     }
 
@@ -298,12 +353,13 @@ function computeStockByCategoria(rows: KardexRow[], categorias: Categoria[]): St
   const result: StockRow[] = [];
 
   for (const categoria of categorias) {
-    const entry = map.get(categoria.id) ?? { entrados: 0, salidos: 0, lotes: new Set<number>() };
-    const disponibles = round2(entry.entrados - entry.salidos);
+    const entry = map.get(categoria.id) ?? { clasificacionInicial: 0, ajusteNeto: 0, salidos: 0, lotes: new Set<number>() };
+    const disponibles = round2(entry.clasificacionInicial + entry.ajusteNeto - entry.salidos);
     result.push({
       categoria_id: categoria.id,
       categoria: categoria.nombre,
-      kg_entrados: round2(entry.entrados),
+      kg_clasificacion_inicial: round2(entry.clasificacionInicial),
+      kg_ajuste_neto: round2(entry.ajusteNeto),
       kg_salidos: round2(entry.salidos),
       kg_disponibles: disponibles,
       lotes_con_stock: disponibles > 0 ? entry.lotes.size : 0,
@@ -361,7 +417,9 @@ function computeMonthlySeries(rows: KardexRow[]): MonthlySeriesRow[] {
         month,
         dinero_ingreso: 0,
         dinero_egreso: 0,
-        carga_entrada: 0,
+        carga_almacen: 0,
+        carga_clasificada: 0,
+        carga_ajustada: 0,
         carga_salida: 0,
       });
     }
@@ -376,8 +434,14 @@ function computeMonthlySeries(rows: KardexRow[]): MonthlySeriesRow[] {
 
     if (row.tipo_kardex === "producto") {
       const peso = Number(row.peso_kg ?? 0);
-      if (row.tipo_movimiento === "entrada" || row.tipo_movimiento === "clasificacion") {
-        item.carga_entrada += peso;
+      if (row.tipo_movimiento === "entrada" && row.origen === "lote_ingreso") {
+        item.carga_almacen += peso;
+      }
+      if (row.tipo_movimiento === "clasificacion" && row.origen === "clasificacion") {
+        item.carga_clasificada += peso;
+      }
+      if (row.tipo_movimiento === "clasificacion" && row.origen === "ajuste") {
+        item.carga_ajustada += peso;
       }
       if (row.tipo_movimiento === "salida") {
         item.carga_salida += peso;
@@ -390,7 +454,9 @@ function computeMonthlySeries(rows: KardexRow[]): MonthlySeriesRow[] {
       ...row,
       dinero_ingreso: round2(row.dinero_ingreso),
       dinero_egreso: round2(row.dinero_egreso),
-      carga_entrada: round2(row.carga_entrada),
+      carga_almacen: round2(row.carga_almacen),
+      carga_clasificada: round2(row.carga_clasificada),
+      carga_ajustada: round2(row.carga_ajustada),
       carga_salida: round2(row.carga_salida),
     }))
     .sort((a, b) => a.month.localeCompare(b.month))
@@ -443,7 +509,16 @@ export default async function KardexPage({
   const dineroRows = kardexData.rows.filter((row) => row.tipo_kardex === "dinero");
   const saldosRows = computeSaldos(kardexData.rows, catalogs.personas);
 
-  const totalKgEntrados = round2(stockRows.reduce((acc, row) => acc + row.kg_entrados, 0));
+  const productoRows = kardexData.rows.filter((row) => row.tipo_kardex === "producto");
+  const totalKgAlmacen = round2(
+    productoRows
+      .filter((row) => row.tipo_movimiento === "entrada" && row.origen === "lote_ingreso")
+      .reduce((acc, row) => acc + Number(row.peso_kg ?? 0), 0)
+  );
+  const totalKgClasificacionInicial = round2(
+    stockRows.reduce((acc, row) => acc + row.kg_clasificacion_inicial, 0)
+  );
+  const totalKgAjusteNeto = round2(stockRows.reduce((acc, row) => acc + row.kg_ajuste_neto, 0));
   const totalKgSalidos = round2(stockRows.reduce((acc, row) => acc + row.kg_salidos, 0));
   const totalKgDisponibles = round2(stockRows.reduce((acc, row) => acc + row.kg_disponibles, 0));
 
@@ -469,7 +544,9 @@ export default async function KardexPage({
   );
   const maxCarga = Math.max(
     1,
-    ...monthlySeries.map((row) => Math.max(row.carga_entrada, row.carga_salida))
+    ...monthlySeries.map((row) =>
+      Math.max(row.carga_almacen, row.carga_clasificada, Math.abs(row.carga_ajustada), row.carga_salida)
+    )
   );
 
   const pageSize = Math.min(200, Math.max(10, Number(search.page_size ?? "25") || 25));
@@ -527,6 +604,29 @@ export default async function KardexPage({
           {kardexData.errorMessage ? (
             <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">✕ {kardexData.errorMessage}</p>
           ) : null}
+
+          <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-xl bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Kg ingreso almacén</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{totalKgAlmacen}</p>
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-cyan-50 to-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">Kg clasif. inicial</p>
+              <p className="mt-1 text-2xl font-bold text-cyan-900">{totalKgClasificacionInicial}</p>
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Ajuste neto M10</p>
+              <p className="mt-1 text-2xl font-bold text-indigo-900">{totalKgAjusteNeto}</p>
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Stock neto disponible</p>
+              <p className="mt-1 text-2xl font-bold text-emerald-900">{totalKgDisponibles}</p>
+            </div>
+            <div className="rounded-xl bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Kg salidos a pedido</p>
+              <p className="mt-1 text-2xl font-bold text-amber-900">{totalKgSalidos}</p>
+            </div>
+          </section>
 
           <section className="mb-6 grid gap-3 sm:grid-cols-5">
             <div className="rounded-xl bg-gradient-to-br from-green-50 to-white p-4 shadow-sm">
@@ -588,21 +688,41 @@ export default async function KardexPage({
               </div>
 
               <div className="rounded-xl bg-gray-50 p-4 shadow-inner">
-                <h3 className="mb-2 font-medium">Carga: entrada vs salida</h3>
+                <h3 className="mb-2 font-medium">Producto: almacén, clasificado, ajuste M10 y salida</h3>
                 <div className="space-y-2 text-sm">
                   {monthlySeries.length === 0 ? <p>Sin datos mensuales.</p> : null}
                   {monthlySeries.map((row) => (
                     <div key={`carga-${row.month}`} className="rounded-xl bg-white p-3 shadow-sm md:shadow-md">
                       <p className="mb-1 font-medium">{row.month}</p>
                       <div className="mb-1 flex items-center gap-2">
-                        <span className="w-20">Entrada</span>
+                        <span className="w-20">Almacén</span>
                         <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-gray-100">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-600"
-                            style={{ width: `${Math.max(2, (row.carga_entrada / maxCarga) * 100)}%` }}
+                            className="h-full rounded-full bg-gradient-to-r from-slate-400 to-slate-600"
+                            style={{ width: `${Math.max(2, (row.carga_almacen / maxCarga) * 100)}%` }}
                           />
                         </div>
-                        <span>{row.carga_entrada}</span>
+                        <span>{row.carga_almacen}</span>
+                      </div>
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="w-20">Clasif.</span>
+                        <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-cyan-600"
+                            style={{ width: `${Math.max(2, (row.carga_clasificada / maxCarga) * 100)}%` }}
+                          />
+                        </div>
+                        <span>{row.carga_clasificada}</span>
+                      </div>
+                      <div className="mb-1 flex items-center gap-2">
+                        <span className="w-20">Ajuste</span>
+                        <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600"
+                            style={{ width: `${Math.max(2, (Math.abs(row.carga_ajustada) / maxCarga) * 100)}%` }}
+                          />
+                        </div>
+                        <span>{row.carga_ajustada}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-20">Salida</span>
@@ -776,22 +896,23 @@ export default async function KardexPage({
 
           {tab === "stock" ? (
             <section className="rounded-xl bg-white p-5 shadow-sm">
-              <p className="mb-2 text-xs">Qué muestra esta tabla: balance de entrada, salida y stock disponible por categoría.</p>
+              <p className="mb-2 text-xs">Qué muestra esta tabla: por categoría se separa la clasificación inicial, el ajuste neto del módulo 10 y las salidas comerciales para entender el stock real.</p>
               <div className="sx-table-wrap">
                 <table className="sx-table">
                   <thead>
                     <tr className="border-b text-left">
                       <th className="p-2">Categoría</th>
-                      <th className="p-2">Kg entrados (clasif.)</th>
+                      <th className="p-2">Kg clasif. inicial</th>
+                      <th className="p-2">Ajuste neto M10</th>
                       <th className="p-2">Kg salidos (asignados)</th>
-                      <th className="p-2">Kg disponibles</th>
+                      <th className="p-2">Stock neto disponible</th>
                       <th className="p-2">Lotes con stock</th>
                     </tr>
                   </thead>
                   <tbody>
                     {stockRows.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="p-3 text-center">
+                        <td colSpan={6} className="p-3 text-center">
                           Sin movimientos para mostrar.
                         </td>
                       </tr>
@@ -800,7 +921,8 @@ export default async function KardexPage({
                     {stockPageRows.map((row) => (
                       <tr key={row.categoria_id} className="border-b">
                         <td className="p-2">{row.categoria}</td>
-                        <td className="p-2">{row.kg_entrados}</td>
+                        <td className="p-2">{row.kg_clasificacion_inicial}</td>
+                        <td className="p-2">{row.kg_ajuste_neto}</td>
                         <td className="p-2">{row.kg_salidos}</td>
                         <td className="p-2">{row.kg_disponibles}</td>
                         <td className="p-2">{row.lotes_con_stock}</td>
@@ -809,7 +931,8 @@ export default async function KardexPage({
 
                     <tr className="border-t font-semibold">
                       <td className="p-2">TOTAL</td>
-                      <td className="p-2">{totalKgEntrados}</td>
+                      <td className="p-2">{totalKgClasificacionInicial}</td>
+                      <td className="p-2">{totalKgAjusteNeto}</td>
                       <td className="p-2">{totalKgSalidos}</td>
                       <td className="p-2">{totalKgDisponibles}</td>
                       <td className="p-2">-</td>
@@ -822,7 +945,7 @@ export default async function KardexPage({
 
           {tab === "lotes" ? (
             <section className="rounded-xl bg-white p-5 shadow-sm">
-              <p className="mb-2 text-xs">Qué muestra esta tabla: movimientos de producto por lote con destino comercial y precios.</p>
+              <p className="mb-2 text-xs">Qué muestra esta tabla: movimientos de producto por lote diferenciando si el kg viene del almacén bruto, de clasificación inicial o de ajustes del módulo 10.</p>
               <div className="sx-table-wrap">
                 <table className="sx-table">
                   <thead>
@@ -830,6 +953,8 @@ export default async function KardexPage({
                       <th className="p-2">Lote</th>
                       <th className="p-2">Persona</th>
                       <th className="p-2">Fecha</th>
+                      <th className="p-2">Estado producto</th>
+                      <th className="p-2">Origen detalle</th>
                       <th className="p-2">Tipo Mov.</th>
                       <th className="p-2">Categoría</th>
                       <th className="p-2">Kg</th>
@@ -844,7 +969,7 @@ export default async function KardexPage({
                   <tbody>
                     {detalleLotesRows.length === 0 ? (
                       <tr>
-                        <td colSpan={12} className="p-3 text-center">
+                        <td colSpan={14} className="p-3 text-center">
                           Sin movimientos de producto.
                         </td>
                       </tr>
@@ -865,6 +990,8 @@ export default async function KardexPage({
                           <td className="p-2">{row.lote_id ? loteMap.get(row.lote_id) ?? row.lote_id : "-"}</td>
                           <td className="p-2">{row.persona_id ? personaMap.get(row.persona_id) ?? row.persona_id : "-"}</td>
                           <td className="p-2">{new Date(row.fecha).toLocaleString()}</td>
+                          <td className="p-2">{getProductoEtapa(row)}</td>
+                          <td className="p-2">{getOrigenDetalle(row)}</td>
                           <td className="p-2">{row.tipo_movimiento}</td>
                           <td className="p-2">{row.categoria_id ? categoriaMap.get(row.categoria_id) ?? row.categoria_id : "-"}</td>
                           <td className="p-2">{round2(signedKg)}</td>

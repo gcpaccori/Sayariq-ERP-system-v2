@@ -38,7 +38,7 @@ export default function LandingHero() {
         <div className="order-1 relative h-[250px] sm:h-[500px] lg:order-2 lg:h-[600px]">
           <div className="absolute inset-0 bg-gradient-to-br from-[#00C853]/10 to-transparent rounded-3xl" />
           <Image
-            src="/company-images/foto-principal.png"
+            src="/company-images/foto-principal-nueva.jpeg"
             alt="Foto principal de Sayariq"
             fill
             className="rounded-3xl object-cover object-[50%_56%] shadow-2xl transition-shadow hover:shadow-3xl sm:object-center"

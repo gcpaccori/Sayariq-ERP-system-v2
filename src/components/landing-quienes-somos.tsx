@@ -89,8 +89,8 @@ export default function LandingQuienesSomos() {
           {/* Imagen de equipo sin recorte: mantiene proporción original */}
           <div className="rounded-3xl border border-gray-200 bg-[#f9faf9] p-3 shadow-2xl sm:p-4">
             <Image
-              src="/docs/persnal.jpg"
-              alt="Equipo Sayariq"
+              src="/company-images/foto-nosotros.jpg"
+              alt="Nosotros en Sayariq"
               width={1200}
               height={1200}
               className="h-auto w-full rounded-2xl object-contain"
