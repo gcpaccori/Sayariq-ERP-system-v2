@@ -36,15 +36,17 @@ function getMonthKey(date: Date) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function getLastMonthsWindow(size: number) {
-  const now = new Date();
+function buildMonthsWindowFromRange(start: Date, end: Date) {
   const months: Array<{ key: string; label: string; date: Date }> = [];
+  const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+  const endMonth = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
 
-  for (let offset = size - 1; offset >= 0; offset--) {
-    const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
+  while (cursor.getTime() <= endMonth.getTime()) {
+    const date = new Date(cursor);
     const key = getMonthKey(date);
     const label = date.toLocaleDateString("es-PE", { month: "short", year: "2-digit", timeZone: "UTC" });
     months.push({ key, label: label.replace(".", ""), date });
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
   }
 
   return months;
@@ -123,35 +125,52 @@ async function getPeopleData(): Promise<DashboardPerson[]> {
 
 async function getExecutiveChartData(): Promise<DashboardExecutiveChart> {
   const supabase = getSupabaseServerClient();
-  const months = getLastMonthsWindow(6);
-  const monthKeys = new Set(months.map((month) => month.key));
-  const startDateIso = `${months[0]?.key ?? getMonthKey(new Date())}-01`;
   const now = new Date();
-
-  const window90 = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 90));
-  const start90Iso = window90.toISOString().slice(0, 10);
 
   const [liquidacionesRes, lotesRes, clasifRes, asignacionesRes, cobrosRes] = await Promise.all([
     supabase
       .from("liquidaciones")
       .select("fecha_liquidacion,tipo,total_a_pagar,monto_pagado,estado,estado_pago")
       .neq("estado", "anulada")
-      .gte("fecha_liquidacion", startDateIso)
       .order("fecha_liquidacion", { ascending: true })
-      .limit(10000),
-    supabase.from("lotes").select("id").gte("fecha_ingreso", start90Iso).limit(10000),
-    supabase.from("lote_clasificacion").select("lote_id").gte("fecha_clasificacion", start90Iso).limit(10000),
-    supabase.from("pedido_asignaciones").select("lote_id").gte("fecha_asignacion", start90Iso).limit(10000),
+      .limit(50000),
+    supabase.from("lotes").select("id").limit(50000),
+    supabase.from("lote_clasificacion").select("lote_id").limit(50000),
+    supabase.from("pedido_asignaciones").select("lote_id").limit(50000),
     supabase
       .from("liquidaciones")
       .select("lote_id,tipo,estado_pago,estado,fecha_liquidacion")
       .eq("tipo", "cliente")
       .neq("estado", "anulada")
-      .gte("fecha_liquidacion", start90Iso)
-      .limit(10000),
+      .limit(50000),
   ]);
 
   const liquidacionesData = liquidacionesRes.data;
+  const liquidacionFechas = ((liquidacionesData ?? []) as Array<{ fecha_liquidacion: string | null }>)
+    .map((row) => row.fecha_liquidacion)
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new Date(value))
+    .filter((value) => !Number.isNaN(value.getTime()));
+
+  const rangeStart =
+    liquidacionFechas.length > 0
+      ? new Date(
+        Math.min(
+          ...liquidacionFechas.map((date) => Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1))
+        )
+      )
+      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const rangeEnd =
+    liquidacionFechas.length > 0
+      ? new Date(
+        Math.max(
+          ...liquidacionFechas.map((date) => Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1))
+        )
+      )
+      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+
+  const months = buildMonthsWindowFromRange(rangeStart, rangeEnd);
+  const monthKeys = new Set(months.map((month) => month.key));
 
   const monthly = new Map<string, { ventas: number; cobros: number; pagosProductor: number }>();
   for (const month of months) {

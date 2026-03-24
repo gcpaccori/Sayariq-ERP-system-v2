@@ -50,11 +50,13 @@ type KardexRow = {
 type StockRow = {
   categoria_id: number;
   categoria: string;
+  tipo_producto: string;
   kg_clasificacion_inicial: number;
   kg_ajuste_neto: number;
-  kg_salidos: number;
+  kg_salidas_clasificadas: number;
+  kg_salidas_almacen: number;
   kg_disponibles: number;
-  lotes_con_stock: number;
+  lotes_detalle: Array<{ lote_id: number; kg_disponible: number }>;
 };
 
 type MonthlySeriesRow = {
@@ -321,30 +323,68 @@ async function getAsignacionesContext(rows: KardexRow[]) {
 function computeStockByCategoria(rows: KardexRow[], categorias: Categoria[]): StockRow[] {
   const onlyProducto = rows.filter((row) => row.tipo_kardex === "producto");
 
-  const map = new Map<number, { clasificacionInicial: number; ajusteNeto: number; salidos: number; lotes: Set<number> }>();
+  const map = new Map<
+    number,
+    {
+      clasificacionInicial: number;
+      ajusteNeto: number;
+      salidasClasificadas: number;
+      salidasAlmacen: number;
+      lotes: Set<number>;
+      lotesNetos: Map<number, number>;
+    }
+  >();
 
   for (const categoria of categorias) {
-    map.set(categoria.id, { clasificacionInicial: 0, ajusteNeto: 0, salidos: 0, lotes: new Set<number>() });
+    map.set(categoria.id, {
+      clasificacionInicial: 0,
+      ajusteNeto: 0,
+      salidasClasificadas: 0,
+      salidasAlmacen: 0,
+      lotes: new Set<number>(),
+      lotesNetos: new Map<number, number>(),
+    });
   }
 
   for (const row of onlyProducto) {
     if (!row.categoria_id) continue;
-    const entry = map.get(Number(row.categoria_id)) ?? { clasificacionInicial: 0, ajusteNeto: 0, salidos: 0, lotes: new Set<number>() };
+    const entry = map.get(Number(row.categoria_id)) ?? {
+      clasificacionInicial: 0,
+      ajusteNeto: 0,
+      salidasClasificadas: 0,
+      salidasAlmacen: 0,
+      lotes: new Set<number>(),
+      lotesNetos: new Map<number, number>(),
+    };
 
     const peso = Number(row.peso_kg ?? 0);
+    const loteId = Number(row.lote_id ?? 0);
 
     if (row.tipo_movimiento === "clasificacion" && row.origen === "clasificacion") {
       entry.clasificacionInicial += peso;
-      if (row.lote_id) entry.lotes.add(Number(row.lote_id));
+      if (loteId > 0) {
+        entry.lotes.add(loteId);
+        entry.lotesNetos.set(loteId, round2((entry.lotesNetos.get(loteId) ?? 0) + peso));
+      }
     }
 
     if (row.tipo_movimiento === "clasificacion" && row.origen === "ajuste") {
       entry.ajusteNeto += peso;
-      if (row.lote_id) entry.lotes.add(Number(row.lote_id));
+      if (loteId > 0) {
+        entry.lotes.add(loteId);
+        entry.lotesNetos.set(loteId, round2((entry.lotesNetos.get(loteId) ?? 0) + peso));
+      }
     }
 
     if (row.tipo_movimiento === "salida") {
-      entry.salidos += peso;
+      if (isSinClasificacionNeta(row)) {
+        entry.salidasAlmacen += peso;
+      } else {
+        entry.salidasClasificadas += peso;
+        if (loteId > 0) {
+          entry.lotesNetos.set(loteId, round2((entry.lotesNetos.get(loteId) ?? 0) - peso));
+        }
+      }
     }
 
     map.set(Number(row.categoria_id), entry);
@@ -353,16 +393,36 @@ function computeStockByCategoria(rows: KardexRow[], categorias: Categoria[]): St
   const result: StockRow[] = [];
 
   for (const categoria of categorias) {
-    const entry = map.get(categoria.id) ?? { clasificacionInicial: 0, ajusteNeto: 0, salidos: 0, lotes: new Set<number>() };
-    const disponibles = round2(entry.clasificacionInicial + entry.ajusteNeto - entry.salidos);
+    const entry = map.get(categoria.id) ?? {
+      clasificacionInicial: 0,
+      ajusteNeto: 0,
+      salidasClasificadas: 0,
+      salidasAlmacen: 0,
+      lotes: new Set<number>(),
+      lotesNetos: new Map<number, number>(),
+    };
+    const disponibles = round2(entry.clasificacionInicial + entry.ajusteNeto - entry.salidasClasificadas);
+    const hayClasificado =
+      Math.abs(entry.clasificacionInicial) > 0.01 ||
+      Math.abs(entry.ajusteNeto) > 0.01 ||
+      Math.abs(entry.salidasClasificadas) > 0.01;
+    const hayAlmacen = Math.abs(entry.salidasAlmacen) > 0.01;
+    const tipoProducto = hayClasificado && hayAlmacen ? "Clasificado + almacén" : hayClasificado ? "Clasificado" : hayAlmacen ? "Almacén" : "-";
+    const lotesDetalle = [...entry.lotesNetos.entries()]
+      .map(([lote_id, kgDisponible]) => ({ lote_id, kg_disponible: round2(kgDisponible) }))
+      .filter((row) => Math.abs(row.kg_disponible) > 0.01)
+      .sort((a, b) => b.kg_disponible - a.kg_disponible);
+
     result.push({
       categoria_id: categoria.id,
       categoria: categoria.nombre,
+      tipo_producto: tipoProducto,
       kg_clasificacion_inicial: round2(entry.clasificacionInicial),
       kg_ajuste_neto: round2(entry.ajusteNeto),
-      kg_salidos: round2(entry.salidos),
+      kg_salidas_clasificadas: round2(entry.salidasClasificadas),
+      kg_salidas_almacen: round2(entry.salidasAlmacen),
       kg_disponibles: disponibles,
-      lotes_con_stock: disponibles > 0 ? entry.lotes.size : 0,
+      lotes_detalle: lotesDetalle,
     });
   }
 
@@ -509,17 +569,12 @@ export default async function KardexPage({
   const dineroRows = kardexData.rows.filter((row) => row.tipo_kardex === "dinero");
   const saldosRows = computeSaldos(kardexData.rows, catalogs.personas);
 
-  const productoRows = kardexData.rows.filter((row) => row.tipo_kardex === "producto");
-  const totalKgAlmacen = round2(
-    productoRows
-      .filter((row) => row.tipo_movimiento === "entrada" && row.origen === "lote_ingreso")
-      .reduce((acc, row) => acc + Number(row.peso_kg ?? 0), 0)
-  );
   const totalKgClasificacionInicial = round2(
     stockRows.reduce((acc, row) => acc + row.kg_clasificacion_inicial, 0)
   );
   const totalKgAjusteNeto = round2(stockRows.reduce((acc, row) => acc + row.kg_ajuste_neto, 0));
-  const totalKgSalidos = round2(stockRows.reduce((acc, row) => acc + row.kg_salidos, 0));
+  const totalKgSalidosClasificados = round2(stockRows.reduce((acc, row) => acc + row.kg_salidas_clasificadas, 0));
+  const totalKgSalidosAlmacen = round2(stockRows.reduce((acc, row) => acc + row.kg_salidas_almacen, 0));
   const totalKgDisponibles = round2(stockRows.reduce((acc, row) => acc + row.kg_disponibles, 0));
 
   const totalMovimientos = kardexData.rows.length;
@@ -605,32 +660,9 @@ export default async function KardexPage({
             <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">✕ {kardexData.errorMessage}</p>
           ) : null}
 
-          <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-xl bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Kg ingreso almacén</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">{totalKgAlmacen}</p>
-            </div>
-            <div className="rounded-xl bg-gradient-to-br from-cyan-50 to-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">Kg clasif. inicial</p>
-              <p className="mt-1 text-2xl font-bold text-cyan-900">{totalKgClasificacionInicial}</p>
-            </div>
-            <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Ajuste neto M10</p>
-              <p className="mt-1 text-2xl font-bold text-indigo-900">{totalKgAjusteNeto}</p>
-            </div>
-            <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Stock neto disponible</p>
-              <p className="mt-1 text-2xl font-bold text-emerald-900">{totalKgDisponibles}</p>
-            </div>
-            <div className="rounded-xl bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Kg salidos a pedido</p>
-              <p className="mt-1 text-2xl font-bold text-amber-900">{totalKgSalidos}</p>
-            </div>
-          </section>
-
           <section className="mb-6 grid gap-3 sm:grid-cols-5">
             <div className="rounded-xl bg-gradient-to-br from-green-50 to-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-green-600">Kg en almacén</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-green-600">Stock neto disponible</p>
               <p className="mt-1 text-2xl font-bold text-green-900">{totalKgDisponibles}</p>
             </div>
             <div className="rounded-xl bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm">
@@ -896,23 +928,25 @@ export default async function KardexPage({
 
           {tab === "stock" ? (
             <section className="rounded-xl bg-white p-5 shadow-sm">
-              <p className="mb-2 text-xs">Qué muestra esta tabla: por categoría se separa la clasificación inicial, el ajuste neto del módulo 10 y las salidas comerciales para entender el stock real.</p>
+              <p className="mb-2 text-xs">Qué muestra esta tabla: en la misma categoría se separa lo clasificado, lo salido desde almacén sin clasificación y los lotes que sostienen el stock neto visible.</p>
               <div className="sx-table-wrap">
                 <table className="sx-table">
                   <thead>
                     <tr className="border-b text-left">
                       <th className="p-2">Categoría</th>
+                      <th className="p-2">Tipo producto</th>
                       <th className="p-2">Kg clasif. inicial</th>
                       <th className="p-2">Ajuste neto M10</th>
-                      <th className="p-2">Kg salidos (asignados)</th>
+                      <th className="p-2">Salidas de clasificado</th>
+                      <th className="p-2">Salidas desde almacén</th>
                       <th className="p-2">Stock neto disponible</th>
-                      <th className="p-2">Lotes con stock</th>
+                      <th className="p-2">Lotes que componen la suma</th>
                     </tr>
                   </thead>
                   <tbody>
                     {stockRows.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-3 text-center">
+                        <td colSpan={8} className="p-3 text-center">
                           Sin movimientos para mostrar.
                         </td>
                       </tr>
@@ -921,19 +955,29 @@ export default async function KardexPage({
                     {stockPageRows.map((row) => (
                       <tr key={row.categoria_id} className="border-b">
                         <td className="p-2">{row.categoria}</td>
+                        <td className="p-2">{row.tipo_producto}</td>
                         <td className="p-2">{row.kg_clasificacion_inicial}</td>
                         <td className="p-2">{row.kg_ajuste_neto}</td>
-                        <td className="p-2">{row.kg_salidos}</td>
+                        <td className="p-2">{row.kg_salidas_clasificadas}</td>
+                        <td className="p-2">{row.kg_salidas_almacen}</td>
                         <td className="p-2">{row.kg_disponibles}</td>
-                        <td className="p-2">{row.lotes_con_stock}</td>
+                        <td className="p-2">
+                          {row.lotes_detalle.length > 0
+                            ? row.lotes_detalle
+                              .map((item) => `${loteMap.get(item.lote_id) ?? item.lote_id} (${item.kg_disponible} kg)`)
+                              .join(", ")
+                            : "-"}
+                        </td>
                       </tr>
                     ))}
 
                     <tr className="border-t font-semibold">
                       <td className="p-2">TOTAL</td>
+                      <td className="p-2">-</td>
                       <td className="p-2">{totalKgClasificacionInicial}</td>
                       <td className="p-2">{totalKgAjusteNeto}</td>
-                      <td className="p-2">{totalKgSalidos}</td>
+                      <td className="p-2">{totalKgSalidosClasificados}</td>
+                      <td className="p-2">{totalKgSalidosAlmacen}</td>
                       <td className="p-2">{totalKgDisponibles}</td>
                       <td className="p-2">-</td>
                     </tr>

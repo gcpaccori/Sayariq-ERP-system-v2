@@ -366,7 +366,7 @@ export default function DashboardPersonasUi({ people, executiveChart }: Props) {
 
             <div className="hidden rounded-2xl border border-[#D8CEF6] bg-white/85 p-4 shadow-sm backdrop-blur-sm lg:block">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6A53C9]">Pulso operativo (6 meses)</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6A53C9]">Pulso operativo histórico</p>
                 <span className="rounded-full bg-[#EEF1FF] px-2 py-1 text-[11px] font-semibold text-[#4C46C8]">Solo escritorio</span>
               </div>
 
@@ -406,8 +406,8 @@ export default function DashboardPersonasUi({ people, executiveChart }: Props) {
 
           <article className="rounded-2xl border border-[#DBD8E8] bg-white p-4 shadow-sm">
             <div className="mb-3">
-              <p className="text-sm font-semibold text-[#1F2233]">Conversión operativa (90 días)</p>
-              <p className="text-xs text-[#64748B]">Lotes en flujo desde ingreso hasta cobro de cliente</p>
+              <p className="text-sm font-semibold text-[#1F2233]">Conversión operativa histórica</p>
+              <p className="text-xs text-[#64748B]">Lotes en flujo acumulado desde ingreso hasta cobro de cliente</p>
             </div>
             <div className="overflow-hidden rounded-xl border border-[#E3DAFF] bg-white px-2 pb-2 pt-3">
               <HighchartsReact highcharts={Highcharts} options={conversionChartOptions} />
