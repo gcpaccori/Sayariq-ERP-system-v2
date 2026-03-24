@@ -62,10 +62,12 @@ type MonthlySeriesRow = {
   month: string;
   dinero_ingreso: number;
   dinero_egreso: number;
+  dinero_neto: number;
   carga_almacen: number;
   carga_clasificada: number;
   carga_ajustada: number;
   carga_salida: number;
+  carga_neta: number;
 };
 
 type ProductBusinessDateMaps = {
@@ -562,10 +564,12 @@ function computeMonthlySeries(rows: KardexRow[], productDateMaps: ProductBusines
         month,
         dinero_ingreso: 0,
         dinero_egreso: 0,
+        dinero_neto: 0,
         carga_almacen: 0,
         carga_clasificada: 0,
         carga_ajustada: 0,
         carga_salida: 0,
+        carga_neta: 0,
       });
     }
 
@@ -599,10 +603,12 @@ function computeMonthlySeries(rows: KardexRow[], productDateMaps: ProductBusines
       ...row,
       dinero_ingreso: round2(row.dinero_ingreso),
       dinero_egreso: round2(row.dinero_egreso),
+      dinero_neto: round2(row.dinero_ingreso - row.dinero_egreso),
       carga_almacen: round2(row.carga_almacen),
       carga_clasificada: round2(row.carga_clasificada),
       carga_ajustada: round2(row.carga_ajustada),
       carga_salida: round2(row.carga_salida),
+      carga_neta: round2(row.carga_almacen + row.carga_clasificada + row.carga_ajustada - row.carga_salida),
     }))
     .sort((a, b) => a.month.localeCompare(b.month))
     .slice(-12);
@@ -679,16 +685,21 @@ export default async function KardexPage({
 
   const productDateMaps = await getProductBusinessDateMaps(kardexData.rows);
   const monthlySeries = computeMonthlySeries(kardexData.rows, productDateMaps);
-  const maxDinero = Math.max(
-    1,
-    ...monthlySeries.map((row) => Math.max(row.dinero_ingreso, row.dinero_egreso))
-  );
-  const maxCarga = Math.max(
+  const maxMonthlyFlow = Math.max(
     1,
     ...monthlySeries.map((row) =>
-      Math.max(row.carga_almacen, row.carga_clasificada, Math.abs(row.carga_ajustada), row.carga_salida)
+      Math.max(
+        row.carga_almacen,
+        row.carga_clasificada,
+        Math.abs(row.carga_ajustada),
+        row.carga_salida,
+        row.dinero_ingreso,
+        row.dinero_egreso
+      )
     )
   );
+  const maxDinero = maxMonthlyFlow;
+  const maxCarga = maxMonthlyFlow;
 
   const pageSize = Math.min(200, Math.max(10, Number(search.page_size ?? "25") || 25));
   const page = Math.max(1, Number(search.page ?? "1") || 1);
@@ -735,6 +746,86 @@ export default async function KardexPage({
           </div>
 
           <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-col gap-1">
+              <h2 className="text-lg font-bold tracking-tight text-gray-900">Historial global (ultimos 12 meses)</h2>
+              <p className="text-xs text-slate-500">
+                Una sola vista mensual con el balance global de producto y dinero. Producto usa fecha de negocio:
+                ingreso del lote, clasificacion inicial, ajuste M10 y fecha de salida.
+              </p>
+            </div>
+
+            {monthlySeries.length === 0 ? <p className="text-sm text-slate-500">Sin datos mensuales.</p> : null}
+
+            <div className="space-y-3">
+              {monthlySeries.map((row) => (
+                <div key={`global-${row.month}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-base font-semibold text-slate-900">{row.month}</p>
+                    <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                      <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-800">
+                        Balance producto: {row.carga_neta} kg
+                      </span>
+                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">
+                        Balance dinero: {row.dinero_neto}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mb-3 h-3 overflow-hidden rounded-full bg-white shadow-inner">
+                    <div className="flex h-full">
+                      <div
+                        className="bg-slate-500"
+                        style={{ width: `${(row.carga_almacen / maxMonthlyFlow) * 100}%` }}
+                        title={`Almacen: ${row.carga_almacen}`}
+                      />
+                      <div
+                        className="bg-cyan-500"
+                        style={{ width: `${(row.carga_clasificada / maxMonthlyFlow) * 100}%` }}
+                        title={`Clasif. inicial: ${row.carga_clasificada}`}
+                      />
+                      <div
+                        className="bg-indigo-500"
+                        style={{ width: `${(Math.abs(row.carga_ajustada) / maxMonthlyFlow) * 100}%` }}
+                        title={`Ajuste M10: ${row.carga_ajustada}`}
+                      />
+                      <div
+                        className="bg-orange-500"
+                        style={{ width: `${(row.carga_salida / maxMonthlyFlow) * 100}%` }}
+                        title={`Salida: ${row.carga_salida}`}
+                      />
+                      <div
+                        className="bg-emerald-500"
+                        style={{ width: `${(row.dinero_ingreso / maxMonthlyFlow) * 100}%` }}
+                        title={`Ingreso dinero: ${row.dinero_ingreso}`}
+                      />
+                      <div
+                        className="bg-rose-500"
+                        style={{ width: `${(row.dinero_egreso / maxMonthlyFlow) * 100}%` }}
+                        title={`Egreso dinero: ${row.dinero_egreso}`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="rounded-lg bg-white px-3 py-2 text-slate-700">
+                      <span className="font-semibold text-slate-900">Producto:</span> Almacen {row.carga_almacen} kg,
+                      Clasif. inicial {row.carga_clasificada} kg, Ajuste M10 {row.carga_ajustada} kg, Salida {row.carga_salida} kg
+                    </div>
+                    <div className="rounded-lg bg-white px-3 py-2 text-slate-700">
+                      <span className="font-semibold text-slate-900">Dinero:</span> Ingreso {row.dinero_ingreso},
+                      Egreso {row.dinero_egreso}
+                    </div>
+                    <div className="rounded-lg bg-white px-3 py-2 text-slate-700">
+                      <span className="font-semibold text-slate-900">Lectura rapida:</span> Neto producto {row.carga_neta} kg,
+                      Neto dinero {row.dinero_neto}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">
             <p className="text-sm text-gray-700">
               El kardex unifica movimientos de producto y dinero en un solo historial auditable. Las cards
               resumen la posición actual (stock, deudas y volumen de movimientos) y los tabs detallan origen,
@@ -769,6 +860,7 @@ export default async function KardexPage({
             </div>
           </section>
 
+          {false ? (
           <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-bold tracking-tight text-gray-900">Gráfico mensual (últimos 12 meses)</h2>
 
@@ -859,6 +951,7 @@ export default async function KardexPage({
               </div>
             </div>
           </section>
+          ) : null}
 
           <section className="mb-6 rounded-xl bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
