@@ -136,10 +136,10 @@ async function getExecutiveChartData(): Promise<DashboardExecutiveChart> {
       .limit(50000),
     supabase.from("lotes").select("id").limit(50000),
     supabase.from("lote_clasificacion").select("lote_id").limit(50000),
-    supabase.from("pedido_asignaciones").select("lote_id").limit(50000),
+    supabase.from("pedido_asignaciones").select("pedido_id,lote_id").limit(50000),
     supabase
       .from("liquidaciones")
-      .select("lote_id,tipo,estado_pago,estado,fecha_liquidacion")
+      .select("pedido_id,tipo,estado_pago,monto_pagado,estado,fecha_liquidacion")
       .eq("tipo", "cliente")
       .neq("estado", "anulada")
       .limit(50000),
@@ -256,21 +256,39 @@ async function getExecutiveChartData(): Promise<DashboardExecutiveChart> {
   const lotesClasificados = new Set(
     ((clasifRes.data ?? []) as Array<{ lote_id: number | null }>).map((row) => Number(row.lote_id ?? 0)).filter(Boolean)
   ).size;
-  const lotesAsignados = new Set(
-    ((asignacionesRes.data ?? []) as Array<{ lote_id: number | null }>).map((row) => Number(row.lote_id ?? 0)).filter(Boolean)
-  ).size;
-  const lotesCobrados = new Set(
-    ((cobrosRes.data ?? []) as Array<{
-      lote_id: number | null;
-      tipo: "cliente" | "productor" | null;
-      estado_pago: string | null;
-      estado: string | null;
-      fecha_liquidacion: string | null;
-    }>)
-      .filter((row) => row.tipo === "cliente" && (row.estado_pago === "cobrado" || row.estado_pago === "pagado"))
-      .map((row) => Number(row.lote_id ?? 0))
-      .filter(Boolean)
-  ).size;
+  const asignacionesData = (asignacionesRes.data ?? []) as Array<{ pedido_id: number | null; lote_id: number | null }>;
+  const lotesAsignados = new Set(asignacionesData.map((row) => Number(row.lote_id ?? 0)).filter(Boolean)).size;
+
+  const lotesPorPedido = new Map<number, Set<number>>();
+  for (const row of asignacionesData) {
+    const pedidoId = Number(row.pedido_id ?? 0);
+    const loteId = Number(row.lote_id ?? 0);
+    if (!pedidoId || !loteId) continue;
+    if (!lotesPorPedido.has(pedidoId)) {
+      lotesPorPedido.set(pedidoId, new Set<number>());
+    }
+    lotesPorPedido.get(pedidoId)?.add(loteId);
+  }
+
+  const lotesCobradosSet = new Set<number>();
+  for (const row of ((cobrosRes.data ?? []) as Array<{
+    pedido_id: number | null;
+    tipo: "cliente" | "productor" | null;
+    estado_pago: string | null;
+    monto_pagado: number | null;
+    estado: string | null;
+    fecha_liquidacion: string | null;
+  }>)) {
+    const pedidoId = Number(row.pedido_id ?? 0);
+    const tieneCobro = Number(row.monto_pagado ?? 0) > 0 || row.estado_pago === "parcial" || row.estado_pago === "cobrado" || row.estado_pago === "pagado";
+    if (!pedidoId || row.tipo !== "cliente" || !tieneCobro) continue;
+
+    for (const loteId of lotesPorPedido.get(pedidoId) ?? []) {
+      lotesCobradosSet.add(loteId);
+    }
+  }
+
+  const lotesCobrados = lotesCobradosSet.size;
 
   const conversionLabels = [
     "Lotes ingresados",
