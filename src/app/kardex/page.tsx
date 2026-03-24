@@ -68,6 +68,12 @@ type MonthlySeriesRow = {
   carga_salida: number;
 };
 
+type ProductBusinessDateMaps = {
+  ingresoDateByLote: Map<number, string>;
+  clasificacionDateByKey: Map<string, string>;
+  asignacionDateById: Map<number, string>;
+};
+
 type AsignacionContext = {
   pedidoNumero: string;
   precioPlanKg: number;
@@ -473,11 +479,84 @@ function formatMonth(isoDate: string) {
   return `${year}-${month}`;
 }
 
-function computeMonthlySeries(rows: KardexRow[]): MonthlySeriesRow[] {
+async function getProductBusinessDateMaps(rows: KardexRow[]) {
+  const supabase = getSupabaseServerClient();
+  const productRows = rows.filter((row) => row.tipo_kardex === "producto");
+  const loteIds = [...new Set(productRows.map((row) => Number(row.lote_id ?? 0)).filter((value) => value > 0))];
+  const asignacionIds = [
+    ...new Set(
+      productRows
+        .filter((row) => row.origen === "asignacion_pedido" || (row.origen === "ajuste" && row.tipo_movimiento === "salida"))
+        .map((row) => Number(row.origen_id ?? 0))
+        .filter((value) => value > 0)
+    ),
+  ];
+
+  const [lotesRes, clasifRes, asignacionesRes] = await Promise.all([
+    loteIds.length > 0
+      ? supabase.from("lotes").select("id,fecha_ingreso").in("id", loteIds)
+      : Promise.resolve({ data: [] as Array<{ id: number; fecha_ingreso: string }> }),
+    loteIds.length > 0
+      ? supabase
+        .from("lote_clasificacion")
+        .select("lote_id,categoria_id,fecha_clasificacion,version_no")
+        .in("lote_id", loteIds)
+      : Promise.resolve({ data: [] as Array<{ lote_id: number; categoria_id: number; fecha_clasificacion: string; version_no: number | null }> }),
+    asignacionIds.length > 0
+      ? supabase.from("pedido_asignaciones").select("id,fecha_asignacion").in("id", asignacionIds)
+      : Promise.resolve({ data: [] as Array<{ id: number; fecha_asignacion: string }> }),
+  ]);
+
+  const ingresoDateByLote = new Map<number, string>();
+  for (const row of (lotesRes.data ?? []) as Array<{ id: number; fecha_ingreso: string }>) {
+    ingresoDateByLote.set(Number(row.id), String(row.fecha_ingreso));
+  }
+
+  const clasificacionDateByKey = new Map<string, string>();
+  for (const row of (clasifRes.data ?? []) as Array<{ lote_id: number; categoria_id: number; fecha_clasificacion: string; version_no: number | null }>) {
+    const key = loteCategoriaKey(Number(row.lote_id), Number(row.categoria_id));
+    if (!key) continue;
+    const current = clasificacionDateByKey.get(key);
+    const candidate = String(row.fecha_clasificacion);
+    if (!current || candidate < current) {
+      clasificacionDateByKey.set(key, candidate);
+    }
+  }
+
+  const asignacionDateById = new Map<number, string>();
+  for (const row of (asignacionesRes.data ?? []) as Array<{ id: number; fecha_asignacion: string }>) {
+    asignacionDateById.set(Number(row.id), String(row.fecha_asignacion));
+  }
+
+  return { ingresoDateByLote, clasificacionDateByKey, asignacionDateById } satisfies ProductBusinessDateMaps;
+}
+
+function resolveProductBusinessDate(row: KardexRow, maps: ProductBusinessDateMaps) {
+  if (row.tipo_kardex !== "producto") return row.fecha;
+
+  if (row.tipo_movimiento === "entrada" && row.origen === "lote_ingreso" && row.lote_id) {
+    return maps.ingresoDateByLote.get(Number(row.lote_id)) ?? row.fecha;
+  }
+
+  if (row.tipo_movimiento === "clasificacion" && row.origen === "clasificacion") {
+    const key = loteCategoriaKey(row.lote_id, row.categoria_id);
+    return (key ? maps.clasificacionDateByKey.get(key) : null) ?? row.fecha;
+  }
+
+  if (row.tipo_movimiento === "salida" && row.origen_id) {
+    const asignacionDate = maps.asignacionDateById.get(Number(row.origen_id));
+    if (asignacionDate) return asignacionDate;
+  }
+
+  return row.fecha;
+}
+
+function computeMonthlySeries(rows: KardexRow[], productDateMaps: ProductBusinessDateMaps): MonthlySeriesRow[] {
   const map = new Map<string, MonthlySeriesRow>();
 
   for (const row of rows) {
-    const month = formatMonth(row.fecha);
+    const businessDate = row.tipo_kardex === "producto" ? resolveProductBusinessDate(row, productDateMaps) : row.fecha;
+    const month = formatMonth(businessDate);
     if (!map.has(month)) {
       map.set(month, {
         month,
@@ -598,7 +677,8 @@ export default async function KardexPage({
       .reduce((acc, row) => acc + row.saldo, 0)
   );
 
-  const monthlySeries = computeMonthlySeries(kardexData.rows);
+  const productDateMaps = await getProductBusinessDateMaps(kardexData.rows);
+  const monthlySeries = computeMonthlySeries(kardexData.rows, productDateMaps);
   const maxDinero = Math.max(
     1,
     ...monthlySeries.map((row) => Math.max(row.dinero_ingreso, row.dinero_egreso))
@@ -727,6 +807,7 @@ export default async function KardexPage({
 
               <div className="rounded-xl bg-gray-50 p-4 shadow-inner">
                 <h3 className="mb-2 font-medium">Producto: almacén, clasificado, ajuste M10 y salida</h3>
+                <p className="mb-3 text-xs text-slate-500">La serie usa fecha de negocio: ingreso del lote, clasificación inicial, ajuste registrado en módulo 10 y fecha de asignación/salida.</p>
                 <div className="space-y-2 text-sm">
                   {monthlySeries.length === 0 ? <p>Sin datos mensuales.</p> : null}
                   {monthlySeries.map((row) => (
@@ -743,7 +824,7 @@ export default async function KardexPage({
                         <span>{row.carga_almacen}</span>
                       </div>
                       <div className="mb-1 flex items-center gap-2">
-                        <span className="w-20">Clasif.</span>
+                        <span className="w-20">Clasif. inicial</span>
                         <div className="h-3.5 flex-1 overflow-hidden rounded-full bg-gray-100">
                           <div
                             className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-cyan-600"
